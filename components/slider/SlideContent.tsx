@@ -1,6 +1,6 @@
 "use client";
 
-import { SlideData } from "@/types/slide";
+import { SlideData } from "./slide-types";
 import Link from "next/link";
 
 interface SlideContentProps {
