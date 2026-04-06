@@ -1,7 +1,7 @@
 "use client";
 
-import { SlideData } from "./slide-types";
 import Link from "next/link";
+import { SlideData } from "./data/slides";
 
 interface SlideContentProps {
     data: SlideData;
@@ -22,11 +22,11 @@ export const SlideContent = ({ data }: SlideContentProps) => {
                 {data.category}
             </div>
 
-            <h1 className="slide-title text-4xl lg:text-6xl font-bold mb-4 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent leading-tight">
+            <h1 className="slide-title text-4xl lg:text-6xl font-bold mb-4 bg-linear-to-r from-white to-emerald-200 bg-clip-text text-transparent leading-tight">
                 {data.title}
             </h1>
 
-            <h2 className="slide-subtitle text-xl lg:text-2xl text-blue-400 mb-6 font-light">
+            <h2 className="slide-subtitle text-xl lg:text-2xl text-e-400 mb-6 font-light">
                 {data.subtitle}
             </h2>
 
@@ -35,7 +35,7 @@ export const SlideContent = ({ data }: SlideContentProps) => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-                <button className="slide-btn flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
+                <button className="slide-btn flex items-center gap-3 px-8 py-4 bg-linear-to-r from-emerald-600 to-emerald-600 text-white rounded-full font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
                     onClick={() => {
                         if (data.primaryAction.url) {
                             scrollToSection(data.primaryAction.url);
