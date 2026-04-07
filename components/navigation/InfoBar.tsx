@@ -1,7 +1,7 @@
 'use client'
 import React from 'react'
 import { motion } from 'framer-motion'
-// import ThemeToggle from '../ThemeToggle'
+import ThemeToggle from '../ThemeToggle'
 
 export default function InfoBar() {
     return (
@@ -16,8 +16,8 @@ export default function InfoBar() {
                     <div className="flex items-center justify-between h-10">
                         <div className="flex items-center gap-4">
                             <span className="inline-flex items-center gap-2 text-xs text-theme/80">
-                                <strong className="text-theme">University of Example — Admissions open</strong>
-                                <span className="text-theme/70">| Apply for 2026 entry • Scholarships available</span>
+                                <strong className="text-theme">University of Example - Admissions open</strong>
+                                <span className="text-theme/70">| Apply for 2026 entry - Scholarships available</span>
                             </span>
                             <a className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/apply">Apply now</a>
                             <a className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/calendar">Academic Calendar</a>
@@ -35,8 +35,7 @@ export default function InfoBar() {
                                     />
                                 </form>
                             </div>
-
-                            {/* <ThemeToggle /> */}
+                            <ThemeToggle />
                         </div>
                     </div>
                 </div>
