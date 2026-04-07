@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 type Department = {
     slug: string
@@ -23,8 +23,8 @@ const departments: Record<string, Department> = {
     // add other departments here...
 }
 
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
-    const { slug } = params
+export async function GET(_request: NextRequest, context: { params: Promise<{ slug: string }> }) {
+    const { slug } = await context.params
     const dept: Department | undefined = departments[slug]
     if (!dept) {
         return NextResponse.json({ message: 'Department not found' }, { status: 404 })
