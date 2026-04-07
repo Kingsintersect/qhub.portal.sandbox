@@ -1,7 +1,7 @@
 'use client'
 import { useTheme } from 'next-themes'
 import { motion } from 'framer-motion'
-import React from 'react'
+import { useEffect, useState } from 'react'
 
 const ToggleIcon = ({ mode }: { mode: 'dark' | 'light' }) => {
     if (mode === 'dark') {
@@ -22,9 +22,31 @@ const ToggleIcon = ({ mode }: { mode: 'dark' | 'light' }) => {
 }
 
 export default function ThemeToggle() {
-    const { theme, setTheme } = useTheme()
+    const { theme, resolvedTheme, setTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
 
-    const next = theme === 'dark' ? 'light' : 'dark'
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    const activeTheme = (theme === 'system' ? resolvedTheme : theme) ?? 'light'
+    const next = activeTheme === 'dark' ? 'light' : 'dark'
+
+    if (!mounted) {
+        return (
+            <button
+                title="Toggle theme"
+                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+                aria-label="Toggle theme"
+                disabled
+            >
+                <span className="sr-only">Toggle theme</span>
+                <span className="text-theme">
+                    <ToggleIcon mode="light" />
+                </span>
+            </button>
+        )
+    }
 
     return (
         <motion.button
@@ -39,13 +61,13 @@ export default function ThemeToggle() {
             <span className="sr-only">Toggle theme</span>
             <motion.span
                 layout
-                key={theme}
+                key={activeTheme}
                 initial={{ opacity: 0, rotate: -10 }}
                 animate={{ opacity: 1, rotate: 0 }}
                 exit={{ opacity: 0, rotate: 10 }}
                 className="text-theme"
             >
-                <ToggleIcon mode={theme === 'dark' ? 'dark' : 'light'} />
+                <ToggleIcon mode={activeTheme === 'dark' ? 'dark' : 'light'} />
             </motion.span>
         </motion.button>
     )

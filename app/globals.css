@@ -163,4 +163,31 @@
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
   }
+
+  .why-choose-swiper .swiper-pagination {
+    bottom: 18px !important;
+  }
+
+  .why-choose-swiper {
+    --swiper-theme-color: rgb(5, 150, 105);
+    --swiper-pagination-color: rgb(5, 150, 105);
+    --swiper-pagination-bullet-inactive-color: rgb(16, 185, 129);
+    --swiper-pagination-bullet-inactive-opacity: 0.5;
+  }
+
+  .why-choose-swiper .swiper-pagination-bullet {
+    width: 10px;
+    height: 10px;
+    background: rgba(16, 185, 129, 0.5) !important;
+    opacity: 1;
+    transition: all 240ms ease;
+    
+  }
+
+  .why-choose-swiper .swiper-pagination-bullet-active {
+    width: 28px;
+    border-radius: 999px;
+    background: rgb(5, 150, 105) !important;
+    
+  }
 }
