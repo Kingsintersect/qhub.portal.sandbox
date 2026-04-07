@@ -19,3 +19,13 @@ To use the components in your app, import them as follows:
 ```tsx
 import { Button } from "@/components/ui/button";
 ```
+<!-- 
+FETCH THE DELEOP ON GITHUB
+git checkout -b develop origin/develop
+branch 'develop' set up to track 'origin/develop'.
+ -->
+
+ <!--
+CREAT NEW BRANCH
+git checkout -b dashboard-setup
+ -->

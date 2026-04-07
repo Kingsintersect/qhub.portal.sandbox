@@ -53,6 +53,8 @@ export default function NavBar() {
                         </div>
 
                         <div className="flex items-center gap-3">
+                            <a className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/dev-login">Visit Portal</a>
+                            {/* Theme toggle shown here again for larger screens */}
                             <a className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/student-portal">Student Portal</a>
                             <div className="hidden sm:block">
                                 <ThemeToggle />
