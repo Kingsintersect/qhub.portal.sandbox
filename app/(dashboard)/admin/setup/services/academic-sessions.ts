@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/lib/clients/apiClient'
-import type { AcademicSession } from '../store/setup-store'
+import { delay, type AcademicSession } from '../store/setup-store'
+import { dummySessions } from '../store/dummy-data'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,75 @@ const activateSession = (id: string) =>
 
 const generateFeeAccounts = (sessionId: string) =>
     apiClient.post<{ generated: number }>(`/api/academic-sessions/${sessionId}/generate-fee-accounts`, {}, { access_token: true })
+
+// ── API Calls with Dummy Data ──────────────────────────────────────────────────
+
+// const fetchSessions = async () => {
+//     await delay()
+//     return { data: dummySessions }
+// }
+
+// const fetchSession = async (id: string) => {
+//     await delay()
+//     const session = dummySessions.find(s => s.id === id)
+//     if (!session) throw new Error('Session not found')
+//     return { data: session }
+// }
+
+// const createSession = async (payload: CreateSessionPayload) => {
+//     await delay()
+//     const newSession: AcademicSession = {
+//         id: String(Date.now()),
+//         name: payload.name,
+//         start_date: payload.start_date,
+//         end_date: payload.end_date,
+//         is_active: payload.is_active || false,
+//     }
+//     dummySessions.push(newSession)
+//     return { data: newSession }
+// }
+
+// const updateSession = async ({ id, ...payload }: UpdateSessionPayload) => {
+//     await delay()
+//     const index = dummySessions.findIndex(s => s.id === id)
+//     if (index === -1) throw new Error('Session not found')
+
+//     const updatedSession = {
+//         ...dummySessions[index],
+//         ...payload,
+//     }
+//     dummySessions[index] = updatedSession
+//     return { data: updatedSession }
+// }
+
+// const deleteSession = async (id: string) => {
+//     await delay()
+//     const index = dummySessions.findIndex(s => s.id === id)
+//     if (index !== -1) {
+//         dummySessions.splice(index, 1)
+//     }
+//     return { data: undefined }
+// }
+
+// const activateSession = async (id: string) => {
+//     await delay()
+//     // Deactivate all sessions first
+//     dummySessions.forEach(session => {
+//         session.is_active = session.id === id
+//     })
+
+//     const activatedSession = dummySessions.find(s => s.id === id)
+//     if (!activatedSession) throw new Error('Session not found')
+
+//     return { data: activatedSession }
+// }
+
+// const generateFeeAccounts = async (sessionId: string) => {
+//     await delay(1000) // Simulate longer processing time
+//     // Simulate generating fee accounts (e.g., creating fee records for students)
+//     const generated = Math.floor(Math.random() * 500) + 100 // Random number between 100-600
+//     return { data: { generated } }
+// }
 
 // ── Hooks ──────────────────────────────────────────────────────────────────────
 
@@ -91,3 +161,4 @@ export const useActivateSession = () => {
 
 export const useGenerateFeeAccounts = () =>
     useMutation({ mutationFn: generateFeeAccounts })
+

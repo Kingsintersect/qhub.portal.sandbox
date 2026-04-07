@@ -41,6 +41,9 @@ interface SetupStore {
     reset: () => void
 }
 
+// Helper function to simulate API delay
+export const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms))
+
 const STEPS: SetupStep[] = ['session', 'semesters', 'fee-structures', 'generate']
 
 export const useSetupStore = create<SetupStore>((set, get) => ({

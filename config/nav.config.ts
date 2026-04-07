@@ -190,7 +190,14 @@ const superAdminNav: NavGroup[] = [
     },
     {
         items: [
-            { title: "Setup", href: "/admin/setup", icon: Settings2Icon },
+            {
+                title: "Setup",
+                icon: Settings2Icon,
+                children: [
+                    { title: "Accademic Setup", href: "/admin/setup", icon: TestTubeDiagonalIcon },
+                    { title: "Payment Setup", href: "/admin/academic-year", icon: CalendarDays },
+                ],
+            },
         ],
     },
     {
