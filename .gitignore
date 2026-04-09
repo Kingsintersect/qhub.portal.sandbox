@@ -8,6 +8,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# husky internal cache
+.husky/_/
+
 # testing
 /coverage
 

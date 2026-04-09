@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { admissionCycleSchema, type AdmissionCycleFormValues } from "../../../schemas";
@@ -76,9 +76,9 @@ export function AdmissionCycleForm({
         editingCycle ? !editingCycle.application_end_date : false
     );
     const [newDoc, setNewDoc] = useState("");
-    const lateAllowed = watch("late_application_allowed");
-    const requireDocs = watch("require_documents");
-    const requiredDocuments = watch("required_documents");
+    const lateAllowed = useCallback(() => watch("late_application_allowed"), [watch])();
+    const requireDocs = useCallback(() => watch("require_documents"), [watch])();
+    const requiredDocuments = useCallback(() => watch("required_documents"), [watch])();
 
     useEffect(() => {
         if (noDeadline) {
@@ -123,7 +123,7 @@ export function AdmissionCycleForm({
                                 id="academic_session_id"
                                 {...register("academic_session_id")}
                                 aria-invalid={!!errors.academic_session_id}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive"
+                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive"
                             >
                                 <option value="">Select session</option>
                                 {sessions
