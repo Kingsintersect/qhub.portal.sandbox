@@ -62,16 +62,16 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
     persist(
-        (set) => ({
+        (set: (state: Partial<AuthState> | ((state: AuthState) => Partial<AuthState>)) => void) => ({
             user: null,
             isAuthenticated: false,
-            login: (role) =>
+            login: (role: UserRole) =>
                 set({ user: MOCK_USERS[role], isAuthenticated: true }),
             logout: () => set({ user: null, isAuthenticated: false }),
         }),
         {
             name: "qhub-portal-auth",
-            partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+            partialize: (state: AuthState) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
         }
     )
 );
