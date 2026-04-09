@@ -57,3 +57,34 @@ export const otherFeeSchema = z.object({
 });
 
 export type OtherFeeFormValues = z.infer<typeof otherFeeSchema>;
+
+// ── Admission Cycle ─────────────────────────
+
+export const admissionCycleSchema = z.object({
+    academic_session_id: z.string().min(1, "Academic session is required"),
+    application_start_date: z.string().min(1, "Start date is required"),
+    application_end_date: z.string(), // "" = no deadline
+    late_application_allowed: z.boolean(),
+    late_application_fee: z.number().min(0, "Fee cannot be negative"),
+    max_applications: z.number().int().min(0, "Must be 0 (unlimited) or positive"),
+    require_documents: z.boolean(),
+    required_documents: z.array(z.string()),
+    notification_email: z.string().email("Must be a valid email"),
+    instructions: z.string(),
+});
+
+export type AdmissionCycleFormValues = z.infer<typeof admissionCycleSchema>;
+
+// ── Admission Requirement ───────────────────
+
+export const admissionRequirementSchema = z.object({
+    admission_cycle_id: z.string().min(1, "Admission cycle is required"),
+    program_id: z.string(), // "" = all programs
+    min_age: z.number().int().min(0),
+    max_age: z.number().int().min(0),
+    min_credits: z.number().int().min(0, "Credits must be 0 or more"),
+    required_subjects: z.array(z.string()),
+    description: z.string().min(1, "Description is required"),
+});
+
+export type AdmissionRequirementFormValues = z.infer<typeof admissionRequirementSchema>;

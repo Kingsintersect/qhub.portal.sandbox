@@ -9,6 +9,8 @@ import type {
     FeeStructure,
     FresherFeeItem,
     OtherFeeItem,
+    AdmissionCycle,
+    AdmissionRequirement,
     Program,
     CreateAcademicSessionPayload,
     UpdateAcademicSessionPayload,
@@ -16,6 +18,9 @@ import type {
     CreateFeeStructurePayload,
     CreateFresherFeePayload,
     CreateOtherFeePayload,
+    CreateAdmissionCyclePayload,
+    UpdateAdmissionCyclePayload,
+    CreateAdmissionRequirementPayload,
     GenerateFeeAccountsPayload,
     GenerateFeeAccountsResponse,
 } from "../types";
@@ -358,5 +363,166 @@ export const dummyOtherFeeApi = {
         if (idx === -1) throw new Error("Other fee not found");
         otherFees.splice(idx, 1);
         return { message: "Other fee deleted" };
+    },
+};
+
+// ── Admission Cycles ────────────────────────
+
+const now = new Date().toISOString();
+
+const admissionCycles: AdmissionCycle[] = [
+    {
+        id: "adc-1",
+        academic_session_id: "ses-2",
+        status: "open",
+        application_start_date: "2024-06-01",
+        application_end_date: "2024-09-30",
+        late_application_allowed: true,
+        late_application_fee: 5000,
+        max_applications: 0,
+        require_documents: true,
+        required_documents: ["O'Level Result", "Birth Certificate", "Passport Photograph"],
+        notification_email: "admissions@qhub.edu.ng",
+        instructions: "All applicants must upload valid O'Level results and a recent passport photograph. Late applications attract an additional fee.",
+        created_at: now,
+        updated_at: now,
+    },
+    {
+        id: "adc-2",
+        academic_session_id: "ses-1",
+        status: "closed",
+        application_start_date: "2023-06-01",
+        application_end_date: "2023-09-15",
+        late_application_allowed: false,
+        late_application_fee: 0,
+        max_applications: 500,
+        require_documents: true,
+        required_documents: ["O'Level Result", "Birth Certificate"],
+        notification_email: "admissions@qhub.edu.ng",
+        instructions: "Admission for the 2023/2024 session is now closed.",
+        created_at: now,
+        updated_at: now,
+    },
+];
+
+const admissionRequirements: AdmissionRequirement[] = [
+    {
+        id: "ar-1",
+        admission_cycle_id: "adc-1",
+        program_id: "",
+        min_age: 16,
+        max_age: 0,
+        min_credits: 5,
+        required_subjects: ["Mathematics", "English Language"],
+        description: "General minimum requirement for all programs",
+    },
+    {
+        id: "ar-2",
+        admission_cycle_id: "adc-1",
+        program_id: "prg-1",
+        min_age: 16,
+        max_age: 0,
+        min_credits: 5,
+        required_subjects: ["Mathematics", "English Language", "Physics"],
+        description: "Computer Science requires Physics in addition to general requirements",
+    },
+    {
+        id: "ar-3",
+        admission_cycle_id: "adc-1",
+        program_id: "prg-2",
+        min_age: 16,
+        max_age: 0,
+        min_credits: 5,
+        required_subjects: ["Mathematics", "English Language", "Physics", "Chemistry"],
+        description: "Mechanical Engineering requires Physics and Chemistry",
+    },
+];
+
+export const dummyAdmissionCycleApi = {
+    async listBySession(sessionId: string) {
+        await delay();
+        const filtered = admissionCycles.filter(
+            (c) => c.academic_session_id === sessionId
+        );
+        return { data: filtered, total: filtered.length };
+    },
+
+    async getById(id: string) {
+        await delay(200);
+        const c = admissionCycles.find((x) => x.id === id);
+        if (!c) throw new Error("Admission cycle not found");
+        return { data: c };
+    },
+
+    async create(payload: CreateAdmissionCyclePayload) {
+        await delay(500);
+        const item: AdmissionCycle = {
+            id: uid(),
+            ...payload,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+        admissionCycles.push(item);
+        return { data: item, message: "Admission cycle created" };
+    },
+
+    async update(id: string, payload: UpdateAdmissionCyclePayload) {
+        await delay(500);
+        const idx = admissionCycles.findIndex((x) => x.id === id);
+        if (idx === -1) throw new Error("Admission cycle not found");
+        admissionCycles[idx] = {
+            ...admissionCycles[idx],
+            ...payload,
+            updated_at: new Date().toISOString(),
+        };
+        return { data: admissionCycles[idx], message: "Admission cycle updated" };
+    },
+
+    async remove(id: string) {
+        await delay(300);
+        const idx = admissionCycles.findIndex((x) => x.id === id);
+        if (idx === -1) throw new Error("Admission cycle not found");
+        admissionCycles.splice(idx, 1);
+        // also remove related requirements
+        for (let i = admissionRequirements.length - 1; i >= 0; i--) {
+            if (admissionRequirements[i].admission_cycle_id === id) {
+                admissionRequirements.splice(i, 1);
+            }
+        }
+        return { message: "Admission cycle deleted" };
+    },
+
+    async updateStatus(id: string, status: "draft" | "open" | "closed") {
+        await delay(500);
+        const cycle = admissionCycles.find((x) => x.id === id);
+        if (!cycle) throw new Error("Admission cycle not found");
+        cycle.status = status;
+        cycle.updated_at = new Date().toISOString();
+        return { data: cycle, message: `Admission ${status === "open" ? "opened" : status === "closed" ? "closed" : "set to draft"}` };
+    },
+};
+
+export const dummyAdmissionRequirementApi = {
+    async listByCycle(cycleId: string) {
+        await delay();
+        const filtered = admissionRequirements.filter(
+            (r) => r.admission_cycle_id === cycleId
+        );
+        return { data: filtered, total: filtered.length };
+    },
+
+    async create(payload: CreateAdmissionRequirementPayload) {
+        await delay(500);
+        const item: AdmissionRequirement = { id: uid(), ...payload };
+        admissionRequirements.push(item);
+        return { data: item, message: "Requirement created" };
+    },
+
+    async remove(id: string) {
+        await delay(300);
+        const idx = admissionRequirements.findIndex((x) => x.id === id);
+        if (idx === -1) throw new Error("Requirement not found");
+        admissionRequirements.splice(idx, 1);
+        return { message: "Requirement deleted" };
     },
 };

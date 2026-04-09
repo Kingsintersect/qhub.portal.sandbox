@@ -74,6 +74,42 @@ export type CreateFresherFeePayload = Omit<FresherFeeItem, "id">;
 
 export type CreateOtherFeePayload = Omit<OtherFeeItem, "id">;
 
+// ── Admissions ──────────────────────────────
+
+export type AdmissionStatus = "draft" | "open" | "closed";
+
+export interface AdmissionCycle {
+    id: string;
+    academic_session_id: string;
+    status: AdmissionStatus;
+    application_start_date: string;
+    application_end_date: string; // "" means no deadline (infinite)
+    late_application_allowed: boolean;
+    late_application_fee: number;
+    max_applications: number; // 0 means unlimited
+    require_documents: boolean;
+    required_documents: string[];
+    notification_email: string;
+    instructions: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdmissionRequirement {
+    id: string;
+    admission_cycle_id: string;
+    program_id: string; // "" means all programs
+    min_age: number; // 0 means no min
+    max_age: number; // 0 means no max
+    min_credits: number;
+    required_subjects: string[];
+    description: string;
+}
+
+export type CreateAdmissionCyclePayload = Omit<AdmissionCycle, "id" | "created_at" | "updated_at">;
+export type UpdateAdmissionCyclePayload = Partial<CreateAdmissionCyclePayload>;
+export type CreateAdmissionRequirementPayload = Omit<AdmissionRequirement, "id">;
+
 export interface GenerateFeeAccountsPayload {
     academic_session_id: string;
 }
