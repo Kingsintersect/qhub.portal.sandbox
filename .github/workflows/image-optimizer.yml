@@ -1,0 +1,29 @@
+name: Optimize Images
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Optimize images
+        run: node scripts/optimize-images.js public/**/*.{jpg,jpeg,png}
+
+      - name: Commit optimized images
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add public
+          git diff --cached --quiet || git commit -m "chore: optimize images"
+          git push
