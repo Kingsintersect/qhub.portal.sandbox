@@ -9,8 +9,8 @@ import {
   useDeleteAdmissionCycle,
   useUpdateAdmissionStatus,
 } from "./hooks/useAdmissionCycles";
-import { dummyProgramApi } from "@/services/dummyData";
 import { useQuery } from "@tanstack/react-query";
+import { feeManagementQueryOptions } from "@/services/feeManagementApi";
 
 import type { AdmissionCycle, AdmissionStatus } from "@/types/school";
 import type { AdmissionCycleFormValues } from "@/schemas/school.schema";
@@ -40,9 +40,8 @@ export default function AdmissionsPage() {
   // ── Shared data ──────────────────────────
   const { data: sessions, isLoading: isLoadingSessions } = useAcademicSessions();
   const { data: programs } = useQuery({
-    queryKey: ["programs"],
-    queryFn: () => dummyProgramApi.list(),
-    select: (res) => res.data,
+    ...feeManagementQueryOptions.programs(),
+    staleTime: 1000 * 60 * 30,
   });
 
   // ── Local state ──────────────────────────

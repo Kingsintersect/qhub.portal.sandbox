@@ -1,6 +1,6 @@
-const imagemin = require("imagemin");
-const mozjpeg = require("imagemin-mozjpeg");
-const pngquant = require("imagemin-pngquant");
+import imagemin from "imagemin";
+import mozjpeg from "imagemin-mozjpeg";
+import pngquant from "imagemin-pngquant";
 
 (async () => {
   const files = process.argv.slice(2);
@@ -15,5 +15,5 @@ const pngquant = require("imagemin-pngquant");
     ],
   });
 
-  console.log("✅ Images optimized");
+  console.log("Images optimized");
 })();
