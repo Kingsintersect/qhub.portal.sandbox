@@ -19,7 +19,7 @@ export function ApplicationFormSection({ student }: StepSectionProps) {
             transition={{ duration: 0.5, ease: "easeOut" }}
         >
             <Card className="relative overflow-hidden border-border/50 shadow-lg">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
+                <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-primary/40 via-primary to-primary/40" />
 
                 <CardHeader className="space-y-2">
                     <div className="flex items-center gap-3">

@@ -175,9 +175,9 @@ const DocumentReaderPage: React.FC = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white">
+            <div className="bg-linear-to-r from-blue-900 via-blue-800 to-indigo-900 text-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="text-center">
                         <div className="flex justify-center mb-6">
@@ -256,7 +256,7 @@ const DocumentReaderPage: React.FC = () => {
                         {document.error && (
                             <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
                                 <div className="flex items-start">
-                                    <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+                                    <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-3 shrink-0" />
                                     <div>
                                         <h3 className="text-sm font-medium text-red-800">Upload Error</h3>
                                         <p className="text-sm text-red-700 mt-1">{document.error}</p>
@@ -299,7 +299,7 @@ const DocumentReaderPage: React.FC = () => {
                                         >
                                             <ZoomOut className="h-4 w-4 text-gray-600" />
                                         </button>
-                                        <span className="px-2 text-sm text-gray-700 min-w-[3rem] text-center">
+                                        <span className="px-2 text-sm text-gray-700 min-w-12 text-center">
                                             {Math.round(document.zoom * 100)}%
                                         </span>
                                         <button
@@ -351,7 +351,7 @@ const DocumentReaderPage: React.FC = () => {
                         {document.error && (
                             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                                 <div className="flex items-start">
-                                    <AlertCircle className="h-6 w-6 text-red-400 mt-1 mr-3 flex-shrink-0" />
+                                    <AlertCircle className="h-6 w-6 text-red-400 mt-1 mr-3 shrink-0" />
                                     <div>
                                         <h3 className="text-lg font-medium text-red-800 mb-2">Processing Error</h3>
                                         <p className="text-red-700 mb-4">{document.error}</p>
@@ -378,7 +378,7 @@ const DocumentReaderPage: React.FC = () => {
                         <div className="grid md:grid-cols-2 gap-6 text-blue-700">
                             <div className="space-y-3">
                                 <div className="flex items-start">
-                                    <div className="flex-shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
+                                    <div className="shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
                                         1
                                     </div>
                                     <div>
@@ -387,7 +387,7 @@ const DocumentReaderPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-start">
-                                    <div className="flex-shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
+                                    <div className="shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
                                         2
                                     </div>
                                     <div>
@@ -398,7 +398,7 @@ const DocumentReaderPage: React.FC = () => {
                             </div>
                             <div className="space-y-3">
                                 <div className="flex items-start">
-                                    <div className="flex-shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
+                                    <div className="shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
                                         3
                                     </div>
                                     <div>
@@ -407,7 +407,7 @@ const DocumentReaderPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-start">
-                                    <div className="flex-shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
+                                    <div className="shrink-0 w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center text-blue-800 text-sm font-semibold mr-3 mt-0.5">
                                         4
                                     </div>
                                     <div>
