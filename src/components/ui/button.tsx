@@ -84,13 +84,13 @@ interface GlowingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 const GlowingButton = ({ variant = 'solid', children, className = '', ...props }: GlowingButtonProps) => {
 
   // Base styles for all variants
-  const baseStyles = "relative px-8 py-3 font-semibold rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 hover:scale-105 active:scale-95 group";
+  const baseStyles = "relative px-8 py-3 font-semibold rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 hover:scale-105 active:scale-95 group";
 
-  // Variant mapping
+  // Variant mapping (Switched to Orange 500/600 and updated RGBA shadows)
   const variants: Record<ButtonVariant, string> = {
-    solid: "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(59,130,246,0.7)] hover:bg-blue-500",
-    outline: "border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white shadow-[0_0_10px_rgba(59,130,246,0.2)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]",
-    ghost: "text-blue-600 hover:bg-blue-50/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]",
+    solid: "bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.4)] hover:shadow-[0_0_25px_rgba(249,115,22,0.7)] hover:bg-orange-500",
+    outline: "border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white shadow-[0_0_10px_rgba(249,115,22,0.2)] hover:shadow-[0_0_20px_rgba(249,115,22,0.5)]",
+    ghost: "text-orange-600 hover:bg-orange-50/50 hover:shadow-[0_0_15px_rgba(249,115,22,0.2)]",
   };
 
   return (
@@ -98,8 +98,8 @@ const GlowingButton = ({ variant = 'solid', children, className = '', ...props }
       className={`${baseStyles} ${variants[variant]} ${className}`}
       {...props}
     >
-      {/* Dynamic Glow Layer - stronger on 'solid' variant */}
-      <span className={`absolute inset-0 rounded-full bg-blue-400 blur-lg opacity-0 transition-opacity duration-300 
+      {/* Dynamic Glow Layer - uses orange-400 for the blur effect */}
+      <span className={`absolute inset-0 rounded-full bg-orange-400 blur-lg opacity-0 transition-opacity duration-300 
         ${variant === 'solid' ? 'group-hover:opacity-40' : 'group-hover:opacity-20'}`}>
       </span>
 
