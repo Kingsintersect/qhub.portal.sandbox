@@ -48,6 +48,15 @@ export default function Header() {
                 <Menu size={18} />
             </button>
 
+            {/* <Logo
+                href="/"
+                showText={false}
+                imageWidth={32}
+                imageHeight={32}
+                imageClassName="h-8 w-8 rounded-lg"
+                className="items-center"
+            /> */}
+
             {/* Search */}
             <div className="flex-1 max-w-sm relative">
                 <Search

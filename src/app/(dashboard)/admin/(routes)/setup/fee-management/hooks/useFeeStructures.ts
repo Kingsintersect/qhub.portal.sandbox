@@ -1,93 +1,33 @@
-// import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-// import { feeStructureApi, programApi } from "../services/feeManagementApi";
-// import type { CreateFeeStructurePayload } from "../types";
-
-// export const feeStructureKeys = {
-//     bySession: (sessionId: string) =>
-//         ["fee-structures", { sessionId }] as const,
-// };
-
-// export function useFeeStructures(sessionId: string | null) {
-//     return useQuery({
-//         queryKey: feeStructureKeys.bySession(sessionId!),
-//         queryFn: () => feeStructureApi.listBySession(sessionId!),
-//         select: (res) => res.data,
-//         enabled: !!sessionId,
-//     });
-// }
-
-// export function usePrograms() {
-//     return useQuery({
-//         queryKey: ["programs"],
-//         queryFn: () => programApi.list(),
-//         select: (res) => res.data,
-//     });
-// }
-
-// export function useCreateFeeStructure() {
-//     const qc = useQueryClient();
-//     return useMutation({
-//         mutationFn: (payload: CreateFeeStructurePayload) =>
-//             feeStructureApi.create(payload),
-//         onSuccess: (_data, variables) => {
-//             qc.invalidateQueries({
-//                 queryKey: feeStructureKeys.bySession(variables.academic_session_id),
-//             });
-//         },
-//     });
-// }
-
-// export function useDeleteFeeStructure(sessionId: string) {
-//     const qc = useQueryClient();
-//     return useMutation({
-//         mutationFn: (id: string) => feeStructureApi.delete(id),
-//         onSuccess: () => {
-//             qc.invalidateQueries({
-//                 queryKey: feeStructureKeys.bySession(sessionId),
-//             });
-//         },
-//     });
-// }
-
-
-// RUNNING IN DUMMY DATA FROM HERE
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    dummyFeeStructureApi,
-    dummyProgramApi,
-} from "@/services/dummyData";
+    feeManagementKeys,
+    feeManagementMutationOptions,
+    feeManagementQueryOptions,
+} from "@/services/feeManagementApi";
 import type { CreateFeeStructurePayload } from "@/types/school";
-
-export const feeStructureKeys = {
-    bySession: (sessionId: string) =>
-        ["fee-structures", { sessionId }] as const,
-};
 
 export function useFeeStructures(sessionId: string | null) {
     return useQuery({
-        queryKey: feeStructureKeys.bySession(sessionId!),
-        queryFn: () => dummyFeeStructureApi.listBySession(sessionId!),
-        select: (res) => res.data,
+        ...feeManagementQueryOptions.feeStructuresBySession(sessionId!),
         enabled: !!sessionId,
+        staleTime: 1000 * 60 * 2,
     });
 }
 
 export function usePrograms() {
     return useQuery({
-        queryKey: ["programs"],
-        queryFn: () => dummyProgramApi.list(),
-        select: (res) => res.data,
+        ...feeManagementQueryOptions.programs(),
+        staleTime: 1000 * 60 * 30,
     });
 }
 
 export function useCreateFeeStructure() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (payload: CreateFeeStructurePayload) =>
-            dummyFeeStructureApi.create(payload),
-        onSuccess: (_data, variables) => {
-            qc.invalidateQueries({
-                queryKey: feeStructureKeys.bySession(variables.academic_session_id),
+        ...feeManagementMutationOptions.createFeeStructure(),
+        onSuccess: async (_data, variables: CreateFeeStructurePayload) => {
+            await qc.invalidateQueries({
+                queryKey: feeManagementKeys.feeStructuresBySession(variables.academic_session_id),
             });
         },
     });
@@ -96,10 +36,10 @@ export function useCreateFeeStructure() {
 export function useDeleteFeeStructure(sessionId: string) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (id: string) => dummyFeeStructureApi.remove(id),
-        onSuccess: () => {
-            qc.invalidateQueries({
-                queryKey: feeStructureKeys.bySession(sessionId),
+        ...feeManagementMutationOptions.deleteFeeStructure(),
+        onSuccess: async () => {
+            await qc.invalidateQueries({
+                queryKey: feeManagementKeys.feeStructuresBySession(sessionId),
             });
         },
     });

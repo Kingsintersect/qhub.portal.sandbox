@@ -10,11 +10,12 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     LogOut,
-    GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navConfig, NavItem, NavGroup } from "@/config/nav.config";
 import { useAuthStore, useSidebarStore } from "@/store";
+import Logo from "@/components/branding/Logo";
+import { UNIVERSITY_NAME } from "@/config/global.config";
 
 const roleMeta: Record<string, { label: string; cls: string }> = {
     STUDENT: { label: "Student", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
@@ -199,8 +200,14 @@ export default function Sidebar() {
         >
             {/* Logo */}
             <div className={cn("flex items-center h-16 border-b border-sidebar-border shrink-0 px-4 gap-3", collapsed && "justify-center px-2")}>
-                <div ref={logoRef} className="flex items-center justify-center w-8 h-8 rounded-lg bg-sidebar-primary shrink-0">
-                    <GraduationCap size={17} className="text-sidebar-primary-foreground" />
+                <div ref={logoRef}>
+                    <Logo
+                        href="/"
+                        showText={false}
+                        imageWidth={32}
+                        imageHeight={32}
+                        imageClassName="h-8 w-8 rounded-lg"
+                    />
                 </div>
                 <AnimatePresence initial={false}>
                     {!collapsed && (
@@ -211,8 +218,8 @@ export default function Sidebar() {
                             transition={{ duration: 0.18 }}
                             className="overflow-hidden"
                         >
-                            <p className="font-bold text-sm text-sidebar-foreground whitespace-nowrap leading-tight">UniPortal</p>
-                            <p className="text-[10px] text-muted-foreground whitespace-nowrap">Nigeria University</p>
+                            <p className="font-bold text-sm text-sidebar-foreground whitespace-nowrap leading-tight">{UNIVERSITY_NAME}</p>
+                            <p className="text-[10px] text-muted-foreground whitespace-nowrap">Portal Workspace</p>
                         </motion.div>
                     )}
                 </AnimatePresence>

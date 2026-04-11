@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ThemeToggle from '../ThemeToggle'
-import Link from 'next/link'
+import Logo from '@/components/branding/Logo'
 
 export default function NavBar() {
     const [scrolled, setScrolled] = useState(false)
@@ -33,15 +33,16 @@ export default function NavBar() {
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="h-16 flex items-center justify-between">
                         <div className="flex items-center gap-6">
-                            <Link href="/" className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ background: 'var(--primary)' }}>
-                                    <span className="font-bold text-white">U</span>
-                                </div>
-                                <div className="hidden sm:block">
-                                    <div className="text-sm font-semibold">University of Example</div>
-                                    <div className="text-xs text-theme/70">Knowledge - Innovation - Service</div>
-                                </div>
-                            </Link>
+                            <Logo
+                                href="/"
+                                subtitle="Knowledge - Innovation - Service"
+                                imageWidth={40}
+                                imageHeight={40}
+                                className="items-center"
+                                imageClassName="h-10 w-10"
+                                titleClassName="text-sm"
+                                subtitleClassName="text-theme/70"
+                            />
                         </div>
 
                         <div className="hidden md:flex items-center gap-6">

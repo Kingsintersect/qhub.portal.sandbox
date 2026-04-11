@@ -13,16 +13,11 @@
 //         },
 //     });
 // }
-
-
-// rinning on dummy data from here
 import { useMutation } from "@tanstack/react-query";
-import { dummyFeeAccountApi } from "@/services/dummyData";
-import type { GenerateFeeAccountsPayload } from "@/types/school";
+import { feeManagementMutationOptions } from "@/services/feeManagementApi";
 
 export function useGenerateFeeAccounts() {
     return useMutation({
-        mutationFn: (payload: GenerateFeeAccountsPayload) =>
-            dummyFeeAccountApi.generate(payload),
+        ...feeManagementMutationOptions.generateFeeAccounts(),
     });
 }
