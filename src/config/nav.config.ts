@@ -37,6 +37,7 @@ export interface NavItem {
     icon: LucideIcon;
     badge?: string | number;
     badgeVariant?: string;
+    matchExactOnly?: boolean;
     children?: NavItem[];
 }
 
@@ -52,7 +53,7 @@ export interface NavGroup {
 const studentNav: NavGroup[] = [
     {
         items: [
-            { title: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
+            { title: "Dashboard", href: "/student/dashboard", matchExactOnly: true, icon: LayoutDashboard },
         ],
     },
     {
@@ -61,8 +62,8 @@ const studentNav: NavGroup[] = [
                 title: "Reuseable Compoenets",
                 icon: OctagonMinus,
                 children: [
-                    { title: "Test Page", href: "/student/test", icon: TestTubeDiagonalIcon },
-                    { title: "Grades", href: "/student/test/grades", icon: CalendarDays },
+                    { title: "Test Page", href: "/student/test", matchExactOnly:true, icon: TestTubeDiagonalIcon },
+                    { title: "Grades", href: "/student/test/grades", matchExactOnly:true, icon: CalendarDays },
                 ],
             },
         ],
@@ -70,28 +71,29 @@ const studentNav: NavGroup[] = [
     {
         label: "Academics",
         items: [
-            { title: "My Courses", href: "/student/courses", icon: BookOpen },
-            { title: "Timetable", href: "/student/timetable", icon: CalendarDays },
+            { title: "My Courses", href: "/student/courses", matchExactOnly: true, icon: BookOpen },
+            { title: "Timetable", href: "/student/timetable", matchExactOnly: true, icon: CalendarDays },
             {
                 title: "Results",
                 href: "/student/results",
+                matchExactOnly: true,
                 icon: ClipboardList,
             },
-            { title: "Registration", href: "/student/registration", icon: FileText },
+            { title: "Registration", href: "/student/registration", matchExactOnly: true, icon: FileText },
         ],
     },
     {
         label: "Campus",
         items: [
-            { title: "Announcements", href: "/student/announcements", icon: Bell, badge: 3, badgeVariant: "warning" },
-            { title: "Messages", href: "/student/messages", icon: MessageSquare },
-            { title: "Payments", href: "/student/payments", icon: CreditCard },
+            { title: "Announcements", href: "/student/announcements", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
+            { title: "Messages", href: "/student/messages", matchExactOnly: true, icon: MessageSquare },
+            { title: "Payments", href: "/student/payments", matchExactOnly: true, icon: CreditCard },
         ],
     },
     {
         label: "Account",
         items: [
-            { title: "Settings", href: "/student/settings", icon: Settings },
+            { title: "Settings", href: "/student/settings", matchExactOnly: true, icon: Settings },
         ],
     },
 ];
@@ -103,36 +105,36 @@ const studentNav: NavGroup[] = [
 const lecturerNav: NavGroup[] = [
     {
         items: [
-            { title: "Dashboard", href: "/tutor", icon: LayoutDashboard },
+            { title: "Dashboard", href: "/tutor", matchExactOnly: true, icon: LayoutDashboard },
         ],
     },
     {
         label: "Teaching",
         items: [
-            { title: "My Courses", href: "/tutor/courses", icon: BookOpen },
-            { title: "Timetable", href: "/tutor/timetable", icon: CalendarDays },
+            { title: "My Courses", href: "/tutor/courses", matchExactOnly: true, icon: BookOpen },
+            { title: "Timetable", href: "/tutor/timetable", matchExactOnly: true, icon: CalendarDays },
             {
                 title: "Grading",
                 icon: ClipboardList,
                 children: [
-                    { title: "Submit Results", href: "/tutor/grading/submit", icon: FileText },
-                    { title: "Grade Book", href: "/tutor/grading/book", icon: FolderOpen },
+                    { title: "Submit Results", href: "/tutor/grading/submit", matchExactOnly: true, icon: FileText },
+                    { title: "Grade Book", href: "/tutor/grading/book", matchExactOnly: true, icon: FolderOpen },
                 ],
             },
-            { title: "Resources", href: "/tutor/resources", icon: Layers },
+            { title: "Resources", href: "/tutor/resources", matchExactOnly: true, icon: Layers },
         ],
     },
     {
         label: "Campus",
         items: [
-            { title: "Announcements", href: "/tutor/announcements", icon: Bell },
-            { title: "Messages", href: "/tutor/messages", icon: MessageSquare },
+            { title: "Announcements", href: "/tutor/announcements", matchExactOnly: true, icon: Bell },
+            { title: "Messages", href: "/tutor/messages", matchExactOnly: true, icon: MessageSquare },
         ],
     },
     {
         label: "Account",
         items: [
-            { title: "Settings", href: "/tutor/settings", icon: Settings },
+            { title: "Settings", href: "/tutor/settings", matchExactOnly: true, icon: Settings },
         ],
     },
 ];
@@ -144,21 +146,21 @@ const lecturerNav: NavGroup[] = [
 const adminNav: NavGroup[] = [
     {
         items: [
-            { title: "Dashboard", href: "/manager", icon: LayoutDashboard },
+            { title: "Dashboard", href: "/manager", matchExactOnly: true, icon: LayoutDashboard },
         ],
     },
     {
         label: "Management",
         items: [
-            { title: "Students", href: "/manager/students", icon: GraduationCap },
-            { title: "Lecturers", href: "/manager/lecturers", icon: Users },
-            { title: "Departments", href: "/manager/departments", icon: Building2 },
+            { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
+            { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
+            { title: "Departments", href: "/manager/departments", matchExactOnly: true, icon: Building2 },
             {
                 title: "Courses",
                 icon: BookOpen,
                 children: [
-                    { title: "Course List", href: "/manager/courses", icon: Layers },
-                    { title: "Allocation", href: "/manager/courses/allocation", icon: ClipboardList },
+                    { title: "Course List", href: "/manager/courses", matchExactOnly: true, icon: Layers },
+                    { title: "Allocation", href: "/manager/courses/allocation", matchExactOnly: true, icon: ClipboardList },
                 ],
             },
         ],
@@ -166,14 +168,14 @@ const adminNav: NavGroup[] = [
     {
         label: "Reports",
         items: [
-            { title: "Analytics", href: "/manager/analytics", icon: BarChart3 },
-            { title: "Announcements", href: "/manager/announcements", icon: Bell },
+            { title: "Analytics", href: "/manager/analytics", matchExactOnly: true, icon: BarChart3 },
+            { title: "Announcements", href: "/manager/announcements", matchExactOnly: true, icon: Bell },
         ],
     },
     {
         label: "Account",
         items: [
-            { title: "Settings", href: "/manager/settings", icon: Settings },
+            { title: "Settings", href: "/manager/settings", matchExactOnly: true, icon: Settings },
         ],
     },
 ];
@@ -185,7 +187,7 @@ const adminNav: NavGroup[] = [
 const superAdminNav: NavGroup[] = [
     {
         items: [
-            { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+            { title: "Dashboard", href: "/admin/dashboard", matchExactOnly: true, icon: LayoutDashboard },
         ],
     },
     {
@@ -194,9 +196,9 @@ const superAdminNav: NavGroup[] = [
                 title: "Setup",
                 icon: Settings2Icon,
                 children: [
-                    {title: "Admissions", href: "/admin/setup/admissions", icon: SchoolIcon },
-                    { title: "Academic sessions", href: "/admin/setup/academic-sessions", icon: TestTubeDiagonalIcon },
-                    { title: "Fee Management", href: "/admin/setup/fee-management", icon: CalendarDays },
+                    {title: "Admissions", href: "/admin/setup/admissions", matchExactOnly: true, icon: SchoolIcon },
+                    { title: "Academic sessions", href: "/admin/setup/academic-sessions", matchExactOnly: true, icon: TestTubeDiagonalIcon },
+                    { title: "Fee Management", href: "/admin/setup/fee-management", matchExactOnly: true, icon: CalendarDays },
                 ],
             },
         ],
@@ -204,17 +206,17 @@ const superAdminNav: NavGroup[] = [
     {
         label: "Platform",
         items: [
-            { title: "Users", href: "/admin/users", icon: Users },
-            { title: "Roles & Permissions", href: "/admin/roles", icon: ShieldCheck },
-            { title: "Faculties", href: "/admin/faculties", icon: Building2 },
-            { title: "Departments", href: "/admin/departments", icon: Building2 },
+            { title: "Users", href: "/admin/users", matchExactOnly: true, icon: Users },
+            { title: "Roles & Permissions", href: "/admin/roles", matchExactOnly: true, icon: ShieldCheck },
+            { title: "Faculties", href: "/admin/faculties", matchExactOnly: true, icon: Building2 },
+            { title: "Departments", href: "/admin/departments", matchExactOnly: true, icon: Building2 },
             {
                 title: "Academics",
                 icon: GraduationCap,
                 children: [
-                    { title: "Sessions", href: "/admin/academics/sessions", icon: CalendarDays },
-                    { title: "Courses", href: "/admin/academics/courses", icon: BookOpen },
-                    { title: "Results", href: "/admin/academics/results", icon: ClipboardList },
+                    { title: "Sessions", href: "/admin/academics/sessions", matchExactOnly: true, icon: CalendarDays },
+                    { title: "Courses", href: "/admin/academics/courses", matchExactOnly: true, icon: BookOpen },
+                    { title: "Results", href: "/admin/academics/results", matchExactOnly: true, icon: ClipboardList },
                 ],
             },
         ],
@@ -222,16 +224,16 @@ const superAdminNav: NavGroup[] = [
     {
         label: "System",
         items: [
-            { title: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-            { title: "System Config", href: "/admin/config", icon: Database },
-            { title: "User Management", href: "/admin/user-management", icon: UserCog },
-            { title: "Portal Settings", href: "/admin/portal", icon: Globe },
+            { title: "Analytics", href: "/admin/analytics", matchExactOnly: true, icon: BarChart3 },
+            { title: "System Config", href: "/admin/config", matchExactOnly: true, icon: Database },
+            { title: "User Management", href: "/admin/user-management", matchExactOnly: true, icon: UserCog },
+            { title: "Portal Settings", href: "/admin/portal", matchExactOnly: true, icon: Globe },
         ],
     },
     {
         label: "Account",
         items: [
-            { title: "Settings", href: "/admin/settings", icon: Settings },
+            { title: "Settings", href: "/admin/settings", matchExactOnly: true, icon: Settings },
         ],
     },
 ];
