@@ -14,7 +14,7 @@ const validateFileExtension = (file: File): boolean => {
 };
 // Main schema
 export const nameSchema = (label: string, optional: boolean = false) => {
-    let schema = z
+    const schema = z
         .string()
         .min(2, `${label} must be at least 2 characters`)
         .max(50, `${label} must not exceed 50 characters`)
@@ -27,7 +27,7 @@ export const nameSchema = (label: string, optional: boolean = false) => {
 };
 
 export const usernameSchema = (name: string, optional: boolean = false) => {
-    let schema = z
+    const schema = z
         .string()
         .min(2, `${name} must be at least 2 characters`)
         .max(50, `${name} must not exceed 50 characters`)
@@ -37,7 +37,7 @@ export const usernameSchema = (name: string, optional: boolean = false) => {
 }
 
 export const regNumberSchema = (name: string, optional: boolean = false) => {
-    let schema = z
+    const schema = z
         .string()
         .min(8, `${name} must be at least 8 characters`)
         .max(15, `${name} must not exceed 15 characters`)
@@ -54,7 +54,7 @@ export const imageFileSchema = z.instanceof(File)
     .refine(validateFileExtension, `File extension must be one of: ${ALLOWED_EXTENSIONS.join(', ')}`);
 
 export const emailSchema = (label?: string, optional: boolean = false) => {
-    let schema = z.email("Please enter a valid email address")
+    const schema = z.email("Please enter a valid email address")
         .min(1, `${label ?? "Email"}  is required `);
 
     // return optional ? schema.optional() : schema;
@@ -103,27 +103,27 @@ export const phoneSchema = (optional: boolean = false) => {
 }
 
 export const shortStringSchema = (label: string, optional: boolean = false, minLength: number = 2, maxLength: number = 100) => {
-    let schema = z.string()
+    const schema = z.string()
         .min(minLength, `${label} must be at least 2 characters`)
         .max(maxLength, `${label} must be at most 100 characters`);
     return optional ? schema.optional() : schema;
 }
 
 export const longStringSchema = (label: string, optional: boolean = false) => {
-    let schema = z.string()
+    const schema = z.string()
         .min(2, `${label} must be at least 2 characters`)
     return optional ? schema.optional() : schema;
 }
 
 export const zipCodeSchema = (optional: boolean = false) => {
-    let schema = z.number()
+    const schema = z.number()
         .min(4, "Zip code must be at least 4 characters")
         .max(10, "Zip code must be at most 10 characters");
     return optional ? schema.optional() : schema;
 }
 
 export const urlSchema = (label: string, optional: boolean = false) => {
-    let schema = z.string()
+    const schema = z.string()
         .url("Invalid URL")
         .max(100, `${label} must be less than 100 characters`)
         .optional()
@@ -138,7 +138,7 @@ export const termsSchema = z.boolean()
     });
 
 export const dateOfBirthSchema = (optional: boolean = false) => {
-    let schema = z.string()
+    const schema = z.string()
         .min(1, "Date of birth is required")
         .refine((value) => !isNaN(Date.parse(value)), {
             message: "Invalid date format",
@@ -154,7 +154,7 @@ export const genderSchema = z.enum(["Male", "Female"]).or(z.literal(""))
     });
 
 export const priceSchema = (optional: boolean = false) => {
-    let schema = z.string()
+    const schema = z.string()
         .trim()
         .regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format") //allows whole numbers or decimals with up to 2 decimal places(100, 250.50, 99.9).
         // .transform((val) => parseFloat(val)) // convert string -> number
@@ -168,7 +168,7 @@ export const priceSchema = (optional: boolean = false) => {
 //     .min(1, `${name} Must not be empty`);
 
 export const selectMenuSchema = (name: string, optional: boolean = false) => {
-    let schema = z.string()
+    const schema = z.string()
         .min(1, `Please select your ${name}`);
     return optional ? schema.optional() : schema;
 }
@@ -193,9 +193,9 @@ export const isActiveSchema = z.boolean().default(true);
 
 export const isDeletedSchema = z.boolean().default(false);
 
-export const roleSchema = z.enum(["ADMIN", "STUDENT", "MANAGER", "TEACHER", "PARENT"]).default("STUDENT");
+export const roleSchema = z.enum(["SUPER_ADMIN", "STUDENT", "ADMIN", "LECTURER"]).default("STUDENT");
 
 export const booleanOptionSchema = (optional: boolean = false) => {
-    let schema = z.boolean();
+    const schema = z.boolean();
     return optional ? schema.optional() : schema;
 }
