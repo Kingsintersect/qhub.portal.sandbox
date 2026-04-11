@@ -9,8 +9,8 @@ import {
     useFees,
     useStudentAdmission,
     useDevSimulate,
-    admissionKeys,
 } from "../../hooks/useAdmissionQueries";
+import { admissionKeys } from "../../services/admissionService";
 import {
     AdmissionStepIndicator,
     ApplicationPaymentSection,

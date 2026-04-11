@@ -1,29 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dummyFresherFeeApi } from "@/services/dummyData";
+import {
+    feeManagementKeys,
+    feeManagementMutationOptions,
+    feeManagementQueryOptions,
+} from "@/services/feeManagementApi";
 import type { CreateFresherFeePayload } from "@/types/school";
-
-export const fresherFeeKeys = {
-    bySession: (sessionId: string) =>
-        ["fresher-fees", { sessionId }] as const,
-};
 
 export function useFresherFees(sessionId: string | null) {
     return useQuery({
-        queryKey: fresherFeeKeys.bySession(sessionId!),
-        queryFn: () => dummyFresherFeeApi.listBySession(sessionId!),
-        select: (res) => res.data,
+        ...feeManagementQueryOptions.fresherFeesBySession(sessionId!),
         enabled: !!sessionId,
+        staleTime: 1000 * 60 * 2,
     });
 }
 
 export function useCreateFresherFee() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (payload: CreateFresherFeePayload) =>
-            dummyFresherFeeApi.create(payload),
-        onSuccess: (_data, variables) => {
-            qc.invalidateQueries({
-                queryKey: fresherFeeKeys.bySession(variables.academic_session_id),
+        ...feeManagementMutationOptions.createFresherFee(),
+        onSuccess: async (_data, variables: CreateFresherFeePayload) => {
+            await qc.invalidateQueries({
+                queryKey: feeManagementKeys.fresherFeesBySession(variables.academic_session_id),
             });
         },
     });
@@ -32,10 +29,10 @@ export function useCreateFresherFee() {
 export function useDeleteFresherFee(sessionId: string) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (id: string) => dummyFresherFeeApi.remove(id),
-        onSuccess: () => {
-            qc.invalidateQueries({
-                queryKey: fresherFeeKeys.bySession(sessionId),
+        ...feeManagementMutationOptions.deleteFresherFee(),
+        onSuccess: async () => {
+            await qc.invalidateQueries({
+                queryKey: feeManagementKeys.fresherFeesBySession(sessionId),
             });
         },
     });

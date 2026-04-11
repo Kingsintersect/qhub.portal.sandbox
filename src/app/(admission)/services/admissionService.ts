@@ -5,7 +5,10 @@
 /*  connecting to the live backend. The interface stays the same.      */
 /* ------------------------------------------------------------------ */
 
-import apiClient from "@/lib/clients/apiClient";
+import {
+    createApiMutationOptions,
+    createApiQueryOptions,
+} from "@/lib/clients/apiClient";
 import type {
     AdmissionStudent,
     FeeSchedule,
@@ -261,4 +264,104 @@ export const admissionService = {
         };
         return { ...mockStudent };
     },
+};
+
+export const admissionKeys = {
+    all: ["admission"] as const,
+    fees: () => [...admissionKeys.all, "fees"] as const,
+    student: () => [...admissionKeys.all, "student"] as const,
+    verifyAppPayment: (reference: string) =>
+        [...admissionKeys.all, "verify-app", reference] as const,
+    verifyAccPayment: (reference: string) =>
+        [...admissionKeys.all, "verify-acc", reference] as const,
+    verifyTuiPayment: (reference: string) =>
+        [...admissionKeys.all, "verify-tui", reference] as const,
+};
+
+export const admissionQueryOptions = {
+    fees: () =>
+        createApiQueryOptions({
+            queryKey: admissionKeys.fees(),
+            queryFn: admissionService.fetchFees,
+        }),
+
+    student: () =>
+        createApiQueryOptions({
+            queryKey: admissionKeys.student(),
+            queryFn: admissionService.fetchStudentAdmission,
+        }),
+
+    verifyApplicationPayment: (reference: string) =>
+        createApiQueryOptions({
+            queryKey: admissionKeys.verifyAppPayment(reference),
+            queryFn: () => admissionService.verifyApplicationPayment(reference),
+        }),
+
+    verifyAcceptanceFeePayment: (reference: string) =>
+        createApiQueryOptions({
+            queryKey: admissionKeys.verifyAccPayment(reference),
+            queryFn: () => admissionService.verifyAcceptanceFeePayment(reference),
+        }),
+
+    verifyTuitionPayment: (reference: string) =>
+        createApiQueryOptions({
+            queryKey: admissionKeys.verifyTuiPayment(reference),
+            queryFn: () => admissionService.verifyTuitionPayment(reference),
+        }),
+};
+
+export const admissionMutationOptions = {
+    initiateApplicationPayment: () =>
+        createApiMutationOptions<PaymentInitiationResponse, void>({
+            mutationKey: [...admissionKeys.all, "payments", "application", "initiate"],
+            mutationFn: () => admissionService.initiateApplicationPayment(),
+        }),
+
+    initiateAcceptanceFeePayment: () =>
+        createApiMutationOptions<PaymentInitiationResponse, void>({
+            mutationKey: [...admissionKeys.all, "payments", "acceptance", "initiate"],
+            mutationFn: () => admissionService.initiateAcceptanceFeePayment(),
+        }),
+
+    initiateTuitionPayment: () =>
+        createApiMutationOptions<PaymentInitiationResponse, number>({
+            mutationKey: [...admissionKeys.all, "payments", "tuition", "initiate"],
+            mutationFn: admissionService.initiateTuitionPayment,
+        }),
+
+    simulateAppPaymentPaid: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "app-paid"],
+            mutationFn: () => admissionService.devSimulateAppPaymentPaid(),
+        }),
+
+    simulateApplied: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "applied"],
+            mutationFn: () => admissionService.devSimulateApplied(),
+        }),
+
+    simulateOffered: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "offered"],
+            mutationFn: () => admissionService.devSimulateAdmissionOffered(),
+        }),
+
+    simulateAccepted: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "accepted"],
+            mutationFn: () => admissionService.devSimulateAdmissionAccepted(),
+        }),
+
+    simulateTuitionPaid: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "tuition-paid"],
+            mutationFn: () => admissionService.devSimulateTuitionPaid(),
+        }),
+
+    resetAll: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "reset"],
+            mutationFn: () => admissionService.devResetAll(),
+        }),
 };

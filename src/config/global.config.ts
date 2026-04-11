@@ -1,7 +1,7 @@
 export const SUPPORT_EMAIL = "support.odl@school.edu.ng"
 export const SUPPORT_PHONE = "+2347044914032";
 export const UNIVERSITY_NAME = "University of Lagos";
-export const UNIVERSITY_LOGO_URL = "/assets/unilag-logo.png";
+export const UNIVERSITY_LOGO_URL = "/logo/logo.jpg";
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
 
 export const ADMISSION_PORTAL_URL = "https://admission.unilag.edu.ng";

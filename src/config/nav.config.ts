@@ -150,7 +150,14 @@ const adminNav: NavGroup[] = [
         ],
     },
     {
-        label: "Management",
+        label: "Admission",
+        items: [
+            { title: "Review Application", href: "/manager/review-application", matchExactOnly: true, icon: GraduationCap },
+            { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
+        ],
+    },
+    {
+        label: "User Management",
         items: [
             { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
             { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
