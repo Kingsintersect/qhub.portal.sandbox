@@ -6,7 +6,6 @@ import { Search, Bell, Sun, Moon, Menu, X, Check, CheckCheck } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { useSidebarStore, useNotificationStore, useAuthStore, useThemeStore } from "@/store";
 import AnimatedLink from "../custom/AnimatedLink";
-import Logo from "@/components/branding/Logo";
 
 const typeIcon: Record<string, { bg: string; color: string; char: string }> = {
     success: { bg: "bg-emerald-500/10", color: "text-emerald-500", char: "✓" },
