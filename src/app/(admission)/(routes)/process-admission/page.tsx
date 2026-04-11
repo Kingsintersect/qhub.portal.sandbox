@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useAdmissionStore } from "../../store/admissionStore";
 import {
     useFees,
     useStudentAdmission,
@@ -23,6 +22,7 @@ import {
 } from "../../components";
 import { AdmissionStep } from "../../types/admission";
 import { GraduationCap, RotateCcw, Loader2 } from "lucide-react";
+import { useAdmissionStore } from "../../store/admissionStore";
 
 export default function ProcessAdmissionPage() {
     const queryClient = useQueryClient();
