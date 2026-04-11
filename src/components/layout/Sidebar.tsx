@@ -49,7 +49,12 @@ function CollapseTooltip({ label, badge, badgeVariant }: { label: string; badge?
 
 function NavItem_({ item, depth = 0, collapsed }: { item: NavItem; depth?: number; collapsed: boolean }) {
     const pathname = usePathname();
-    const isActive = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
+    // const isActive = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
+    const isActive = item.href
+        ? item.matchExactOnly
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + "/")
+        : false;
     const hasChildren = !!item.children?.length;
     const defaultOpen = hasChildren
         ? item.children!.some((c) => c.href === pathname || c.children?.some((cc) => cc.href === pathname))
