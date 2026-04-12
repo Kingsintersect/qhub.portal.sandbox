@@ -18,6 +18,7 @@ export const roleSchema = z.object({
 });
 
 export type RoleFormValues = z.infer<typeof roleSchema>;
+export type RoleFormInputValues = z.input<typeof roleSchema>;
 
 // ── Permission ──────────────────────────────
 
@@ -38,3 +39,4 @@ export const permissionSchema = z.object({
 });
 
 export type PermissionFormValues = z.infer<typeof permissionSchema>;
+export type PermissionFormInputValues = z.input<typeof permissionSchema>;

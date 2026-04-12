@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore, useAuthHydrated } from "@/store";
+import { useAppStore, useAppHydrated } from "@/store";
 import { UserRole, roleDashboardPath } from "@/config/nav.config";
 import RoleGuard from "@/components/dashboard/RoleGuard";
 
@@ -11,8 +11,8 @@ export default function StudentLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user } = useAuthStore();
-    const hydrated = useAuthHydrated();
+    const { user } = useAppStore();
+    const hydrated = useAppHydrated();
     const router = useRouter();
 
     useEffect(() => {
