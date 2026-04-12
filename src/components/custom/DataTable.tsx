@@ -27,6 +27,7 @@ interface DataTableProps<T extends Record<string, unknown>> {
     columns: Column<T>[];
     searchable?: boolean;
     searchPlaceholder?: string;
+    searchExtractor?: (row: T) => string;
     pageSize?: number;
     emptyMessage?: string;
     loading?: boolean;
@@ -41,8 +42,7 @@ export default function DataTable<T extends Record<string, unknown>>({
     data,
     columns,
     searchable = true,
-    searchPlaceholder = "Search…",
-    pageSize = 10,
+    searchPlaceholder = "Search…", searchExtractor, pageSize = 10,
     emptyMessage = "No records found",
     loading = false,
     rowKey,
@@ -57,12 +57,15 @@ export default function DataTable<T extends Record<string, unknown>>({
     const filtered = useMemo(() => {
         if (!search.trim()) return data;
         const q = search.toLowerCase();
-        return data.filter((row) =>
-            Object.values(row).some((v) =>
+        return data.filter((row) => {
+            if (searchExtractor) {
+                return searchExtractor(row).toLowerCase().includes(q);
+            }
+            return Object.values(row).some((v) =>
                 String(v ?? "").toLowerCase().includes(q)
-            )
-        );
-    }, [data, search]);
+            );
+        });
+    }, [data, search, searchExtractor]);
 
     const sorted = useMemo(() => {
         if (!sortKey || !sortDir) return filtered;

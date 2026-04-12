@@ -1,4 +1,4 @@
-import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, School, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -57,6 +57,7 @@ const studentNav: NavGroup[] = [
    {
       items: [
          { title: "Dashboard", href: "/student/dashboard", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "My Application", href: "/student/my-application", matchExactOnly: true, icon: FileText },
       ],
    },
    {
@@ -155,13 +156,13 @@ const hodNav: NavGroup[] = lecturerNav;
 const adminNav: NavGroup[] = [
    {
       items: [
-         { title: "Dashboard", href: "/manager", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
       ],
    },
    {
       label: "Admission",
       items: [
-         { title: "Review Application", href: "/manager/review-application", matchExactOnly: true, icon: GraduationCap },
+         { title: "Review Applications", href: "/manager/review-applications", matchExactOnly: true, icon: GraduationCap },
          { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
       ],
    },
@@ -221,11 +222,12 @@ const superAdminNav: NavGroup[] = [
             title: "Curriculum",
             icon: GraduationCap,
             children: [
-               { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: Building2 },
+               { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: School },
                { title: "Departments", href: "/admin/academics/curriculum/departments", matchExactOnly: true, icon: Building2 },
             ],
          },
          { title: "Courses", href: "/admin/academics/courses", matchExactOnly: true, icon: BookOpen },
+         { title: "Migrate Session", href: "/admin/academics/migrate-session", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
