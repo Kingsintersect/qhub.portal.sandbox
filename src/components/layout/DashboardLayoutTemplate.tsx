@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
-import { useAuthStore, useAuthHydrated, useSidebarStore } from "@/store";
+import { useAppStore, useAppHydrated, useSidebarStore } from "@/store";
 
 export default function DashboardLayoutTemplate({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { isAuthenticated } = useAuthStore();
-    const hydrated = useAuthHydrated();
+    const { isAuthenticated } = useAppStore();
+    const hydrated = useAppHydrated();
     const { mobileOpen, setMobileOpen } = useSidebarStore();
     const router = useRouter();
 
