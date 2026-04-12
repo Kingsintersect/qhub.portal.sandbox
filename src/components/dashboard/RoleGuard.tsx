@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UserRole, roleDashboardPath } from "@/config/nav.config";
-import { useAuthStore, useAuthHydrated } from "@/store";
+import { useAppStore, useAppHydrated } from "@/store";
 import type { Permission } from "@/types/roles";
 
 /* ------------------------------------------------------------------ */
@@ -67,8 +67,8 @@ export default function RoleGuard({
     fallback,
     children,
 }: RoleGuardProps) {
-    const { user } = useAuthStore();
-    const hydrated = useAuthHydrated();
+    const { user } = useAppStore();
+    const hydrated = useAppHydrated();
     const router = useRouter();
 
     const allowedRoles = Array.isArray(role) ? role : [role];
@@ -105,7 +105,7 @@ export default function RoleGuard({
 /* ------------------------------------------------------------------ */
 
 export function useUserPermissions() {
-    const { user } = useAuthStore();
+    const { user } = useAppStore();
     const userPermissions = user?.permissions;
 
     return {
