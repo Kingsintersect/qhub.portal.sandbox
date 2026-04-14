@@ -12,7 +12,7 @@ import {
     GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuthStore, useNotificationStore } from "@/store";
+import { useAppStore, useNotificationStore } from "@/store";
 
 /* ------------------------------------------------------------------ */
 /*  Stat card                                                          */
@@ -117,7 +117,7 @@ const typeColors: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 export default function StudentDashboardPage() {
-    const { user } = useAuthStore();
+    const { user } = useAppStore();
     const { notifications } = useNotificationStore();
     const unreadNotifs = notifications.filter((n) => !n.read);
 

@@ -165,6 +165,51 @@
   }
 }
 
+/* GLOWING BUTTON EFFECT */
+/* ...keep your existing file... */
+@layer components {
+  .btn-glow::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+
+    background: radial-gradient(circle at 50% 50%,
+        color-mix(in oklab, oklch(var(--primary)) 55%, transparent) 0%,
+        transparent 70%);
+
+    filter: blur(14px);
+    opacity: 0.35;
+    transform: scale(0.98);
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .btn-glow:hover::before,
+  .btn-glow:focus-visible::before {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+
+  /* Optional pulse */
+  .btn-glow {
+    animation: btn-glow-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes btn-glow-pulse {
+
+    0%,
+    100% {
+      filter: drop-shadow(0 0 0 transparent);
+    }
+
+    50% {
+      filter: drop-shadow(0 0 18px color-mix(in oklab, oklch(var(--primary)) 55%, transparent));
+    }
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;

@@ -8,5 +8,5 @@ export default function TutorLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <RoleGuard role={UserRole.LECTURER}>{children}</RoleGuard>;
+    return <RoleGuard role={[UserRole.LECTURER, UserRole.HOD]}>{children}</RoleGuard>;
 }

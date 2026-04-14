@@ -2,6 +2,8 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import ThemeToggle from '../ThemeToggle'
+import { UNIVERSITY_NAME } from '@/config/global.config'
+import Link from 'next/link'
 
 export default function InfoBar() {
     return (
@@ -16,11 +18,11 @@ export default function InfoBar() {
                     <div className="flex items-center justify-between h-10">
                         <div className="flex items-center gap-4">
                             <span className="inline-flex items-center gap-2 text-xs text-theme/80">
-                                <strong className="text-theme">University of Example - Admissions open</strong>
+                                <strong className="text-theme">{UNIVERSITY_NAME} - Admissions open</strong>
                                 <span className="text-theme/70">| Apply for 2026 entry - Scholarships available</span>
                             </span>
-                            <a className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/apply">Apply now</a>
-                            <a className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/calendar">Academic Calendar</a>
+                            <Link className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/admissions">Apply now</Link>
+                            <Link className="text-xs underline text-theme/80 hover:text-primary transition-colors" href="/calendar">Academic Calendar</Link>
                         </div>
 
                         <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Bell, Sun, Moon, Menu, X, Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSidebarStore, useNotificationStore, useAuthStore, useThemeStore } from "@/store";
+import { useSidebarStore, useNotificationStore, useAppStore, useThemeStore } from "@/store";
 import AnimatedLink from "../custom/AnimatedLink";
 
 const typeIcon: Record<string, { bg: string; color: string; char: string }> = {
@@ -23,7 +23,7 @@ function timeAgo(d: Date) {
 }
 
 export default function Header() {
-    const { user } = useAuthStore();
+    const { user } = useAppStore();
     const { theme, toggle: toggleTheme } = useThemeStore();
     const { toggleMobile } = useSidebarStore();
     const { notifications, markRead, markAllRead, unreadCount } = useNotificationStore();
@@ -47,6 +47,15 @@ export default function Header() {
             >
                 <Menu size={18} />
             </button>
+
+            {/* <Logo
+                href="/"
+                showText={false}
+                imageWidth={32}
+                imageHeight={32}
+                imageClassName="h-8 w-8 rounded-lg"
+                className="items-center"
+            /> */}
 
             {/* Search */}
             <div className="flex-1 max-w-sm relative">

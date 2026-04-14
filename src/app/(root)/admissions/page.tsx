@@ -3,6 +3,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { GraduationCap, BookOpen, Briefcase, Monitor, Search, ClipboardList, UploadCloud, Bell, MailCheck, CalendarCheck } from 'lucide-react'
 import Footer from '@/components/navigation/Footer'
+import GlowingButton, { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 const steps = [
     { step: '01', title: 'Choose a Programme', desc: 'Browse our undergraduate, postgraduate and professional programmes and select the one that best aligns with your goals.', icon: Search },
@@ -50,7 +52,7 @@ export default function AdmissionsPage() {
             <section
                 className="relative py-20 px-4 overflow-hidden"
                 style={{
-                   
+
                     backgroundImage: 'url( https://images.unsplash.com/photo-1590012314607-cda9d9b699ae?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fHVuaXZlcnNpdHl8ZW58MHx8MHx8fDA%3D?w=1600&q=80&fit=crop)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
@@ -59,20 +61,20 @@ export default function AdmissionsPage() {
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.45) 100%)' }} />
                 <div className="relative z-10 mx-auto text-justify px-4">
                     <div className='flex space-x-3'>
-                         <div className='leading-25 border-2 border-white/30 rounded-md flex items-center justify-center bg-green-900 ' style={{ color: 'var(--primary)' }} >
+                        <div className='leading-25 border-2 border-white/30 rounded-md flex items-center justify-center bg-green-900 ' style={{ color: 'var(--primary)' }} >
 
-                    </div>
-                    {/* <motion.h1 {...fadeUp(0.08)} className="text-3xl sm:text-3xl font-bold leading-tight mb-6 text-white/70">
+                        </div>
+                        {/* <motion.h1 {...fadeUp(0.08)} className="text-3xl sm:text-3xl font-bold leading-tight mb-6 text-white/70">
                          Admissions
                     </motion.h1> */}
 
-                     <motion.p {...fadeUp(0)} className="text-sm font-semibold tracking-widest uppercase mb-3 text-white/70">
-                        Admissions
-                    </motion.p>
-                        
+                        <motion.p {...fadeUp(0)} className="text-sm font-semibold tracking-widest uppercase mb-3 text-white/70">
+                            Admissions
+                        </motion.p>
+
                     </div>
-                   
-                   
+
+
                     {/* <motion.p {...fadeUp(0.16)} className="text-base sm:text-lg leading-relaxed max-w-2xl mx-auto text-white/80">
                         Joining the University of Example is the first step towards a world-class education. We welcome applications from talented students of all backgrounds. Here is everything you need to know.
                     </motion.p> */}
@@ -98,10 +100,20 @@ export default function AdmissionsPage() {
 
                 {/* Programmes overview */}
                 <section className="py-16">
-                    <motion.h2 {...fadeUp()} className="text-2xl font-bold mb-2">Programmes of Study</motion.h2>
-                    <motion.p {...fadeUp(0.06)} className="text-sm mb-8" style={{ color: 'var(--muted-foreground)' }}>
-                        Choose from a wide range of nationally and internationally accredited programmes.
-                    </motion.p>
+                    <div className="flex items-center justify-between">
+                        <div className="">
+                            <motion.h2 {...fadeUp()} className="text-2xl font-bold mb-2">Programmes of Study</motion.h2>
+                            <motion.p {...fadeUp(0.06)} className="text-sm mb-8" style={{ color: 'var(--muted-foreground)' }}>
+                                Choose from a wide range of nationally and internationally accredited programmes.
+                            </motion.p>
+                        </div>
+
+                        <Link className="inline-flex items-center" href="/auth/signup">
+                            <GlowingButton>
+                                Start Application
+                            </GlowingButton>
+                        </Link>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         {programmes.map((p, i) => (
                             <motion.div
@@ -206,13 +218,18 @@ export default function AdmissionsPage() {
                         <p className="text-sm mb-6 max-w-xl mx-auto" style={{ color: 'var(--muted-foreground)' }}>
                             Create your student portal account to start your application. Our admissions team is available Monday to Friday, 8 am – 5 pm to answer any questions.
                         </p>
-                        <a
-                            href="/student-portal"
+                        {/* <a
+                            href="/auth/signup"
                             className="inline-flex items-center px-8 py-3 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
                             style={{ background: 'var(--primary)' }}
                         >
                             Start Application
-                        </a>
+                        </a> */}
+                        <Link className="inline-flex items-center" href="/auth/signup">
+                            <GlowingButton>
+                                Start Application
+                            </GlowingButton>
+                        </Link>
                     </motion.div>
                 </section>
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, LucideIcon, Sparkles } from "lucide-react";
-import { useAuthStore } from "@/store";
+import { useAppStore } from "@/store";
 
 interface StatItem {
     title: string;
@@ -49,7 +49,7 @@ interface RoleDashboardProps {
 }
 
 function Greeting() {
-    const { user } = useAuthStore();
+    const { user } = useAppStore();
     const firstName = user?.name.split(" ")[0] ?? "there";
     const hour = new Date().getHours();
     const salutation = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -82,7 +82,7 @@ export default function RoleDashboard({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.28 }}
-                className={`relative overflow-hidden rounded-[2rem] border border-border/70 bg-gradient-to-br ${accent} p-6 shadow-sm lg:p-8`}
+                className={`relative overflow-hidden rounded-[2rem] border border-border/70 bg-linear-to-br ${accent} p-6 shadow-sm lg:p-8`}
             >
                 <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]" />
                 <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

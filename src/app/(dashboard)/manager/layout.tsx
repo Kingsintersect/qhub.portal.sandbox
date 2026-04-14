@@ -4,9 +4,9 @@ import { UserRole } from "@/config/nav.config";
 import RoleGuard from "@/components/dashboard/RoleGuard";
 
 export default function ManageLayout({
-    children,
+   children,
 }: {
-    children: React.ReactNode;
+   children: React.ReactNode;
 }) {
-    return <RoleGuard role={UserRole.ADMIN}>{children}</RoleGuard>;
+   return <RoleGuard role={[UserRole.ADMIN, UserRole.DEAN]}>{children}</RoleGuard>;
 }

@@ -138,7 +138,7 @@ export default function AboutPage() {
                     <motion.div {...fadeUp(0.08)} className="rounded-xl p-8 border" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)' }}>
                         <h2 className="text-xl font-bold mb-4">Our Vision</h2>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--muted-foreground)' }}>
-                            To be a world-class institution renowned for excellence in education, transformative research and impactful community engagement — recognised as Africa's foremost university by 2030.
+                           {` To be a world-class institution renowned for excellence in education, transformative research and impactful community engagement — recognised as Africa's foremost university by 2030.`}
                         </p>
                     </motion.div>
                 </section>
