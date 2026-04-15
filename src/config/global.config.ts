@@ -19,6 +19,17 @@ export const CONTACT_INFO = {
     phone: SUPPORT_PHONE,
 };
 
+export const OUR_PROGRAMS = {
+    "Distance Learning Programs": true,
+    "Undergraduate Programs": false,
+    "Postgraduate Programs": true,
+    "Business School Programs": false,
+    "Professional Courses": false,
+    "Certificate Programs": true,
+    "Diploma Programs": false,
+    "Online Courses": false
+};
+
 // FEE AMOUNTS (could also be fetched from API in real implementation)
 export const APPLICATION_FEE_AMOUNT = 10000;
 export const ACCEPTANCE_FEE_AMOUNT = 30000;

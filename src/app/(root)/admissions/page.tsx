@@ -1,10 +1,12 @@
 'use client'
 import React from 'react'
 import { motion } from 'framer-motion'
-import { GraduationCap, BookOpen, Briefcase, Monitor, Search, ClipboardList, UploadCloud, Bell, MailCheck, CalendarCheck } from 'lucide-react'
+import { GraduationCap, BookOpen, Briefcase, Monitor, Search, ClipboardList, UploadCloud, Bell, MailCheck, CalendarCheck, ArrowUpRight } from 'lucide-react'
 import Footer from '@/components/navigation/Footer'
 import GlowingButton, { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { OUR_PROGRAMS } from '@/config/global.config'
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 
 const steps = [
     { step: '01', title: 'Choose a Programme', desc: 'Browse our undergraduate, postgraduate and professional programmes and select the one that best aligns with your goals.', icon: Search },
@@ -15,12 +17,83 @@ const steps = [
     { step: '06', title: 'Enrol & Register', desc: 'Complete online registration for your courses during the designated registration period before the start of semester.', icon: CalendarCheck },
 ]
 
-const programmes = [
-    { level: 'Undergraduate', icon: GraduationCap, count: '120+ programmes', desc: 'Bachelor of Science, Arts, Engineering, Law, Medicine and more across 14 faculties.' },
-    { level: 'Postgraduate', icon: BookOpen, count: '80+ programmes', desc: 'Masters by coursework and research, and doctoral programmes in all academic disciplines.' },
-    { level: 'Professional', icon: Briefcase, count: '30+ programmes', desc: 'Executive education, professional certificates and diplomas designed for industry practitioners.' },
-    { level: 'Distance Learning', icon: Monitor, count: '25+ programmes', desc: 'Fully accredited online degrees and diplomas for students who cannot attend on campus.' },
-]
+const programCategoryIcons = {
+    'Distance Learning Programs': Monitor,
+    'Undergraduate Programs': GraduationCap,
+    'Postgraduate Programs': BookOpen,
+    'Business School Programs': Briefcase,
+    'Professional Courses': Briefcase,
+    'Certificate Programs': BookOpen,
+    'Diploma Programs': GraduationCap,
+    'Online Courses': Monitor,
+} as const
+
+const programCategoryDescriptions = {
+    'Distance Learning Programs': 'Flexible online degree options designed for remote learners.',
+    'Undergraduate Programs': 'Foundational and advanced bachelor programmes across faculties.',
+    'Postgraduate Programs': 'Masters and doctorate programmes for academic growth.',
+    'Business School Programs': 'Business and management pathways for future leaders.',
+    'Professional Courses': 'Industry-focused tracks designed for career advancement.',
+    'Certificate Programs': 'Short focused programmes with practical outcomes.',
+    'Diploma Programs': 'Structured diploma options with strong practical orientation.',
+    'Online Courses': 'Self-paced online learning programmes with guided modules.',
+} as const
+
+const programCatalogByCategory: Record<string, string[]> = {
+    'Distance Learning Programs': [
+        'B.Sc. Computer Science (Distance)',
+        'B.Sc. Accounting (Distance)',
+        'B.Sc. Economics (Distance)',
+        'B.Sc. Mass Communication (Distance)',
+        'B.Sc. Public Administration (Distance)',
+        
+        
+    ],
+    'Undergraduate Programs': [
+        'B.Sc. Computer Science',
+        'B.Sc. Accounting',
+        'B.Sc. Biochemistry',
+        'B.Eng. Electrical Engineering',
+        'LL.B Law',
+    ],
+    'Postgraduate Programs': [
+        'M.Sc. Data Science',
+        'M.Sc. Finance',
+        'MBA',
+        'M.Ed. Educational Management',
+        'Ph.D. Computer Science',
+    ],
+    'Business School Programs': [
+        'Executive MBA',
+        'MBA (Weekend)',
+        'Postgraduate Diploma in Management',
+        'M.Sc. Business Analytics',
+    ],
+    'Professional Courses': [
+        'Project Management Professional Prep',
+        'Digital Marketing Professional',
+        'HR Management Professional',
+        'Financial Modeling & Valuation',
+    ],
+    'Certificate Programs': [
+        'Certificate in Data Analysis',
+        'Certificate in Cybersecurity Basics',
+        'Certificate in Product Design',
+        'Certificate in Public Speaking',
+    ],
+    'Diploma Programs': [
+        'Diploma in Software Engineering',
+        'Diploma in Public Administration',
+        'Diploma in Accounting',
+        'Diploma in International Relations',
+    ],
+    'Online Courses': [
+        'Introduction to Programming',
+        'Entrepreneurship Essentials',
+        'Academic Writing Masterclass',
+        'Career Readiness Toolkit',
+    ],
+}
 
 const requirements = [
     { category: 'Undergraduate', items: ['Minimum 5 O-Level credits including English & Maths', 'JAMB/UTME score of 200 and above', 'Post-UTME screening score', 'Two reference letters', 'Birth certificate or equivalent'] },
@@ -46,6 +119,36 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function AdmissionsPage() {
+    const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
+    const [isProgramsDrawerOpen, setIsProgramsDrawerOpen] = React.useState(false)
+
+    const programmeCategories = React.useMemo(
+        () =>
+            Object.entries(OUR_PROGRAMS).map(([category, isFeatured]) => {
+                const list = programCatalogByCategory[category] ?? []
+                return {
+                    category,
+                    isFeatured,
+                    programs: list,
+                    count: `${list.length}+ programmes`,
+                    desc:
+                        programCategoryDescriptions[category as keyof typeof programCategoryDescriptions] ??
+                        'Explore available programmes and choose your preferred path.',
+                    icon:
+                        programCategoryIcons[category as keyof typeof programCategoryIcons] ??
+                        GraduationCap,
+                }
+            }),
+        []
+    )
+
+    const selectedPrograms = selectedCategory ? programCatalogByCategory[selectedCategory] ?? [] : []
+
+    const openProgramsDrawer = (category: string) => {
+        setSelectedCategory(category)
+        setIsProgramsDrawerOpen(true)
+    }
+
     return (
         <div>
             {/* Hero */}
@@ -115,27 +218,103 @@ export default function AdmissionsPage() {
                         </Link>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                        {programmes.map((p, i) => (
+                        <div className="sm:col-span-2 lg:col-span-4 -mt-2 mb-1 rounded-lg border border-dashed border-primary/35 bg-primary/8 px-4 py-2">
+                            <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                                Click any programme card to open the full list in a drawer and enrol.
+                            </p>
+                        </div>
+                        {programmeCategories.map((p, i) => (
                             <motion.div
-                                key={p.level}
+                                key={p.category}
                                 {...fadeUp(i * 0.07)}
                                 whileHover={{ translateY: -5 }}
-                                className="rounded-xl p-6 border"
-                                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)' }}
+                                className="rounded-xl p-6 border transition-colors"
+                                style={{
+                                    borderColor: p.isFeatured ? 'color-mix(in oklch, var(--primary) 55%, var(--border))' : 'var(--border)',
+                                    backgroundColor: p.isFeatured
+                                        ? 'color-mix(in oklch, var(--primary) 12%, var(--card))'
+                                        : 'var(--card)',
+                                }}
                             >
-                                <div
-                                    className="w-10 h-10 rounded-lg mb-4 flex items-center justify-center"
-                                    style={{ background: 'color-mix(in oklch, var(--primary) 15%, transparent)' }}
+                                <button
+                                    type="button"
+                                    onClick={() => openProgramsDrawer(p.category)}
+                                    className="w-full cursor-pointer text-left"
                                 >
-                                    <p.icon size={20} style={{ color: 'var(--primary)' }} strokeWidth={1.8} />
-                                </div>
-                                <h3 className="text-sm font-bold mb-1">{p.level}</h3>
-                                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--primary)' }}>{p.count}</div>
-                                <p className="text-xs leading-relaxed" style={{ color: 'var(--muted-foreground)' }}>{p.desc}</p>
+                                    <div
+                                        className="w-10 h-10 rounded-lg mb-4 flex items-center justify-center"
+                                        style={{
+                                            background: p.isFeatured
+                                                ? 'color-mix(in oklch, var(--primary) 28%, transparent)'
+                                                : 'color-mix(in oklch, var(--primary) 15%, transparent)',
+                                        }}
+                                    >
+                                        <p.icon size={20} style={{ color: 'var(--primary)' }} strokeWidth={1.8} />
+                                    </div>
+                                    <h3 className="text-sm font-bold mb-1">{p.category}</h3>
+                                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary)' }}>
+                                        <span>{p.count}</span>
+                                        {p.isFeatured ? (
+                                            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Active</span>
+                                        ) : null}
+                                    </div>
+                                    <p className="text-xs leading-relaxed" style={{ color: 'var(--muted-foreground)' }}>{p.desc}</p>
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {p.programs.slice(0, 2).map((program) => (
+                                            <span key={program} className="rounded-full border border-border px-2 py-1 text-[10px]">
+                                                {program}
+                                            </span>
+                                        ))}
+                                        {p.programs.length > 2 ? (
+                                            <span className="rounded-full border border-border px-2 py-1 text-[10px]">
+                                                +{p.programs.length - 2} more
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <div className="mt-4 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                                        <span>Click to view programmes</span>
+                                        <ArrowUpRight size={12} />
+                                    </div>
+                                </button>
                             </motion.div>
                         ))}
                     </div>
                 </section>
+
+                <Drawer open={isProgramsDrawerOpen} onOpenChange={setIsProgramsDrawerOpen}>
+                    <DrawerContent className="h-[88vh] w-screen max-w-none rounded-none sm:rounded-t-2xl">
+                        <DrawerHeader>
+                            <DrawerTitle className="text-xl font-bold">
+                                {selectedCategory ?? 'Programmes'}
+                            </DrawerTitle>
+                            <DrawerDescription>
+                                Select a programme and click Enrol to continue to registration.
+                            </DrawerDescription>
+                        </DrawerHeader>
+
+                        <div className="overflow-y-auto px-4 pb-2">
+                            <div className="space-y-3">
+                                {selectedPrograms.map((programName) => (
+                                    <div key={programName} className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center">
+                                        <p className="text-sm font-medium">{programName}</p>
+                                        <Link
+                                            href={`/auth/signup?category=${encodeURIComponent(selectedCategory ?? '')}&program=${encodeURIComponent(programName)}`}
+                                            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                                        >
+                                            Enrol
+                                        </Link>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <DrawerFooter className="border-t">
+                            <DrawerClose asChild>
+                                <Button variant="outline">Close</Button>
+                            </DrawerClose>
+                        </DrawerFooter>
+                    </DrawerContent>
+                </Drawer>
 
                 {/* How to Apply */}
                 <section id="how-to-apply" className="py-10">

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import {
@@ -175,9 +176,13 @@ function Group({ group, collapsed }: { group: NavGroup; collapsed: boolean }) {
 }
 
 export default function Sidebar() {
-   const { user, logout } = useAppStore();
+   const { user } = useAppStore();
    const { collapsed, toggle } = useSidebarStore();
    const logoRef = useRef<HTMLDivElement>(null);
+
+   const handleLogout = async () => {
+      await signOut({ callbackUrl: "/auth/signin" });
+   };
 
    useEffect(() => {
       if (logoRef.current) {
@@ -256,7 +261,7 @@ export default function Sidebar() {
                   )}
                </AnimatePresence>
                {!collapsed && (
-                  <button onClick={logout} className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors" title="Logout">
+                  <button onClick={handleLogout} className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors" title="Logout">
                      <LogOut size={14} />
                   </button>
                )}

@@ -1,21 +1,34 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { signIn, signOut } from "next-auth/react";
 import { useAppStore, useAppHydrated } from "@/store";
 import { UserRole, roleDashboardPath } from "@/config/nav.config";
+import { DUMMY_PASSWORD } from "@/lib/auth/dummyUsers";
 
 /**
  * Temporary dev-only page. Delete this folder when real auth is ready.
  * Visit /dev-login in your browser to fake-login as any role.
  */
 export default function DevLoginPage() {
-   const { login, logout, isAuthenticated, user } = useAppStore();
+   const { logout, isAuthenticated, user } = useAppStore();
    const hydrated = useAppHydrated();
    const router = useRouter();
 
-   const handleLogin = (role: UserRole) => {
-      login(role);
-      router.push(roleDashboardPath[role]);
+   const handleLogin = async (role: UserRole) => {
+      const target = role === UserRole.STUDENT ? "/process-admission" : roleDashboardPath[role];
+      const result = await signIn("credentials", {
+         role,
+         password: DUMMY_PASSWORD,
+         redirect: false,
+         callbackUrl: target,
+      });
+
+      if (result?.error) {
+         return;
+      }
+
+      router.push(target);
    };
 
    return (
@@ -37,14 +50,20 @@ export default function DevLoginPage() {
                   <div className="flex gap-2">
                      <button
                         onClick={() => {
-                           router.push(roleDashboardPath[user.role]);
+                           const target = user.role === UserRole.STUDENT
+                              ? "/process-admission"
+                              : roleDashboardPath[user.role];
+                           router.push(target);
                         }}
                         className="flex-1 rounded-lg px-3 py-2 text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
                      >
-                        Go to Dashboard
+                        Continue
                      </button>
                      <button
-                        onClick={() => logout()}
+                        onClick={async () => {
+                           await signOut({ redirect: false });
+                           logout();
+                        }}
                         className="flex-1 rounded-lg px-3 py-2 text-xs font-medium bg-destructive text-white hover:opacity-90 transition-opacity"
                      >
                         Logout
