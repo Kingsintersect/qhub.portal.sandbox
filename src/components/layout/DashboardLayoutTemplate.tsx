@@ -19,7 +19,7 @@ export default function DashboardLayoutTemplate({
 
     useEffect(() => {
         if (hydrated && !isAuthenticated) {
-            router.replace("/dev-login");
+            router.replace("/auth/signin");
         }
     }, [hydrated, isAuthenticated, router]);
 
