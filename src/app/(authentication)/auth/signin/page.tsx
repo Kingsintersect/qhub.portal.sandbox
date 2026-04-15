@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -19,7 +19,7 @@ const signInFormSchema = z.object({
     password: passwordSchema,
 });
 
-export default function SignInPage() {
+function SignInFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { status } = useSession();
@@ -81,7 +81,7 @@ export default function SignInPage() {
     }
 
     return (
-        <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+        <div>
             <div className="pointer-events-none absolute -left-10 -top-10 h-44 w-44 rounded-full bg-primary/15 blur-3xl" />
 
             <Link
@@ -204,6 +204,16 @@ export default function SignInPage() {
                     </div>
                 </motion.section>
             </div>
+        </div>
+    );
+}
+
+export default function SignInPage() {
+    return (
+        <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                <SignInFormContent />
+            </Suspense>
         </main>
     );
 }

@@ -30,18 +30,23 @@ export async function POST(request: Request) {
          );
       }
 
-      const email = parsed.data.email.trim().toLowerCase();
-      const username = parsed.data.username.trim().toLowerCase();
-      const password = parsed.data.password;
+      const { email, username, password } = parsed.data as {
+         email: string;
+         username: string;
+         password: string;
+      };
 
-      if (findDummyUserByEmail(email) || getRegisteredMockUserByEmail(email)) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedUsername = username.trim().toLowerCase();
+
+      if (findDummyUserByEmail(normalizedEmail) || getRegisteredMockUserByEmail(normalizedEmail)) {
          return NextResponse.json(
             { message: "An account with this email already exists." },
             { status: 409 }
          );
       }
 
-      if (findDummyUserByUsername(username) || getRegisteredMockUserByUsername(username)) {
+      if (findDummyUserByUsername(normalizedUsername) || getRegisteredMockUserByUsername(normalizedUsername)) {
          return NextResponse.json(
             { message: "An account with this username already exists." },
             { status: 409 }
@@ -49,8 +54,8 @@ export async function POST(request: Request) {
       }
 
       const user = createRegisteredMockUser({
-         email,
-         username,
+         email: normalizedEmail,
+         username: normalizedUsername,
          password,
       });
 
