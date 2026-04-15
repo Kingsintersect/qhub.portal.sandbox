@@ -1,11 +1,18 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSession } from 'next-auth/react'
 import ThemeToggle from '../ThemeToggle'
 import Logo from '@/components/branding/Logo'
+import { roleDashboardPath, UserRole } from '@/config/nav.config'
 
 export default function NavBar() {
     const [scrolled, setScrolled] = useState(false)
+    const { data: session, status } = useSession()
+
+    const isAuthenticated = status === 'authenticated'
+    const role = session?.user?.role as UserRole | undefined
+    const dashboardHref = role ? roleDashboardPath[role] : '/auth/signin'
 
     useEffect(() => {
         const onScroll = () => {
@@ -56,7 +63,12 @@ export default function NavBar() {
                         <div className="flex items-center gap-3">
                             <a className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/dev-login">Visit Portal</a>
                             {/* Theme toggle shown here again for larger screens */}
-                            <a className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/admissions">Apply For Admission</a>
+                            <a
+                                className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition"
+                                href={isAuthenticated ? dashboardHref : '/admissions'}
+                            >
+                                {isAuthenticated ? 'Visit Dashboard' : 'Apply For Admission'}
+                            </a>
                             <div className="hidden sm:block">
                                 <ThemeToggle />
                             </div>
