@@ -71,6 +71,7 @@ let mockStudent: AdmissionStudent = {
     has_applied: false,
     is_admitted: false,
     session: "2025/2026",
+    offer_expiry_date: null,
 };
 
 /* ------------------------------------------------------------------ */
@@ -216,10 +217,14 @@ export const admissionService = {
 
     async devSimulateAdmissionOffered(): Promise<AdmissionStudent> {
         await delay(500);
+        // Set expiry to 14 days from now
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 14);
         mockStudent = {
             ...mockStudent,
             admission_status: "offered",
             is_admitted: true,
+            offer_expiry_date: expiry.toISOString(),
         };
         return { ...mockStudent };
     },
@@ -244,6 +249,43 @@ export const admissionService = {
         return { ...mockStudent };
     },
 
+    /* ---------- Decline Admission ---------- */
+    async declineAdmission(): Promise<AdmissionStudent> {
+        // TODO: replace with → apiClient.post<AdmissionStudent>("/admission/decline", {}, { access_token: true })
+        await delay(800);
+        mockStudent = {
+            ...mockStudent,
+            admission_status: "declined",
+            is_admitted: false,
+            offer_expiry_date: null,
+        };
+        return { ...mockStudent };
+    },
+
+    /* ---------- Dev-only: Simulate Declined ---------- */
+    async devSimulateDeclined(): Promise<AdmissionStudent> {
+        await delay(500);
+        mockStudent = {
+            ...mockStudent,
+            admission_status: "declined",
+            is_admitted: false,
+            offer_expiry_date: null,
+        };
+        return { ...mockStudent };
+    },
+
+    /* ---------- Dev-only: Simulate Expired ---------- */
+    async devSimulateExpired(): Promise<AdmissionStudent> {
+        await delay(500);
+        mockStudent = {
+            ...mockStudent,
+            admission_status: "expired",
+            is_admitted: false,
+            offer_expiry_date: new Date(Date.now() - 86400000).toISOString(), // yesterday
+        };
+        return { ...mockStudent };
+    },
+
     async devResetAll(): Promise<AdmissionStudent> {
         await delay(300);
         mockStudent = {
@@ -261,6 +303,7 @@ export const admissionService = {
             has_applied: false,
             is_admitted: false,
             session: "2025/2026",
+            offer_expiry_date: null,
         };
         return { ...mockStudent };
     },
@@ -351,6 +394,24 @@ export const admissionMutationOptions = {
         createApiMutationOptions<AdmissionStudent, void>({
             mutationKey: [...admissionKeys.all, "dev", "accepted"],
             mutationFn: () => admissionService.devSimulateAdmissionAccepted(),
+        }),
+
+    simulateDeclined: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "declined"],
+            mutationFn: () => admissionService.devSimulateDeclined(),
+        }),
+
+    simulateExpired: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "dev", "expired"],
+            mutationFn: () => admissionService.devSimulateExpired(),
+        }),
+
+    declineAdmission: () =>
+        createApiMutationOptions<AdmissionStudent, void>({
+            mutationKey: [...admissionKeys.all, "decline"],
+            mutationFn: () => admissionService.declineAdmission(),
         }),
 
     simulateTuitionPaid: () =>
