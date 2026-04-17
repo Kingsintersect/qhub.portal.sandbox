@@ -1,4 +1,4 @@
-import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, School, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -28,6 +28,7 @@ import {
 export enum UserRole {
    STUDENT = 'STUDENT',
    LECTURER = 'LECTURER',
+   STAFF = 'STAFF',
    HOD = 'HOD',
    DEAN = 'DEAN',
    BURSARY = 'BURSARY',
@@ -218,14 +219,15 @@ const superAdminNav: NavGroup[] = [
       items: [
          { title: "Sessions", href: "/admin/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
          { title: "Admissions", href: "/admin/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
-         {
-            title: "Curriculum",
-            icon: GraduationCap,
-            children: [
-               { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: School },
-               { title: "Departments", href: "/admin/academics/curriculum/departments", matchExactOnly: true, icon: Building2 },
-            ],
-         },
+         { title: "Course Structure", href: "/admin/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
+         // {
+         //    title: "Curriculum",
+         //    icon: GraduationCap,
+         //    children: [
+         //       { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: School },
+         //       { title: "Departments", href: "/admin/academics/curriculum/departments", matchExactOnly: true, icon: Building2 },
+         //    ],
+         // },
          { title: "Courses", href: "/admin/academics/courses", matchExactOnly: true, icon: BookOpen },
          { title: "Migrate Session", href: "/admin/academics/migrate-session", matchExactOnly: true, icon: BookOpen },
       ],
@@ -234,7 +236,16 @@ const superAdminNav: NavGroup[] = [
       label: "User Management",
       items: [
          { title: "Roles & Permissions", href: "/admin/users/roles", matchExactOnly: true, icon: ShieldCheck },
-         { title: "User  Management", href: "/admin/users/summary", matchExactOnly: true, icon: UserCog },
+         {
+            title: "User Management",
+            icon: UserCog,
+            children: [
+               { title: "Summary", href: "/admin/users/summary", matchExactOnly: true, icon: Users },
+               { title: "Students", href: "/admin/users/students", matchExactOnly: true, icon: GraduationCap },
+               { title: "Lecturers", href: "/admin/users/lecturers", matchExactOnly: true, icon: BookOpen },
+               { title: "Staff", href: "/admin/users/staff", matchExactOnly: true, icon: UserCog },
+            ],
+         },
       ],
    },
    {
@@ -292,12 +303,45 @@ const bursaryNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Staff navigation                                                   */
+/* ------------------------------------------------------------------ */
+
+const staffNav: NavGroup[] = [
+   {
+      items: [
+         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+      ],
+   },
+   {
+      label: "Records",
+      items: [
+         { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
+         { title: "Departments", href: "/manager/departments", matchExactOnly: true, icon: Building2 },
+      ],
+   },
+   {
+      label: "Campus",
+      items: [
+         { title: "Announcements", href: "/manager/announcements", matchExactOnly: true, icon: Bell },
+         { title: "Messages", href: "/manager/messages", matchExactOnly: true, icon: MessageSquare },
+      ],
+   },
+   {
+      label: "Account",
+      items: [
+         { title: "Settings", href: "/manager/settings", matchExactOnly: true, icon: Settings },
+      ],
+   },
+];
+
+/* ------------------------------------------------------------------ */
 /*  Combined config keyed by role                                      */
 /* ------------------------------------------------------------------ */
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
    STUDENT: studentNav,
    LECTURER: lecturerNav,
+   STAFF: staffNav,
    HOD: hodNav,
    DEAN: deanNav,
    BURSARY: bursaryNav,
@@ -309,6 +353,7 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 export const roleDashboardPath: Record<UserRole, string> = {
    [UserRole.STUDENT]: "/student",
    [UserRole.LECTURER]: "/tutor",
+   [UserRole.STAFF]: "/manager",
    [UserRole.HOD]: "/tutor",
    [UserRole.DEAN]: "/manager",
    [UserRole.BURSARY]: "/admin/setup/fee-management",

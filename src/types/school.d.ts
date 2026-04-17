@@ -74,6 +74,88 @@ export type CreateFresherFeePayload = Omit<FresherFeeItem, "id">;
 
 export type CreateOtherFeePayload = Omit<OtherFeeItem, "id">;
 
+// ── Course Structure ────────────────────────
+
+export interface Faculty {
+   id: string;
+   name: string;
+   code: string;
+   description: string;
+   dean_user_id: number | null;
+   email: string;
+   phone_number: string;
+   is_active: boolean;
+   departments_count: number;
+}
+
+export interface Department {
+   id: string;
+   faculty_id: string;
+   name: string;
+   code: string;
+   description: string;
+   hod_user_id: number | null;
+   email: string;
+   phone_number: string;
+   is_active: boolean;
+   programs_count: number;
+}
+
+export interface CurriculumLevel {
+   id: string;
+   department_id: string;
+   name: string;
+   numeric_value: number;
+   semesters_count: number;
+}
+
+export interface CurriculumSemester {
+   id: string;
+   level_id: string;
+   department_id: string;
+   name: string;
+   sequence_no: number;
+   courses_count: number;
+}
+
+export interface CreateFacultyPayload {
+   name: string;
+   code: string;
+   description?: string;
+   email?: string;
+   phone_number?: string;
+}
+
+export type UpdateFacultyPayload = Partial<CreateFacultyPayload>;
+
+export interface CreateDepartmentPayload {
+   faculty_id: string;
+   name: string;
+   code: string;
+   description?: string;
+   email?: string;
+   phone_number?: string;
+}
+
+export type UpdateDepartmentPayload = Partial<Omit<CreateDepartmentPayload, "faculty_id">>;
+
+export interface CreateCurriculumLevelPayload {
+   department_id: string;
+   name: string;
+   numeric_value: number;
+}
+
+export type UpdateCurriculumLevelPayload = Partial<Omit<CreateCurriculumLevelPayload, "department_id">>;
+
+export interface CreateCurriculumSemesterPayload {
+   level_id: string;
+   department_id: string;
+   name: string;
+   sequence_no: number;
+}
+
+export type UpdateCurriculumSemesterPayload = Partial<Omit<CreateCurriculumSemesterPayload, "level_id" | "department_id">>;
+
 // ── Admissions ──────────────────────────────
 
 export type AdmissionStatus = "draft" | "open" | "closed";
