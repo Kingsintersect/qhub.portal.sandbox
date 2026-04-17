@@ -24,21 +24,14 @@ import {
     Layers,
     Plus,
     ArrowRight,
-    ArrowLeft,
     Pencil,
     Loader2,
 } from "lucide-react";
 
 export function LevelManager() {
-    const {
-        selectedDepartmentId,
-        selectedDepartmentName,
-        selectedFacultyName,
-        clearSelectedDepartment,
-        setSelectedLevel,
-    } = useCourseStructureStore();
+    const { setSelectedLevel } = useCourseStructureStore();
 
-    const { data, isLoading } = useLevels(selectedDepartmentId);
+    const { data, isLoading } = useLevels();
     const createLevel = useCreateLevel();
     const updateLevel = useUpdateLevel();
 
@@ -62,10 +55,7 @@ export function LevelManager() {
             await updateLevel.mutateAsync({ id: editingId, payload: values });
             setEditingId(null);
         } else {
-            await createLevel.mutateAsync({
-                ...values,
-                department_id: selectedDepartmentId!,
-            });
+            await createLevel.mutateAsync(values);
         }
         reset({ name: "", numeric_value: 100 });
         setShowForm(false);
@@ -101,24 +91,11 @@ export function LevelManager() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearSelectedDepartment}
-                        title="Back to departments"
-                    >
-                        <ArrowLeft className="size-4" />
-                    </Button>
-                    <div>
-                        <h2 className="text-lg font-semibold text-foreground">Levels</h2>
-                        <p className="text-sm text-muted-foreground">
-                            {selectedFacultyName} &rarr;{" "}
-                            <span className="font-medium text-foreground">
-                                {selectedDepartmentName}
-                            </span>
-                        </p>
-                    </div>
+                <div>
+                    <h2 className="text-lg font-semibold text-foreground">Academic Levels</h2>
+                    <p className="text-sm text-muted-foreground">
+                        University-wide levels shared across all departments and programs.
+                    </p>
                 </div>
                 <Button onClick={() => (showForm ? cancelForm() : setShowForm(true))}>
                     <Plus className="size-4" data-icon="inline-start" />
@@ -199,7 +176,7 @@ export function LevelManager() {
                 <EmptyState
                     icon={Layers}
                     title="No levels yet"
-                    description="Add academic levels to this department (e.g., 100 Level, 200 Level)."
+                    description="Add university-wide academic levels (e.g., 100 Level, 200 Level)."
                     action={
                         <Button onClick={() => setShowForm(true)}>
                             <Plus className="size-4" data-icon="inline-start" />

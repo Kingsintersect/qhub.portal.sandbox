@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import {
    Building2,
    GitBranch,
+   GraduationCap,
    Layers,
    BookOpen,
    Check,
@@ -33,9 +34,15 @@ const STEPS: {
          icon: GitBranch,
       },
       {
+         key: "programs",
+         label: "Programs",
+         description: "Degree programs",
+         icon: GraduationCap,
+      },
+      {
          key: "levels",
          label: "Levels",
-         description: "Define academic levels",
+         description: "Academic levels",
          icon: Layers,
       },
       {
@@ -61,10 +68,11 @@ export function SetupStepper() {
    const currentIdx = getStepIndex(currentStep);
 
    const canNavigate = (idx: number): boolean => {
-      if (idx === 0) return true;
-      if (idx === 1) return !!selectedFacultyId;
-      if (idx === 2) return !!selectedDepartmentId;
-      if (idx === 3) return !!selectedLevelId;
+      if (idx === 0) return true;                   // Faculties: always accessible
+      if (idx === 1) return !!selectedFacultyId;     // Departments: need faculty
+      if (idx === 2) return !!selectedDepartmentId;  // Programs: need department
+      if (idx === 3) return true;                    // Levels: university-wide, always accessible
+      if (idx === 4) return !!selectedLevelId;       // Semesters: need level
       return false;
    };
 

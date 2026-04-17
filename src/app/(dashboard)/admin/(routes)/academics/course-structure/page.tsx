@@ -5,12 +5,14 @@ import { useCourseStructureStore } from "@/store/dashboard/courseStructureStore"
 import { SetupStepper } from "./components/SetupStepper";
 import { FacultyManager } from "./components/FacultyManager";
 import { DepartmentManager } from "./components/DepartmentManager";
+import { ProgramManager } from "./components/ProgramManager";
 import { LevelManager } from "./components/LevelManager";
 import { CurriculumSemesterManager } from "./components/CurriculumSemesterManager";
 
 const stepContent = {
    faculties: FacultyManager,
    departments: DepartmentManager,
+   programs: ProgramManager,
    levels: LevelManager,
    semesters: CurriculumSemesterManager,
 } as const;

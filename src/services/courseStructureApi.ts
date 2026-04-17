@@ -2,12 +2,15 @@ import { createApiMutationOptions, createApiQueryOptions } from "@/lib/clients/a
 import type {
    Faculty,
    Department,
+   Program,
    CurriculumLevel,
    CurriculumSemester,
    CreateFacultyPayload,
    UpdateFacultyPayload,
    CreateDepartmentPayload,
    UpdateDepartmentPayload,
+   CreateProgramPayload,
+   UpdateProgramPayload,
    CreateCurriculumLevelPayload,
    UpdateCurriculumLevelPayload,
    CreateCurriculumSemesterPayload,
@@ -67,23 +70,46 @@ const departments: Department[] = [
    },
 ];
 
-// ── seed: levels ────────────────────────────
+// ── seed: programs ──────────────────────────
 
-const levels: CurriculumLevel[] = [
-   { id: "lvl-1", department_id: "dept-1", name: "100 Level", numeric_value: 100, semesters_count: 2 },
-   { id: "lvl-2", department_id: "dept-1", name: "200 Level", numeric_value: 200, semesters_count: 2 },
-   { id: "lvl-3", department_id: "dept-1", name: "300 Level", numeric_value: 300, semesters_count: 0 },
-   { id: "lvl-4", department_id: "dept-2", name: "100 Level", numeric_value: 100, semesters_count: 0 },
-   { id: "lvl-5", department_id: "dept-3", name: "100 Level", numeric_value: 100, semesters_count: 0 },
+const programs: Program[] = [
+   {
+      id: "prog-1", department_id: "dept-1", name: "B.Sc. Computer Science", code: "CSC",
+      degree_type: "B.Sc.", duration_years: 4, description: "Bachelor of Science in Computer Science",
+      min_credit_units: 150, is_active: true,
+   },
+   {
+      id: "prog-2", department_id: "dept-2", name: "B.Sc. Mathematics", code: "MTH",
+      degree_type: "B.Sc.", duration_years: 4, description: "Bachelor of Science in Mathematics",
+      min_credit_units: 140, is_active: true,
+   },
+   {
+      id: "prog-3", department_id: "dept-3", name: "B.Eng. Mechanical Engineering", code: "MEE",
+      degree_type: "B.Eng.", duration_years: 5, description: "Bachelor of Engineering in Mechanical Engineering",
+      min_credit_units: 180, is_active: true,
+   },
 ];
 
-// ── seed: semesters ─────────────────────────
+// ── seed: levels (university-wide) ──────────
+
+const levels: CurriculumLevel[] = [
+   { id: "lvl-1", name: "100 Level", numeric_value: 100, semesters_count: 2 },
+   { id: "lvl-2", name: "200 Level", numeric_value: 200, semesters_count: 2 },
+   { id: "lvl-3", name: "300 Level", numeric_value: 300, semesters_count: 2 },
+   { id: "lvl-4", name: "400 Level", numeric_value: 400, semesters_count: 2 },
+];
+
+// ── seed: semesters (per level) ─────────────
 
 const curriculumSemesters: CurriculumSemester[] = [
-   { id: "csem-1", level_id: "lvl-1", department_id: "dept-1", name: "1st Semester", sequence_no: 1, courses_count: 6 },
-   { id: "csem-2", level_id: "lvl-1", department_id: "dept-1", name: "2nd Semester", sequence_no: 2, courses_count: 5 },
-   { id: "csem-3", level_id: "lvl-2", department_id: "dept-1", name: "1st Semester", sequence_no: 1, courses_count: 7 },
-   { id: "csem-4", level_id: "lvl-2", department_id: "dept-1", name: "2nd Semester", sequence_no: 2, courses_count: 6 },
+   { id: "csem-1", level_id: "lvl-1", name: "1st Semester", sequence_no: 1, courses_count: 6 },
+   { id: "csem-2", level_id: "lvl-1", name: "2nd Semester", sequence_no: 2, courses_count: 5 },
+   { id: "csem-3", level_id: "lvl-2", name: "1st Semester", sequence_no: 1, courses_count: 7 },
+   { id: "csem-4", level_id: "lvl-2", name: "2nd Semester", sequence_no: 2, courses_count: 6 },
+   { id: "csem-5", level_id: "lvl-3", name: "1st Semester", sequence_no: 1, courses_count: 0 },
+   { id: "csem-6", level_id: "lvl-3", name: "2nd Semester", sequence_no: 2, courses_count: 0 },
+   { id: "csem-7", level_id: "lvl-4", name: "1st Semester", sequence_no: 1, courses_count: 0 },
+   { id: "csem-8", level_id: "lvl-4", name: "2nd Semester", sequence_no: 2, courses_count: 0 },
 ];
 
 // ── Faculties API ───────────────────────────
@@ -164,25 +190,59 @@ export const departmentsApi = {
    },
 };
 
-// ── Levels API ──────────────────────────────
+// ── Programs API ────────────────────────────
+
+export const programsApi = {
+   async listByDepartment(departmentId: string): Promise<ApiListResponse<Program>> {
+      await delay();
+      const result = programs.filter((p) => p.department_id === departmentId);
+      return { data: [...result], total: result.length };
+   },
+
+   async create(payload: CreateProgramPayload): Promise<ApiSingleResponse<Program>> {
+      await delay(500);
+      if (programs.some((p) => p.code === payload.code)) throw new Error("Program code already exists");
+      const item: Program = {
+         id: uid(), department_id: payload.department_id,
+         name: payload.name, code: payload.code,
+         degree_type: payload.degree_type,
+         duration_years: payload.duration_years,
+         description: payload.description ?? "",
+         min_credit_units: payload.min_credit_units,
+         is_active: true,
+      };
+      programs.push(item);
+      // bump count
+      const dept = departments.find((d) => d.id === payload.department_id);
+      if (dept) dept.programs_count++;
+      return { data: item, message: "Program created" };
+   },
+
+   async update(id: string, payload: UpdateProgramPayload): Promise<ApiSingleResponse<Program>> {
+      await delay(500);
+      const idx = programs.findIndex((x) => x.id === id);
+      if (idx === -1) throw new Error("Program not found");
+      programs[idx] = { ...programs[idx], ...payload };
+      return { data: { ...programs[idx] }, message: "Program updated" };
+   },
+};
+
+// ── Levels API (university-wide) ────────────
 
 export const levelsApi = {
-   async listByDepartment(departmentId: string): Promise<ApiListResponse<CurriculumLevel>> {
+   async list(): Promise<ApiListResponse<CurriculumLevel>> {
       await delay();
-      const result = levels
-         .filter((l) => l.department_id === departmentId)
-         .sort((a, b) => a.numeric_value - b.numeric_value);
-      return { data: [...result], total: result.length };
+      const result = [...levels].sort((a, b) => a.numeric_value - b.numeric_value);
+      return { data: result, total: result.length };
    },
 
    async create(payload: CreateCurriculumLevelPayload): Promise<ApiSingleResponse<CurriculumLevel>> {
       await delay(500);
-      if (levels.some((l) => l.department_id === payload.department_id && l.numeric_value === payload.numeric_value)) {
-         throw new Error("Level already exists for this department");
+      if (levels.some((l) => l.numeric_value === payload.numeric_value)) {
+         throw new Error("Level with this value already exists");
       }
       const item: CurriculumLevel = {
-         id: uid(), department_id: payload.department_id,
-         name: payload.name, numeric_value: payload.numeric_value,
+         id: uid(), name: payload.name, numeric_value: payload.numeric_value,
          semesters_count: 0,
       };
       levels.push(item);
@@ -215,7 +275,7 @@ export const curriculumSemestersApi = {
          throw new Error("Semester with this sequence already exists for the level");
       }
       const item: CurriculumSemester = {
-         id: uid(), level_id: payload.level_id, department_id: payload.department_id,
+         id: uid(), level_id: payload.level_id,
          name: payload.name, sequence_no: payload.sequence_no,
          courses_count: 0,
       };
@@ -248,9 +308,13 @@ export const courseStructureKeys = {
       byFaculty: (facultyId: string) => [...courseStructureKeys.departments.all, "by-faculty", facultyId] as const,
       detail: (id: string) => [...courseStructureKeys.departments.all, "detail", id] as const,
    },
+   programs: {
+      all: ["course-structure", "programs"] as const,
+      byDepartment: (departmentId: string) => [...courseStructureKeys.programs.all, "by-dept", departmentId] as const,
+   },
    levels: {
       all: ["course-structure", "levels"] as const,
-      byDepartment: (departmentId: string) => [...courseStructureKeys.levels.all, "by-dept", departmentId] as const,
+      list: () => [...courseStructureKeys.levels.all, "list"] as const,
    },
    semesters: {
       all: ["course-structure", "semesters"] as const,
@@ -273,9 +337,13 @@ export const courseStructureQueryOptions = {
       detail: (id: string) =>
          createApiQueryOptions({ queryKey: courseStructureKeys.departments.detail(id), queryFn: () => departmentsApi.getById(id) }),
    },
-   levels: {
+   programs: {
       byDepartment: (departmentId: string) =>
-         createApiQueryOptions({ queryKey: courseStructureKeys.levels.byDepartment(departmentId), queryFn: () => levelsApi.listByDepartment(departmentId) }),
+         createApiQueryOptions({ queryKey: courseStructureKeys.programs.byDepartment(departmentId), queryFn: () => programsApi.listByDepartment(departmentId) }),
+   },
+   levels: {
+      list: () =>
+         createApiQueryOptions({ queryKey: courseStructureKeys.levels.list(), queryFn: () => levelsApi.list() }),
    },
    semesters: {
       byLevel: (levelId: string) =>
@@ -305,6 +373,16 @@ export const courseStructureMutationOptions = {
       createApiMutationOptions<ApiSingleResponse<Department>, { id: string; payload: UpdateDepartmentPayload }>({
          mutationKey: [...courseStructureKeys.departments.all, "update"],
          mutationFn: ({ id, payload }) => departmentsApi.update(id, payload),
+      }),
+   createProgram: () =>
+      createApiMutationOptions<ApiSingleResponse<Program>, CreateProgramPayload>({
+         mutationKey: [...courseStructureKeys.programs.all, "create"],
+         mutationFn: (payload) => programsApi.create(payload),
+      }),
+   updateProgram: () =>
+      createApiMutationOptions<ApiSingleResponse<Program>, { id: string; payload: UpdateProgramPayload }>({
+         mutationKey: [...courseStructureKeys.programs.all, "update"],
+         mutationFn: ({ id, payload }) => programsApi.update(id, payload),
       }),
    createLevel: () =>
       createApiMutationOptions<ApiSingleResponse<CurriculumLevel>, CreateCurriculumLevelPayload>({

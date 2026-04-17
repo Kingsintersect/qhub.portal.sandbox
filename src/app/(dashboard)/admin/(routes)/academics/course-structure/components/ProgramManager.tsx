@@ -4,10 +4,10 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useDepartments, useCreateDepartment, useUpdateDepartment } from "@/hooks/useCourseStructure";
+import { usePrograms, useCreateProgram, useUpdateProgram } from "@/hooks/useCourseStructure";
 import { useCourseStructureStore } from "@/store/dashboard/courseStructureStore";
-import { departmentSchema, type DepartmentFormValues } from "@/schemas/school.schema";
-import type { Department } from "@/types/school";
+import { programSchema, type ProgramFormValues } from "@/schemas/school.schema";
+import type { Program } from "@/types/school";
 
 import {
     Card,
@@ -22,63 +22,70 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "./EmptyState";
 import {
-    GitBranch,
+    GraduationCap,
     Plus,
-    ArrowRight,
     ArrowLeft,
     Pencil,
     Loader2,
 } from "lucide-react";
 
-export function DepartmentManager() {
+export function ProgramManager() {
     const {
-        selectedFacultyId,
+        selectedDepartmentId,
+        selectedDepartmentName,
         selectedFacultyName,
-        clearSelectedFaculty,
-        setSelectedDepartment,
+        clearSelectedDepartment,
     } = useCourseStructureStore();
 
-    const { data, isLoading } = useDepartments(selectedFacultyId);
-    const createDepartment = useCreateDepartment();
-    const updateDepartment = useUpdateDepartment();
+    const { data, isLoading } = usePrograms(selectedDepartmentId);
+    const createProgram = useCreateProgram();
+    const updateProgram = useUpdateProgram();
 
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const departments = data?.data ?? [];
+    const programs = data?.data ?? [];
 
     const {
         register,
         handleSubmit,
         reset,
         formState: { errors },
-    } = useForm<DepartmentFormValues>({
-        resolver: zodResolver(departmentSchema),
-        defaultValues: { name: "", code: "", description: "", email: "", phone_number: "" },
+    } = useForm<ProgramFormValues>({
+        resolver: zodResolver(programSchema),
+        defaultValues: {
+            name: "",
+            code: "",
+            degree_type: "",
+            duration_years: 4,
+            description: "",
+            min_credit_units: 120,
+        },
     });
 
-    const onSubmit = async (values: DepartmentFormValues) => {
+    const onSubmit = async (values: ProgramFormValues) => {
         if (editingId) {
-            await updateDepartment.mutateAsync({ id: editingId, payload: values });
+            await updateProgram.mutateAsync({ id: editingId, payload: values });
             setEditingId(null);
         } else {
-            await createDepartment.mutateAsync({
+            await createProgram.mutateAsync({
                 ...values,
-                faculty_id: selectedFacultyId!,
+                department_id: selectedDepartmentId!,
             });
         }
-        reset();
+        reset({ name: "", code: "", degree_type: "", duration_years: 4, description: "", min_credit_units: 120 });
         setShowForm(false);
     };
 
-    const startEdit = (dept: Department) => {
-        setEditingId(dept.id);
+    const startEdit = (prog: Program) => {
+        setEditingId(prog.id);
         reset({
-            name: dept.name,
-            code: dept.code,
-            description: dept.description,
-            email: dept.email,
-            phone_number: dept.phone_number,
+            name: prog.name,
+            code: prog.code,
+            degree_type: prog.degree_type,
+            duration_years: prog.duration_years,
+            description: prog.description,
+            min_credit_units: prog.min_credit_units,
         });
         setShowForm(true);
     };
@@ -86,7 +93,7 @@ export function DepartmentManager() {
     const cancelForm = () => {
         setShowForm(false);
         setEditingId(null);
-        reset({ name: "", code: "", description: "", email: "", phone_number: "" });
+        reset({ name: "", code: "", degree_type: "", duration_years: 4, description: "", min_credit_units: 120 });
     };
 
     if (isLoading) {
@@ -101,7 +108,7 @@ export function DepartmentManager() {
         );
     }
 
-    const isPending = createDepartment.isPending || updateDepartment.isPending;
+    const isPending = createProgram.isPending || updateProgram.isPending;
 
     return (
         <div className="space-y-6">
@@ -111,24 +118,24 @@ export function DepartmentManager() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={clearSelectedFaculty}
-                        title="Back to faculties"
+                        onClick={clearSelectedDepartment}
+                        title="Back to departments"
                     >
                         <ArrowLeft className="size-4" />
                     </Button>
                     <div>
-                        <h2 className="text-lg font-semibold text-foreground">Departments</h2>
+                        <h2 className="text-lg font-semibold text-foreground">Programs</h2>
                         <p className="text-sm text-muted-foreground">
-                            Faculty:{" "}
+                            {selectedFacultyName} &rarr;{" "}
                             <span className="font-medium text-foreground">
-                                {selectedFacultyName}
+                                {selectedDepartmentName}
                             </span>
                         </p>
                     </div>
                 </div>
                 <Button onClick={() => (showForm ? cancelForm() : setShowForm(true))}>
                     <Plus className="size-4" data-icon="inline-start" />
-                    New Department
+                    New Program
                 </Button>
             </div>
 
@@ -144,20 +151,20 @@ export function DepartmentManager() {
                     >
                         <Card>
                             <CardHeader>
-                                <CardTitle>{editingId ? "Edit Department" : "Create Department"}</CardTitle>
+                                <CardTitle>{editingId ? "Edit Program" : "Create Program"}</CardTitle>
                                 <CardDescription>
                                     {editingId
-                                        ? "Update department details below."
-                                        : "Add a new department to this faculty."}
+                                        ? "Update the program details below."
+                                        : "Add a degree program to this department (e.g., B.Sc. Computer Science)."}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dept-name">Department Name</Label>
+                                        <Label htmlFor="prog-name">Program Name</Label>
                                         <Input
-                                            id="dept-name"
-                                            placeholder="Computer Science"
+                                            id="prog-name"
+                                            placeholder="B.Sc. Computer Science"
                                             aria-invalid={!!errors.name}
                                             {...register("name")}
                                         />
@@ -166,9 +173,9 @@ export function DepartmentManager() {
                                         )}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dept-code">Code</Label>
+                                        <Label htmlFor="prog-code">Code</Label>
                                         <Input
-                                            id="dept-code"
+                                            id="prog-code"
                                             placeholder="CSC"
                                             aria-invalid={!!errors.code}
                                             {...register("code")}
@@ -178,31 +185,49 @@ export function DepartmentManager() {
                                         )}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dept-email">Email</Label>
+                                        <Label htmlFor="prog-degree">Degree Type</Label>
                                         <Input
-                                            id="dept-email"
-                                            type="email"
-                                            placeholder="csc@uni.edu.ng"
-                                            aria-invalid={!!errors.email}
-                                            {...register("email")}
+                                            id="prog-degree"
+                                            placeholder="B.Sc."
+                                            aria-invalid={!!errors.degree_type}
+                                            {...register("degree_type")}
                                         />
-                                        {errors.email && (
-                                            <p className="text-sm text-destructive">{errors.email.message}</p>
+                                        {errors.degree_type && (
+                                            <p className="text-sm text-destructive">{errors.degree_type.message}</p>
                                         )}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dept-phone">Phone</Label>
+                                        <Label htmlFor="prog-duration">Duration (years)</Label>
                                         <Input
-                                            id="dept-phone"
-                                            placeholder="01-4561001"
-                                            {...register("phone_number")}
+                                            id="prog-duration"
+                                            type="number"
+                                            min={1}
+                                            max={7}
+                                            aria-invalid={!!errors.duration_years}
+                                            {...register("duration_years", { valueAsNumber: true })}
                                         />
+                                        {errors.duration_years && (
+                                            <p className="text-sm text-destructive">{errors.duration_years.message}</p>
+                                        )}
                                     </div>
-                                    <div className="space-y-1.5 sm:col-span-2">
-                                        <Label htmlFor="dept-desc">Description</Label>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="prog-credits">Min Credit Units</Label>
                                         <Input
-                                            id="dept-desc"
-                                            placeholder="Brief description of the department"
+                                            id="prog-credits"
+                                            type="number"
+                                            min={1}
+                                            aria-invalid={!!errors.min_credit_units}
+                                            {...register("min_credit_units", { valueAsNumber: true })}
+                                        />
+                                        {errors.min_credit_units && (
+                                            <p className="text-sm text-destructive">{errors.min_credit_units.message}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="prog-desc">Description</Label>
+                                        <Input
+                                            id="prog-desc"
+                                            placeholder="Brief description"
                                             {...register("description")}
                                         />
                                     </div>
@@ -215,7 +240,7 @@ export function DepartmentManager() {
                                         {isPending && (
                                             <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
                                         )}
-                                        {editingId ? "Save Changes" : "Create Department"}
+                                        {editingId ? "Save Changes" : "Create Program"}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -224,24 +249,24 @@ export function DepartmentManager() {
                 )}
             </AnimatePresence>
 
-            {/* Department List */}
-            {!departments.length && !showForm ? (
+            {/* Program List */}
+            {!programs.length && !showForm ? (
                 <EmptyState
-                    icon={GitBranch}
-                    title="No departments yet"
-                    description="Add departments to this faculty to organize academic programs."
+                    icon={GraduationCap}
+                    title="No programs yet"
+                    description="Add degree programs to this department (e.g., B.Sc., B.Eng.)."
                     action={
                         <Button onClick={() => setShowForm(true)}>
                             <Plus className="size-4" data-icon="inline-start" />
-                            Create First Department
+                            Add First Program
                         </Button>
                     }
                 />
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {departments.map((dept, index) => (
+                    {programs.map((prog, index) => (
                         <motion.div
-                            key={dept.id}
+                            key={prog.id}
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -249,15 +274,15 @@ export function DepartmentManager() {
                             <Card className="relative">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <GitBranch className="size-4 text-primary" />
-                                        {dept.name}
+                                        <GraduationCap className="size-4 text-primary" />
+                                        {prog.name}
                                     </CardTitle>
                                     <CardDescription>
-                                        Code: {dept.code} — {dept.programs_count} program
-                                        {dept.programs_count !== 1 ? "s" : ""}
+                                        {prog.degree_type} — {prog.duration_years} year
+                                        {prog.duration_years !== 1 ? "s" : ""} — {prog.min_credit_units} credit units
                                     </CardDescription>
                                     <CardAction>
-                                        {dept.is_active && (
+                                        {prog.is_active && (
                                             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                                                 <span className="size-1.5 rounded-full bg-primary" />
                                                 Active
@@ -267,20 +292,14 @@ export function DepartmentManager() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            className="flex-1"
-                                            onClick={() =>
-                                                setSelectedDepartment(dept.id, dept.name)
-                                            }
-                                        >
-                                            Programs
-                                            <ArrowRight className="size-4" data-icon="inline-end" />
-                                        </Button>
+                                        <span className="flex-1 text-sm text-muted-foreground">
+                                            Code: {prog.code}
+                                        </span>
                                         <Button
                                             variant="outline"
                                             size="icon"
-                                            onClick={() => startEdit(dept)}
-                                            title="Edit department"
+                                            onClick={() => startEdit(prog)}
+                                            title="Edit program"
                                         >
                                             <Pencil className="size-4" />
                                         </Button>

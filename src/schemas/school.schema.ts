@@ -111,6 +111,17 @@ export const departmentSchema = z.object({
 
 export type DepartmentFormValues = z.infer<typeof departmentSchema>;
 
+export const programSchema = z.object({
+   name: z.string().min(1, "Program name is required"),
+   code: z.string().min(1, "Code is required").max(20, "Code must be 20 characters or less"),
+   degree_type: z.string().min(1, "Degree type is required"),
+   duration_years: z.number().int().min(1, "Duration must be at least 1 year"),
+   description: z.string().optional(),
+   min_credit_units: z.number().int().min(1, "Minimum credit units required"),
+});
+
+export type ProgramFormValues = z.infer<typeof programSchema>;
+
 export const curriculumLevelSchema = z.object({
    name: z.string().min(1, "Level name is required"),
    numeric_value: z.number().int().min(100, "Level must be at least 100"),
@@ -124,3 +135,26 @@ export const curriculumSemesterSchema = z.object({
 });
 
 export type CurriculumSemesterFormValues = z.infer<typeof curriculumSemesterSchema>;
+
+// ── Course Management ───────────────────────
+
+export const courseSchema = z.object({
+   code: z.string().min(1, "Course code is required").max(15, "Code must be 15 characters or less"),
+   title: z.string().min(1, "Course title is required"),
+   description: z.string().optional(),
+   credit_units: z.number().int().min(1, "Credit units must be at least 1").max(12, "Credit units must be 12 or less"),
+   course_type: z.enum(["GENERAL", "FACULTY", "DEPARTMENTAL", "ELECTIVE"], {
+      message: "Course type is required",
+   }),
+   curriculum_semester_id: z.string().min(1, "Semester is required"),
+   owning_department_id: z.string().nullable().optional(),
+});
+
+export type CourseFormValues = z.infer<typeof courseSchema>;
+
+export const programCourseAssignSchema = z.object({
+   program_id: z.string().min(1, "Program is required"),
+   is_required: z.boolean(),
+});
+
+export type ProgramCourseAssignFormValues = z.infer<typeof programCourseAssignSchema>;

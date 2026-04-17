@@ -36,9 +36,6 @@ export function CurriculumSemesterManager() {
     const {
         selectedLevelId,
         selectedLevelName,
-        selectedDepartmentId,
-        selectedDepartmentName,
-        selectedFacultyName,
         clearSelectedLevel,
     } = useCourseStructureStore();
 
@@ -71,7 +68,6 @@ export function CurriculumSemesterManager() {
             await createSemester.mutateAsync({
                 ...values,
                 level_id: selectedLevelId!,
-                department_id: selectedDepartmentId!,
             });
         }
         reset({ name: "", sequence_no: (semesters.length ?? 0) + 2 });
@@ -120,7 +116,6 @@ export function CurriculumSemesterManager() {
                     <div>
                         <h2 className="text-lg font-semibold text-foreground">Semesters</h2>
                         <p className="text-sm text-muted-foreground">
-                            {selectedFacultyName} &rarr; {selectedDepartmentName} &rarr;{" "}
                             <span className="font-medium text-foreground">
                                 {selectedLevelName}
                             </span>

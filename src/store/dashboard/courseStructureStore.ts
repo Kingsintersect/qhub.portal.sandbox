@@ -3,6 +3,7 @@ import { create } from "zustand";
 export type CourseStructureStep =
    | "faculties"
    | "departments"
+   | "programs"
    | "levels"
    | "semesters";
 
@@ -56,13 +57,11 @@ export const useCourseStructureStore = create<CourseStructureState>()((set) => (
       }),
 
    setSelectedDepartment: (id, name) =>
-      set({ selectedDepartmentId: id, selectedDepartmentName: name, currentStep: "levels" }),
+      set({ selectedDepartmentId: id, selectedDepartmentName: name, currentStep: "programs" }),
    clearSelectedDepartment: () =>
       set({
          selectedDepartmentId: null,
          selectedDepartmentName: null,
-         selectedLevelId: null,
-         selectedLevelName: null,
          currentStep: "departments",
       }),
 

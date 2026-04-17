@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronsUpDown, Check, Search } from "lucide-react";
 
 export interface ComboboxOption {
@@ -40,6 +41,8 @@ export default function Combobox({
    const [query, setQuery] = useState("");
    const containerRef = useRef<HTMLDivElement>(null);
    const inputRef = useRef<HTMLInputElement>(null);
+   const dropdownRef = useRef<HTMLDivElement>(null);
+   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
    const selected = options.find((o) => o.value === value) ?? null;
 
@@ -65,6 +68,20 @@ export default function Combobox({
       return () => document.removeEventListener("mousedown", handler);
    }, []);
 
+   // Position dropdown absolutely in portal
+   useEffect(() => {
+      if (open && containerRef.current) {
+         const rect = containerRef.current.getBoundingClientRect();
+         setDropdownStyle({
+            position: "absolute",
+            top: rect.bottom + window.scrollY,
+            left: rect.left + window.scrollX,
+            width: rect.width,
+            zIndex: 2000,
+         });
+      }
+   }, [open]);
+
    return (
       <div ref={containerRef} className={`relative ${className ?? ""}`}>
          <button
@@ -82,8 +99,13 @@ export default function Combobox({
             <ChevronsUpDown size={14} className="shrink-0 ml-2 text-muted-foreground" />
          </button>
 
-         {open && (
-            <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+         {open && typeof window !== "undefined" && createPortal(
+            <div
+               ref={dropdownRef}
+               style={dropdownStyle}
+               className="rounded-xl border border-border bg-card shadow-lg overflow-hidden"
+               onMouseDown={e => e.stopPropagation()}
+            >
                <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
                   <Search size={14} className="text-muted-foreground shrink-0" />
                   <input
@@ -131,7 +153,8 @@ export default function Combobox({
                      })
                   )}
                </ul>
-            </div>
+            </div>,
+            document.body
          )}
       </div>
    );

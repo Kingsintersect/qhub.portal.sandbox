@@ -4,7 +4,7 @@ import {
    courseStructureMutationOptions,
    courseStructureQueryOptions,
 } from "@/services/courseStructureApi";
-import type { UpdateFacultyPayload, UpdateDepartmentPayload, UpdateCurriculumLevelPayload, UpdateCurriculumSemesterPayload } from "@/types/school";
+import type { UpdateFacultyPayload, UpdateDepartmentPayload, UpdateProgramPayload, UpdateCurriculumLevelPayload, UpdateCurriculumSemesterPayload } from "@/types/school";
 
 // ── Faculties ───────────────────────────────
 
@@ -74,12 +74,44 @@ export function useUpdateDepartment() {
    });
 }
 
-// ── Levels ──────────────────────────────────
+// ── Programs ────────────────────────────────
 
-export function useLevels(departmentId: string | null) {
+export function usePrograms(departmentId: string | null) {
    return useQuery({
-      ...courseStructureQueryOptions.levels.byDepartment(departmentId!),
+      ...courseStructureQueryOptions.programs.byDepartment(departmentId!),
       enabled: !!departmentId,
+      staleTime: 1000 * 60 * 5,
+   });
+}
+
+export function useCreateProgram() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...courseStructureMutationOptions.createProgram(),
+      onSuccess: async () => {
+         await Promise.all([
+            qc.invalidateQueries({ queryKey: courseStructureKeys.programs.all }),
+            qc.invalidateQueries({ queryKey: courseStructureKeys.departments.all }),
+         ]);
+      },
+   });
+}
+
+export function useUpdateProgram() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...courseStructureMutationOptions.updateProgram(),
+      onSuccess: async (_, _variables: { id: string; payload: UpdateProgramPayload }) => {
+         await qc.invalidateQueries({ queryKey: courseStructureKeys.programs.all });
+      },
+   });
+}
+
+// ── Levels (university-wide) ────────────────
+
+export function useLevels() {
+   return useQuery({
+      ...courseStructureQueryOptions.levels.list(),
       staleTime: 1000 * 60 * 5,
    });
 }
