@@ -74,6 +74,160 @@ export type CreateFresherFeePayload = Omit<FresherFeeItem, "id">;
 
 export type CreateOtherFeePayload = Omit<OtherFeeItem, "id">;
 
+// ── Course Structure ────────────────────────
+
+export interface Faculty {
+   id: string;
+   name: string;
+   code: string;
+   description: string;
+   dean_user_id: number | null;
+   email: string;
+   phone_number: string;
+   is_active: boolean;
+   departments_count: number;
+}
+
+export interface Department {
+   id: string;
+   faculty_id: string;
+   name: string;
+   code: string;
+   description: string;
+   hod_user_id: number | null;
+   email: string;
+   phone_number: string;
+   is_active: boolean;
+   programs_count: number;
+}
+
+export interface Program {
+   id: string;
+   department_id: string;
+   name: string;
+   code: string;
+   degree_type: string;
+   duration_years: number;
+   description: string;
+   min_credit_units: number;
+   is_active: boolean;
+}
+
+export interface CurriculumLevel {
+   id: string;
+   name: string;
+   numeric_value: number;
+   semesters_count: number;
+}
+
+export interface CurriculumSemester {
+   id: string;
+   level_id: string;
+   name: string;
+   sequence_no: number;
+   courses_count: number;
+}
+
+export interface CreateFacultyPayload {
+   name: string;
+   code: string;
+   description?: string;
+   email?: string;
+   phone_number?: string;
+}
+
+export type UpdateFacultyPayload = Partial<CreateFacultyPayload>;
+
+export interface CreateDepartmentPayload {
+   faculty_id: string;
+   name: string;
+   code: string;
+   description?: string;
+   email?: string;
+   phone_number?: string;
+}
+
+export type UpdateDepartmentPayload = Partial<Omit<CreateDepartmentPayload, "faculty_id">>;
+
+export interface CreateProgramPayload {
+   department_id: string;
+   name: string;
+   code: string;
+   degree_type: string;
+   duration_years: number;
+   description?: string;
+   min_credit_units: number;
+}
+
+export type UpdateProgramPayload = Partial<Omit<CreateProgramPayload, "department_id">>;
+
+export interface CreateCurriculumLevelPayload {
+   name: string;
+   numeric_value: number;
+}
+
+export type UpdateCurriculumLevelPayload = Partial<CreateCurriculumLevelPayload>;
+
+export interface CreateCurriculumSemesterPayload {
+   level_id: string;
+   name: string;
+   sequence_no: number;
+}
+
+export type UpdateCurriculumSemesterPayload = Partial<Omit<CreateCurriculumSemesterPayload, "level_id">>;
+
+// ── Course Management ───────────────────────
+
+export type CourseType = "GENERAL" | "FACULTY" | "DEPARTMENTAL" | "ELECTIVE";
+
+export interface Course {
+   id: string;
+   code: string;
+   title: string;
+   description: string;
+   credit_units: number;
+   course_type: CourseType;
+   curriculum_semester_id: string;
+   owning_department_id: string | null;
+   is_active: boolean;
+   // denormalized for display
+   level_name: string;
+   semester_name: string;
+   department_name: string | null;
+}
+
+export interface ProgramCourse {
+   id: string;
+   program_id: string;
+   course_id: string;
+   is_required: boolean;
+   // denormalized for display
+   program_name: string;
+   program_code: string;
+}
+
+export interface CreateCoursePayload {
+   code: string;
+   title: string;
+   description?: string;
+   credit_units: number;
+   course_type: CourseType;
+   curriculum_semester_id: string;
+   owning_department_id?: string | null;
+}
+
+export type UpdateCoursePayload = Partial<CreateCoursePayload>;
+
+export interface AssignCourseToProgramPayload {
+   program_id: string;
+   course_id: string;
+   is_required: boolean;
+}
+
+export interface UpdateProgramCoursePayload {
+   is_required: boolean;
+}
+
 // ── Admissions ──────────────────────────────
 
 export type AdmissionStatus = "draft" | "open" | "closed";
