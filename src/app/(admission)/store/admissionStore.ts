@@ -32,7 +32,8 @@ function deriveStep(student: AdmissionStudent | null): AdmissionStep {
     if (!student.has_applied) return 1;
 
     // Step 2 → Applied but admission not yet offered/accepted
-    if (student.admission_status === "pending" || student.admission_status === "rejected") return 2;
+    if (student.admission_status === "pending" || student.admission_status === "rejected"
+        || student.admission_status === "declined" || student.admission_status === "expired") return 2;
 
     // Step 3 → Admission offered or accepted, needs acceptance fee payment
     if (student.acceptance_payment_status !== "paid") return 3;

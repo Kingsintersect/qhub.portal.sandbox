@@ -29,7 +29,7 @@ export default function ProcessAdmissionPage() {
     const { data: fees, isLoading: feesLoading } = useFees();
     const { data: student, isLoading: studentLoading, refetch } = useStudentAdmission();
     const currentStep = useAdmissionStore((s) => s.currentStep);
-    const { resetAll, simulateAppPaymentPaid, simulateApplied, simulateOffered, simulateAccepted, simulateTuitionPaid } = useDevSimulate();
+    const { resetAll, simulateAppPaymentPaid, simulateApplied, simulateOffered, simulateAccepted, simulateDeclined, simulateExpired, simulateTuitionPaid } = useDevSimulate();
 
     /* Re-compute step whenever student data updates */
     const computeStep = useAdmissionStore((s) => s.computeStep);
@@ -206,6 +206,30 @@ export default function ProcessAdmissionPage() {
                                 <Loader2 className="size-3 animate-spin" />
                             )}
                             Step 3→4: Acceptance Fee Paid
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => simulateDeclined.mutate()}
+                            disabled={simulateDeclined.isPending}
+                            className="gap-1.5 text-xs text-destructive"
+                        >
+                            {simulateDeclined.isPending && (
+                                <Loader2 className="size-3 animate-spin" />
+                            )}
+                            Simulate: Declined
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => simulateExpired.mutate()}
+                            disabled={simulateExpired.isPending}
+                            className="gap-1.5 text-xs text-amber-600"
+                        >
+                            {simulateExpired.isPending && (
+                                <Loader2 className="size-3 animate-spin" />
+                            )}
+                            Simulate: Expired
                         </Button>
                         <Button
                             variant="outline"

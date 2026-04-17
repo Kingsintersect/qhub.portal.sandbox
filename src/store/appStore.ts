@@ -69,6 +69,7 @@ const clonePermissions = (permissions: Permission[]) =>
 const APP_ROLE_ORDER: UserRole[] = [
    UserRole.STUDENT,
    UserRole.LECTURER,
+   UserRole.STAFF,
    UserRole.HOD,
    UserRole.DEAN,
    UserRole.BURSARY,
@@ -112,6 +113,23 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
          department: "Computer Science",
          faculty: "Science",
          staffId: "STAFF-2145",
+      },
+   },
+   [UserRole.STAFF]: {
+      role: UserRole.STAFF,
+      label: "Staff",
+      description: "General non-academic staff member",
+      dashboardPath: roleDashboardPath[UserRole.STAFF],
+      permissions: pickPermissions(4, 8),
+      profile: {
+         id: "stf-001",
+         name: "Chidinma Eze",
+         email: "c.eze@unilag.edu.ng",
+         role: UserRole.STAFF,
+         availableRoles: [UserRole.STAFF],
+         permissions: pickPermissions(4, 8),
+         department: "Registry",
+         staffId: "STF-0020",
       },
    },
    [UserRole.HOD]: {
