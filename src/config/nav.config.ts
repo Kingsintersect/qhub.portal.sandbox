@@ -229,7 +229,6 @@ const superAdminNav: NavGroup[] = [
          //    ],
          // },
          { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
-         { title: "Migrate Session", href: "/admin/academics/migrate-session", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
