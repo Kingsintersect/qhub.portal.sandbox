@@ -53,7 +53,7 @@ export default function StaffPage() {
    const [editing, setEditing] = useState<Staff | null>(null);
 
    return (
-      <div className="space-y-8">
+      <div className="space-y-8 mx-auto px-4 py-8 sm:px-6 lg:px-8">
          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
             <div className="flex items-center justify-between">
                <div className="flex items-center gap-3">

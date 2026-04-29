@@ -80,6 +80,7 @@ export default function DevLoginPage() {
                      { role: UserRole.HOD, label: "HOD", color: "bg-fuchsia-600 hover:bg-fuchsia-700" },
                      { role: UserRole.DEAN, label: "Dean", color: "bg-orange-600 hover:bg-orange-700" },
                      { role: UserRole.BURSARY, label: "Bursary", color: "bg-cyan-600 hover:bg-cyan-700" },
+                     { role: UserRole.DIRECTOR, label: "Director", color: "bg-pink-600 hover:bg-pink-700" },
                      { role: UserRole.ADMIN, label: "Admin", color: "bg-amber-600 hover:bg-amber-700" },
                      { role: UserRole.SUPER_ADMIN, label: "Super Admin", color: "bg-emerald-600 hover:bg-emerald-700" },
                   ] as const

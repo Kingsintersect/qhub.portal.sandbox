@@ -22,7 +22,7 @@ export default function CourseStructurePage() {
    const StepComponent = stepContent[currentStep];
 
    return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
          {/* Page title */}
          <motion.div
             initial={{ opacity: 0, y: -10 }}
