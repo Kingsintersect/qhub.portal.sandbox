@@ -73,7 +73,7 @@ export default function UsersSummaryPage() {
    const stats = statsData?.data;
 
    return (
-      <div className="space-y-8">
+      <div className="space-y-8 mx-auto px-4 py-8 sm:px-6 lg:px-8">
          {/* Header */}
          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">User Management</h1>

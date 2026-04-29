@@ -32,6 +32,7 @@ export enum UserRole {
    HOD = 'HOD',
    DEAN = 'DEAN',
    BURSARY = 'BURSARY',
+   DIRECTOR = 'DIRECTOR',
    ADMIN = 'ADMIN',
    SUPER_ADMIN = 'SUPER_ADMIN'
 }
@@ -151,6 +152,36 @@ const lecturerNav: NavGroup[] = [
 const hodNav: NavGroup[] = lecturerNav;
 
 /* ------------------------------------------------------------------ */
+/*  Director navigation                                                   */
+/* ------------------------------------------------------------------ */
+
+const directorNav: NavGroup[] = [
+   {
+      items: [
+         { title: "Dashboard", href: "/director/dashboard", matchExactOnly: true, icon: LayoutDashboard },
+      ],
+   },
+   {
+      label: "Scholars",
+      items: [
+         { title: "Student & Lectures", href: "/director/scholars", matchExactOnly: true, icon: GraduationCap },
+      ],
+   },
+   {
+      label: "Academic Reports",
+      items: [
+         { title: "student grades", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
+      ],
+   },
+   {
+      label: "Finances",
+      items: [
+         { title: "Financial Reports", href: "/director/financial-reports", matchExactOnly: true, icon: BarChart3 },
+      ],
+   },
+];
+
+/* ------------------------------------------------------------------ */
 /*  Admin navigation                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -229,7 +260,6 @@ const superAdminNav: NavGroup[] = [
          //    ],
          // },
          { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
-         { title: "Migrate Session", href: "/admin/academics/migrate-session", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
@@ -345,6 +375,7 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
    HOD: hodNav,
    DEAN: deanNav,
    BURSARY: bursaryNav,
+   DIRECTOR: directorNav,
    ADMIN: adminNav,
    SUPER_ADMIN: superAdminNav,
 };
@@ -357,6 +388,7 @@ export const roleDashboardPath: Record<UserRole, string> = {
    [UserRole.HOD]: "/tutor",
    [UserRole.DEAN]: "/manager",
    [UserRole.BURSARY]: "/admin/setup/fee-management",
+   [UserRole.DIRECTOR]: "/director",
    [UserRole.ADMIN]: "/manager",
    [UserRole.SUPER_ADMIN]: "/admin",
 };

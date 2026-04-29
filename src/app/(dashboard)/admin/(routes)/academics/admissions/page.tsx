@@ -115,7 +115,7 @@ export default function AdmissionsPage() {
   if (managingCycleId) {
     const cycle = cycles?.find((c) => c.id === managingCycleId);
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <Button
           variant="ghost"
           size="sm"
@@ -145,7 +145,7 @@ export default function AdmissionsPage() {
 
   // ── Main view ────────────────────────────
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">

@@ -73,6 +73,7 @@ const APP_ROLE_ORDER: UserRole[] = [
    UserRole.HOD,
    UserRole.DEAN,
    UserRole.BURSARY,
+   UserRole.DIRECTOR,
    UserRole.ADMIN,
    UserRole.SUPER_ADMIN,
 ];
@@ -182,6 +183,23 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
          permissions: pickPermissions(6, 7, 11),
          department: "Bursary",
          staffId: "BUR-0011",
+      },
+   },
+   [UserRole.DIRECTOR]: {
+      role: UserRole.DIRECTOR,
+      label: "Director",
+      description: "Director with oversight of academic and financial operations",
+      dashboardPath: roleDashboardPath[UserRole.DIRECTOR],
+      permissions: pickPermissions(1, 2, 4, 5, 6, 7, 9, 11),
+      profile: {
+         id: "dir-001",
+         name: "Dr. Adebayo Oladipo",
+         email: "a.oladipo@unilag.edu.ng",
+         role: UserRole.DIRECTOR,
+         availableRoles: [UserRole.DIRECTOR],
+         permissions: pickPermissions(1, 2, 4, 5, 6, 7, 9, 11),
+         faculty: "Science",
+         staffId: "DIR-0001",
       },
    },
    [UserRole.ADMIN]: {
