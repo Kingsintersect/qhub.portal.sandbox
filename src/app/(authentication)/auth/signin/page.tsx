@@ -201,6 +201,18 @@ function SignInFormContent() {
                             <p className="text-muted-foreground">registrar</p>
                             <p className="text-muted-foreground">password123</p>
                         </div>
+                        {/* <div className="rounded-2xl border border-border bg-background/60 p-4">
+                            <p className="font-semibold">Dean</p>
+                            <p className="text-muted-foreground">o.adeyemi@dean.unilag.edu.ng</p>
+                              <p className="text-muted-foreground">o.adeyemi</p>
+                            <p className="text-muted-foreground">password123</p>
+                        </div> */}
+                        <div className="rounded-2xl border border-border bg-background/60 p-4">
+                            <p className="font-semibold">Director</p>
+                            <p className="text-muted-foreground">a.oladipo@unilag.edu.ng</p>
+                            <p className="text-muted-foreground">a.oladipo</p>
+                            <p className="text-muted-foreground">password123</p>
+                        </div>
                     </div>
                 </motion.section>
             </div>
