@@ -1,4 +1,4 @@
-import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown,  NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -281,15 +281,23 @@ const superAdminNav: NavGroup[] = [
    {
       label: "Finance",
       items: [
-         { title: "Fee Management", href: "/admin/finance/fee-management", matchExactOnly: true, icon: CurrencyIcon },
-         { title: "Financial Summary", href: "/admin/finance/financial-summary", matchExactOnly: true, icon: Currency },
+         { title: "Fee Management", href: "/admin/finance/fee-management", matchExactOnly: true, icon: Banknote },
+         { title: "Financial Summary", href: "/admin/finance/financial-summary", matchExactOnly: true, icon: LandmarkIcon },
       ],
    },
    {
       label: "Grades Management",
       items: [
          { title: "Summary Charts", href: "/admin/grades/summary", matchExactOnly: true, icon: BarChart },
-         { title: "Results", href: "/admin/grades/results", matchExactOnly: true, icon: ListChecks },
+         { title: "Results", href: "/admin/grades/results", matchExactOnly: true, icon: ListChevronsUpDown },
+         { title: "Publish Results", href: "/admin/grades/publish-results", matchExactOnly: true, icon: ListChecks },
+      ],
+   },
+   {
+      label: "Auditing",
+      items: [
+         { title: "Audit Charts", href: "/admin/audit/summary", matchExactOnly: true, icon: ChartNetwork },
+         { title: "Audit management", href: "/admin/audit/audit-management", matchExactOnly: true, icon: NetworkIcon },
       ],
    },
    {
