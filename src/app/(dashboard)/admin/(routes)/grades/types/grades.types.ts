@@ -68,6 +68,7 @@ export interface Grade {
     approvedByName?: string;
     approvedAt?: string;
     remarks?: string;
+    hasOutstandingFees: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -218,6 +219,7 @@ export interface PublishSummary {
     alreadyPublished: number;
     draftCount: number;
     submittedCount: number;
+    withheldCount: number;      // students with outstanding fees (not yet published)
     avgScore: number | null;
     passRate: number;
 }

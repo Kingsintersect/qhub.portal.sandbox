@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Send, AlertTriangle, CheckCircle2, Loader2, Users, BookOpen, TrendingUp } from "lucide-react";
+import { Send, AlertTriangle, CheckCircle2, Loader2, Users, BookOpen, TrendingUp, Banknote } from "lucide-react";
 import Modal from "@/components/custom/Modal";
 import type { Grade, PublishSummary } from "../../types/grades.types";
 import { gradesService } from "../../services/grades.service";
@@ -29,6 +29,7 @@ interface PublishConfirmModalProps {
     courseCode: string;
     semesterLabel: string;
     academicYear: string;
+    withheldCount?: number;
 }
 
 export function PublishConfirmModal({
@@ -41,6 +42,7 @@ export function PublishConfirmModal({
     courseCode,
     semesterLabel,
     academicYear,
+    withheldCount = 0,
 }: PublishConfirmModalProps) {
     const summary: PublishSummary = gradesService.buildPublishSummary(selectedGrades);
     const approvedCount = selectedGrades.filter((g) => g.status === "APPROVED").length;
@@ -133,6 +135,21 @@ export function PublishConfirmModal({
                             </p>
                             <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-0.5">
                                 These results will be published bypassing the approval step. Ensure you have proper authorisation.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Warning for fee-withheld students */}
+                {withheldCount > 0 && (
+                    <div className="flex items-start gap-2.5 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/40 rounded-xl p-3">
+                        <Banknote className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">
+                                {withheldCount} student{withheldCount !== 1 ? "s" : ""} excluded — outstanding fees
+                            </p>
+                            <p className="text-[11px] text-orange-600 dark:text-orange-500 mt-0.5">
+                                These results are withheld and will not be published until the fee balance is cleared.
                             </p>
                         </div>
                     </div>

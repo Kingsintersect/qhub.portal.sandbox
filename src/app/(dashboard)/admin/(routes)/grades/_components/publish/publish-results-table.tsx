@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ChevronUp, ChevronDown, ChevronsUpDown,
-    ChevronLeft, ChevronRight, Search, X,
+    ChevronLeft, ChevronRight, Search, X, Banknote,
 } from "lucide-react";
 import StatusBadge from "@/components/custom/StatusBadge";
 import EmptyState from "@/components/custom/EmptyState";
@@ -76,6 +76,7 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<GradeStatus | "all">("all");
+    const [feeFilter, setFeeFilter] = useState<"all" | "clear" | "outstanding">("all");
     const [page, setPage] = useState(1);
     const [sortKey, setSortKey] = useState<SortKey>(null);
     const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -99,6 +100,8 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
             );
         }
         if (statusFilter !== "all") list = list.filter((g) => g.status === statusFilter);
+        if (feeFilter === "clear") list = list.filter((g) => !g.hasOutstandingFees);
+        if (feeFilter === "outstanding") list = list.filter((g) => g.hasOutstandingFees);
         if (sortKey) {
             list = [...list].sort((a, b) => {
                 const av = a[sortKey] ?? "";
@@ -115,8 +118,8 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
     const safePage = Math.min(page, totalPages);
     const pageSlice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-    // Publishable = not yet published (APPROVED is the primary target; admin can also publish SUBMITTED)
-    const publishableIds = filtered.filter((g) => g.status !== "PUBLISHED").map((g) => g.id);
+    // Publishable = not yet published AND no outstanding fees
+    const publishableIds = filtered.filter((g) => g.status !== "PUBLISHED" && !g.hasOutstandingFees).map((g) => g.id);
     const allPageSelected = pageSlice.length > 0 && pageSlice.every((g) => selectedIds.includes(g.id));
     const someSelected = selectedIds.length > 0;
 
@@ -166,6 +169,17 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
                     <option value="SUBMITTED">Submitted</option>
                     <option value="DRAFT">Draft</option>
                     <option value="PUBLISHED">Published</option>
+                </select>
+
+                {/* Fee filter */}
+                <select
+                    value={feeFilter}
+                    onChange={(e) => { setFeeFilter(e.target.value as "all" | "clear" | "outstanding"); setPage(1); }}
+                    className="px-3 py-2 text-xs border border-border rounded-xl bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                    <option value="all">All Fee Status</option>
+                    <option value="clear">Fee Cleared</option>
+                    <option value="outstanding">Fee Outstanding</option>
                 </select>
 
                 {/* Export */}
@@ -243,6 +257,7 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
                                     <th className="px-3 py-3 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Grade</th>
                                     <th className="px-3 py-3 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">GP</th>
                                     <th className="px-3 py-3 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Status</th>
+                                    <th className="px-3 py-3 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Fees</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -257,13 +272,14 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
                                             transition={{ delay: i * 0.02 }}
                                             className={`border-b border-border/30 last:border-0 transition-colors
                                                 ${isSelected ? "bg-primary/5" : "hover:bg-muted/30"}
-                                                ${isPublished ? "opacity-60" : ""}`}
+                                                ${isPublished ? "opacity-60" : ""}
+                                                ${grade.hasOutstandingFees && !isPublished ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}
                                         >
                                             <td className="px-3 py-3 text-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
-                                                    disabled={isPublished}
+                                                    disabled={isPublished || grade.hasOutstandingFees}
                                                     onChange={() => toggleSelect(grade.id)}
                                                     className="rounded border-border accent-primary w-3.5 h-3.5 disabled:cursor-not-allowed"
                                                 />
@@ -285,6 +301,16 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
                                             </td>
                                             <td className="px-3 py-3 text-center">
                                                 <StatusBadge {...STATUS_BADGE_MAP[grade.status]} dot />
+                                            </td>
+                                            <td className="px-3 py-3 text-center">
+                                                {grade.hasOutstandingFees ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+                                                        <Banknote className="w-3 h-3" />
+                                                        Held
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Cleared</span>
+                                                )}
                                             </td>
                                         </motion.tr>
                                     );
@@ -314,8 +340,8 @@ export function PublishResultsTable({ grades }: PublishResultsTableProps) {
                                             key={p}
                                             onClick={() => setPage(p)}
                                             className={`w-7 h-7 text-xs rounded-lg border transition ${safePage === p
-                                                    ? "bg-primary text-primary-foreground border-primary font-semibold"
-                                                    : "bg-card border-border text-foreground hover:bg-muted"
+                                                ? "bg-primary text-primary-foreground border-primary font-semibold"
+                                                : "bg-card border-border text-foreground hover:bg-muted"
                                                 }`}
                                         >
                                             {p}
