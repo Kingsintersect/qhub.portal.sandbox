@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
 import {
    Send, RotateCcw, CheckCircle2, Users, BookOpen,
-   AlertCircle, Info,
+   AlertCircle, Info, Banknote,
 } from "lucide-react";
 import { SelectionWizard } from "../../_components/publish/selection-wizard";
 import { PublishResultsTable } from "../../_components/publish/publish-results-table";
@@ -71,6 +71,7 @@ export default function PublishResultsPage() {
    const publishedCount = loadedGrades.filter((g) => g.status === "PUBLISHED").length;
    const approvedCount = loadedGrades.filter((g) => g.status === "APPROVED").length;
    const pendingCount = loadedGrades.filter((g) => g.status === "SUBMITTED" || g.status === "DRAFT").length;
+   const feeWithheldCount = loadedGrades.filter((g) => g.hasOutstandingFees && g.status !== "PUBLISHED").length;
 
    const selectedGradeObjects = loadedGrades.filter((g) => selectedIds.includes(g.id));
 
@@ -128,6 +129,21 @@ export default function PublishResultsPage() {
             </div>
          )}
 
+         {/* Fee withholding notice */}
+         {gradesLoaded && feeWithheldCount > 0 && (
+            <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-3 text-xs">
+               <Banknote className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+               <div>
+                  <p className="font-semibold text-amber-700 dark:text-amber-400">
+                     {feeWithheldCount} result{feeWithheldCount !== 1 ? "s" : ""} withheld due to outstanding fees
+                  </p>
+                  <p className="text-amber-600 dark:text-amber-500 mt-0.5">
+                     These students cannot have their results published until their fee balance is cleared.
+                  </p>
+               </div>
+            </div>
+         )}
+
          {/* Results panel */}
          <AnimatePresence>
             {gradesLoaded && (
@@ -157,6 +173,9 @@ export default function PublishResultsPage() {
                               <SummaryPill label="Published" value={publishedCount} colour="border-emerald-200 dark:border-emerald-900/50" />
                               <SummaryPill label="Approved" value={approvedCount} colour="border-blue-200 dark:border-blue-900/50" />
                               <SummaryPill label="Pending" value={pendingCount} colour="border-amber-200 dark:border-amber-900/50" />
+                              {feeWithheldCount > 0 && (
+                                 <SummaryPill label="Fee Hold" value={feeWithheldCount} colour="border-orange-200 dark:border-orange-900/50 text-orange-700 dark:text-orange-400" />
+                              )}
                            </div>
                         </div>
 
@@ -240,6 +259,7 @@ export default function PublishResultsPage() {
                courseCode={selectedCourse.code}
                semesterLabel={selectedSem.label}
                academicYear={selectedAY.label}
+               withheldCount={feeWithheldCount}
             />
          )}
       </div>
