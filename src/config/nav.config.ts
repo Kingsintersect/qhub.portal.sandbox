@@ -1,4 +1,4 @@
-import { Banknote, BarChart, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown,  NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -251,14 +251,6 @@ const superAdminNav: NavGroup[] = [
          { title: "Sessions", href: "/admin/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
          { title: "Admissions", href: "/admin/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
          { title: "Course Structure", href: "/admin/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
-         // {
-         //    title: "Curriculum",
-         //    icon: GraduationCap,
-         //    children: [
-         //       { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: School },
-         //       { title: "Departments", href: "/admin/academics/curriculum/departments", matchExactOnly: true, icon: Building2 },
-         //    ],
-         // },
          { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
       ],
    },
@@ -296,8 +288,8 @@ const superAdminNav: NavGroup[] = [
    {
       label: "Auditing",
       items: [
-         { title: "Audit Charts", href: "/admin/audit/summary", matchExactOnly: true, icon: ChartNetwork },
-         { title: "Audit management", href: "/admin/audit/audit-management", matchExactOnly: true, icon: NetworkIcon },
+         { title: "Audit Overview", href: "/admin/audit", matchExactOnly: true, icon: ChartNetwork },
+         { title: "Audit Logs", href: "/admin/audit/logs", matchExactOnly: true, icon: NetworkIcon },
       ],
    },
    {

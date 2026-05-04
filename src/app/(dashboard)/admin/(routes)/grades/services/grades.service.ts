@@ -201,6 +201,7 @@ function buildMockGrades(): Grade[] {
                status,
                approvedByName: status === "APPROVED" || status === "PUBLISHED" ? "Dr. Adewale Oladele" : undefined,
                approvedAt: status === "APPROVED" || status === "PUBLISHED" ? "2025-01-15T09:30:00Z" : undefined,
+               hasOutstandingFees: student.id % 4 === 0,
                createdAt: "2024-10-01T08:00:00Z",
                updatedAt: "2025-01-15T09:30:00Z",
             });
@@ -488,6 +489,7 @@ class GradesService {
          alreadyPublished,
          draftCount: grades.filter((g) => g.status === "DRAFT").length,
          submittedCount: grades.filter((g) => g.status === "SUBMITTED").length,
+         withheldCount: grades.filter((g) => g.hasOutstandingFees && g.status !== "PUBLISHED").length,
          avgScore,
          passRate: grades.length ? Math.round((passing / grades.length) * 1000) / 10 : 0,
       };

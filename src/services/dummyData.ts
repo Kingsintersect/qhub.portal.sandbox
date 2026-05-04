@@ -84,10 +84,10 @@ const semesters: Semester[] = [
 ];
 
 const programs: Program[] = [
-   { id: "prg-1", name: "B.Sc. Computer Science", code: "CSC" },
-   { id: "prg-2", name: "B.Sc. Mechanical Engineering", code: "MEE" },
-   { id: "prg-3", name: "B.A. Economics", code: "ECO" },
-   { id: "prg-4", name: "B.Sc. Biochemistry", code: "BCH" },
+   { id: "prg-1", department_id: "dept-1", name: "B.Sc. Computer Science", code: "CSC", degree_type: "B.Sc.", duration_years: 4, description: "Bachelor of Science in Computer Science", min_credit_units: 120, is_active: true },
+   { id: "prg-2", department_id: "dept-2", name: "B.Sc. Mechanical Engineering", code: "MEE", degree_type: "B.Sc.", duration_years: 5, description: "Bachelor of Science in Mechanical Engineering", min_credit_units: 150, is_active: true },
+   { id: "prg-3", department_id: "dept-3", name: "B.A. Economics", code: "ECO", degree_type: "B.A.", duration_years: 4, description: "Bachelor of Arts in Economics", min_credit_units: 120, is_active: true },
+   { id: "prg-4", department_id: "dept-4", name: "B.Sc. Biochemistry", code: "BCH", degree_type: "B.Sc.", duration_years: 4, description: "Bachelor of Science in Biochemistry", min_credit_units: 120, is_active: true },
 ];
 
 const feeStructures: FeeStructure[] = [
