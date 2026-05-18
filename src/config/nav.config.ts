@@ -1,4 +1,4 @@
-import { Banknote, BarChart, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart, CalendarCheck2, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -117,7 +117,7 @@ const lecturerNav: NavGroup[] = [
    {
       label: "Teaching",
       items: [
-         { title: "My Courses", href: "/tutor/courses", matchExactOnly: true, icon: BookOpen },
+         { title: "Course Assignments", href: "/tutor/courses", matchExactOnly: true, icon: CalendarCheck2 },
          { title: "Timetable", href: "/tutor/timetable", matchExactOnly: true, icon: CalendarDays },
          {
             title: "Grading",
