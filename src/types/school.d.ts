@@ -359,3 +359,33 @@ export interface ApiSingleResponse<T> {
    data: T;
    message?: string;
 }
+
+// ── Configuration / Settings ─────────────────
+
+export type SettingGroup = "university" | "academic" | "payment" | "moodle" | "system";
+
+export interface Setting {
+   id: number;
+   key: string;
+   value: string;
+   group: string;
+   createdAt: string;
+   updatedAt: string;
+}
+
+export interface CreateSettingPayload {
+   key: string;
+   value: string;
+   group: string;
+}
+
+export interface UpdateSettingPayload {
+   value?: string;
+   group?: string;
+}
+
+export interface SettingsQueryParams {
+   group?: string;
+   page?: number;
+   limit?: number;
+}
