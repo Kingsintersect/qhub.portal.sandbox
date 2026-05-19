@@ -298,6 +298,12 @@ const superAdminNav: NavGroup[] = [
       ],
    },
    {
+      label: "Communications",
+      items: [
+         { title: "Notifications", href: "/admin/notification", matchExactOnly: true, icon: Bell },
+      ],
+   },
+   {
       label: "System",
       items: [
          { title: "Analytics", href: "/admin/system/analytics", matchExactOnly: true, icon: BarChart3 },
