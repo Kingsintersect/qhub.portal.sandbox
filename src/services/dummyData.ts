@@ -26,6 +26,12 @@ import type {
    AdmissionApplication,
    UpdateApplicationPayload,
    ReviewApplicationPayload,
+   ApiListResponse,
+   ApiSingleResponse,
+   Setting,
+   CreateSettingPayload,
+   UpdateSettingPayload,
+   SettingsQueryParams,
 } from "@/types/school";
 
 // ── helpers ─────────────────────────────────
@@ -858,6 +864,7 @@ const admissionApplications: AdmissionApplication[] = [
       denial_reason: null,
       created_at: "2024-06-08T14:00:00Z",
       updated_at: "2024-06-25T11:45:00Z",
+
    },
 ];
 
@@ -917,5 +924,100 @@ export const dummyAdmissionApplicationApi = {
       app.reviewed_by = "Current Manager";
       app.updated_at = new Date().toISOString();
       return { data: { ...app }, message: `Application ${payload.status}` };
+   },
+};
+
+// ─────────────────────────────────────────────
+// CONFIGURATION / SETTINGS
+// ─────────────────────────────────────────────
+
+let _settingsNextId = 200;
+const settingUid = () => ++_settingsNextId;
+
+const settings: Setting[] = [
+   // ── university ─────────────────────────────
+   { id: 1, key: "university_name", value: "ODL University", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 2, key: "university_logo", value: "/logo/logo.png", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 3, key: "university_motto", value: "Knowledge, Truth, Service", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 4, key: "university_email", value: "info@odl.edu.ng", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 5, key: "university_phone", value: "+234-800-000-0000", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 6, key: "university_address", value: "1 University Road, Abuja, Nigeria", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 7, key: "university_website", value: "https://odl.edu.ng", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── academic ───────────────────────────────
+   { id: 8, key: "academic_max_credit_units", value: "24", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 9, key: "academic_min_attendance_pct", value: "75", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 10, key: "academic_grading_system", value: "5.0", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 11, key: "academic_pass_mark", value: "40", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 12, key: "academic_probation_cgpa", value: "1.5", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── payment ────────────────────────────────
+   { id: 13, key: "payment_gateway", value: "paystack", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 14, key: "payment_gateway_key", value: "sk_live_xxxxxxxxxxxx", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 15, key: "payment_application_fee", value: "10000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 16, key: "payment_acceptance_fee", value: "30000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 17, key: "payment_tuition_fee", value: "195000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── moodle ─────────────────────────────────
+   { id: 18, key: "moodle_base_url", value: "https://lms.odl.edu.ng", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 19, key: "moodle_api_token", value: "abc123moodletoken", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 20, key: "moodle_student_role_id", value: "5", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 21, key: "moodle_teacher_role_id", value: "3", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 22, key: "moodle_auto_sync_enabled", value: "true", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 23, key: "moodle_sync_cron_interval", value: "15", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── system ─────────────────────────────────
+   { id: 24, key: "system_maintenance_mode", value: "false", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 25, key: "system_app_version", value: "1.0.0", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 26, key: "system_max_upload_size_mb", value: "10", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 27, key: "system_support_email", value: "support@odl.edu.ng", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+];
+
+export const dummySettingsApi = {
+   list: async (params?: SettingsQueryParams): Promise<ApiListResponse<Setting>> => {
+      await delay();
+      let result = [...settings];
+      if (params?.group) result = result.filter((s) => s.group === params.group);
+      const page = params?.page ?? 1;
+      const limit = params?.limit ?? 50;
+      const start = (page - 1) * limit;
+      return { data: result.slice(start, start + limit), meta: { total: result.length, page, limit } };
+   },
+
+   getById: async (id: number): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.id === id);
+      if (!item) throw new Error("Setting not found");
+      return { data: { ...item } };
+   },
+
+   getByKey: async (key: string): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.key === key);
+      if (!item) throw new Error("Setting not found");
+      return { data: { ...item } };
+   },
+
+   create: async (payload: CreateSettingPayload): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      if (settings.some((s) => s.key === payload.key)) throw new Error("Key already exists");
+      const now = new Date().toISOString();
+      const item: Setting = { id: settingUid(), ...payload, createdAt: now, updatedAt: now };
+      settings.push(item);
+      return { data: { ...item } };
+   },
+
+   update: async (id: number, payload: UpdateSettingPayload): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.id === id);
+      if (!item) throw new Error("Setting not found");
+      if (payload.value !== undefined) item.value = payload.value;
+      if (payload.group !== undefined) item.group = payload.group;
+      item.updatedAt = new Date().toISOString();
+      return { data: { ...item } };
+   },
+
+   remove: async (id: number): Promise<{ message: string }> => {
+      await delay();
+      const idx = settings.findIndex((s) => s.id === id);
+      if (idx === -1) throw new Error("Setting not found");
+      settings.splice(idx, 1);
+      return { message: "Setting deleted" };
    },
 };
