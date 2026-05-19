@@ -1,4 +1,4 @@
-import { Banknote, BarChart, CalendarCheck2, ChartNetwork, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart, CalendarCheck2, ChartNetwork, InspectionPanelIcon, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -246,6 +246,11 @@ const superAdminNav: NavGroup[] = [
       ],
    },
    {
+      items: [
+         { title: "Installation", href: "/admin/Installation/config", matchExactOnly: true, icon: InspectionPanelIcon },
+      ]
+   },
+   {
       label: "Academics",
       items: [
          { title: "Sessions", href: "/admin/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
@@ -290,6 +295,12 @@ const superAdminNav: NavGroup[] = [
       items: [
          { title: "Audit Overview", href: "/admin/audit", matchExactOnly: true, icon: ChartNetwork },
          { title: "Audit Logs", href: "/admin/audit/logs", matchExactOnly: true, icon: NetworkIcon },
+      ],
+   },
+   {
+      label: "Communications",
+      items: [
+         { title: "Notifications", href: "/admin/notification", matchExactOnly: true, icon: Bell },
       ],
    },
    {

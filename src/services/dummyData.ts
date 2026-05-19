@@ -26,6 +26,12 @@ import type {
    AdmissionApplication,
    UpdateApplicationPayload,
    ReviewApplicationPayload,
+   ApiListResponse,
+   ApiSingleResponse,
+   Setting,
+   CreateSettingPayload,
+   UpdateSettingPayload,
+   SettingsQueryParams,
 } from "@/types/school";
 
 // ── helpers ─────────────────────────────────
@@ -858,6 +864,7 @@ const admissionApplications: AdmissionApplication[] = [
       denial_reason: null,
       created_at: "2024-06-08T14:00:00Z",
       updated_at: "2024-06-25T11:45:00Z",
+
    },
 ];
 
@@ -917,5 +924,419 @@ export const dummyAdmissionApplicationApi = {
       app.reviewed_by = "Current Manager";
       app.updated_at = new Date().toISOString();
       return { data: { ...app }, message: `Application ${payload.status}` };
+   },
+};
+
+// ─────────────────────────────────────────────
+// CONFIGURATION / SETTINGS
+// ─────────────────────────────────────────────
+
+let _settingsNextId = 200;
+const settingUid = () => ++_settingsNextId;
+
+const settings: Setting[] = [
+   // ── university ─────────────────────────────
+   { id: 1, key: "university_name", value: "ODL University", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 2, key: "university_logo", value: "/logo/logo.png", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 3, key: "university_motto", value: "Knowledge, Truth, Service", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 4, key: "university_email", value: "info@odl.edu.ng", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 5, key: "university_phone", value: "+234-800-000-0000", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 6, key: "university_address", value: "1 University Road, Abuja, Nigeria", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 7, key: "university_website", value: "https://odl.edu.ng", group: "university", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── academic ───────────────────────────────
+   { id: 8, key: "academic_max_credit_units", value: "24", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 9, key: "academic_min_attendance_pct", value: "75", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 10, key: "academic_grading_system", value: "5.0", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 11, key: "academic_pass_mark", value: "40", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 12, key: "academic_probation_cgpa", value: "1.5", group: "academic", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── payment ────────────────────────────────
+   { id: 13, key: "payment_gateway", value: "paystack", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 14, key: "payment_gateway_key", value: "sk_live_xxxxxxxxxxxx", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 15, key: "payment_application_fee", value: "10000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 16, key: "payment_acceptance_fee", value: "30000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 17, key: "payment_tuition_fee", value: "195000", group: "payment", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── moodle ─────────────────────────────────
+   { id: 18, key: "moodle_base_url", value: "https://lms.odl.edu.ng", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 19, key: "moodle_api_token", value: "abc123moodletoken", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 20, key: "moodle_student_role_id", value: "5", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 21, key: "moodle_teacher_role_id", value: "3", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 22, key: "moodle_auto_sync_enabled", value: "true", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 23, key: "moodle_sync_cron_interval", value: "15", group: "moodle", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   // ── system ─────────────────────────────────
+   { id: 24, key: "system_maintenance_mode", value: "false", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 25, key: "system_app_version", value: "1.0.0", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 26, key: "system_max_upload_size_mb", value: "10", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+   { id: 27, key: "system_support_email", value: "support@odl.edu.ng", group: "system", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" },
+];
+
+export const dummySettingsApi = {
+   list: async (params?: SettingsQueryParams): Promise<ApiListResponse<Setting>> => {
+      await delay();
+      let result = [...settings];
+      if (params?.group) result = result.filter((s) => s.group === params.group);
+      const page = params?.page ?? 1;
+      const limit = params?.limit ?? 50;
+      const start = (page - 1) * limit;
+      return { data: result.slice(start, start + limit), meta: { total: result.length, page, limit } };
+   },
+
+   getById: async (id: number): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.id === id);
+      if (!item) throw new Error("Setting not found");
+      return { data: { ...item } };
+   },
+
+   getByKey: async (key: string): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.key === key);
+      if (!item) throw new Error("Setting not found");
+      return { data: { ...item } };
+   },
+
+   create: async (payload: CreateSettingPayload): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      if (settings.some((s) => s.key === payload.key)) throw new Error("Key already exists");
+      const now = new Date().toISOString();
+      const item: Setting = { id: settingUid(), ...payload, createdAt: now, updatedAt: now };
+      settings.push(item);
+      return { data: { ...item } };
+   },
+
+   update: async (id: number, payload: UpdateSettingPayload): Promise<ApiSingleResponse<Setting>> => {
+      await delay();
+      const item = settings.find((s) => s.id === id);
+      if (!item) throw new Error("Setting not found");
+      if (payload.value !== undefined) item.value = payload.value;
+      if (payload.group !== undefined) item.group = payload.group;
+      item.updatedAt = new Date().toISOString();
+      return { data: { ...item } };
+   },
+
+   remove: async (id: number): Promise<{ message: string }> => {
+      await delay();
+      const idx = settings.findIndex((s) => s.id === id);
+      if (idx === -1) throw new Error("Setting not found");
+      settings.splice(idx, 1);
+      return { message: "Setting deleted" };
+   },
+};
+
+// ─────────────────────────────────────────────
+// NOTIFICATION MODULE
+// ─────────────────────────────────────────────
+
+import type {
+   NotificationTemplate,
+   Notification,
+   CreateTemplatePayload,
+   UpdateTemplatePayload,
+   SendNotificationPayload,
+   BulkNotificationPayload,
+   BulkNotificationResponse,
+   NotificationsQueryParams,
+   NotificationListResponse,
+   TemplateListResponse,
+} from "@/types/notifications";
+
+let _notifNextId = 300;
+const notifUid = () => ++_notifNextId;
+
+// ── Seed: Templates ───────────────────────────
+
+const notificationTemplates: NotificationTemplate[] = [
+   {
+      id: 1,
+      name: "welcome_email",
+      subject: "Welcome to {{university_name}}, {{firstName}}!",
+      body: "Dear {{firstName}},\n\nWelcome to {{university_name}}. Your account has been created successfully.\n\nYour login email is {{email}}.\n\nBest regards,\nAdmin Team",
+      channel: "EMAIL",
+      isActive: true,
+      createdAt: "2024-01-10T08:00:00Z",
+      updatedAt: "2024-01-10T08:00:00Z",
+   },
+   {
+      id: 2,
+      name: "application_received",
+      subject: "Admission Application Received — {{applicationNumber}}",
+      body: "Dear {{firstName}},\n\nWe have received your admission application (Ref: {{applicationNumber}}).\n\nYou will be notified once a decision is made.\n\nAdmissions Office",
+      channel: "EMAIL",
+      isActive: true,
+      createdAt: "2024-01-15T09:00:00Z",
+      updatedAt: "2024-01-15T09:00:00Z",
+   },
+   {
+      id: 3,
+      name: "application_approved",
+      subject: "Congratulations! Your Admission Has Been Approved",
+      body: "Dear {{firstName}},\n\nWe are pleased to inform you that your application has been APPROVED.\n\nPlease log in to complete your acceptance process.\n\nAdmissions Office",
+      channel: "EMAIL",
+      isActive: true,
+      createdAt: "2024-01-15T10:00:00Z",
+      updatedAt: "2024-01-15T10:00:00Z",
+   },
+   {
+      id: 4,
+      name: "payment_confirmed",
+      subject: "Payment Confirmed — Invoice {{invoiceNumber}}",
+      body: "Dear {{firstName}},\n\nYour payment for invoice {{invoiceNumber}} (₦{{amount}}) has been confirmed.\n\nThank you.\n\nBursary",
+      channel: "EMAIL",
+      isActive: true,
+      createdAt: "2024-02-01T08:00:00Z",
+      updatedAt: "2024-02-01T08:00:00Z",
+   },
+   {
+      id: 5,
+      name: "result_published",
+      subject: "Your {{semester}} Results Are Now Available",
+      body: "Dear {{firstName}},\n\nYour results for {{semester}} have been published. Log in to your portal to view your grades.\n\nAcademic Registry",
+      channel: "IN_APP",
+      isActive: true,
+      createdAt: "2024-03-01T08:00:00Z",
+      updatedAt: "2024-03-01T08:00:00Z",
+   },
+   {
+      id: 6,
+      name: "sms_otp",
+      subject: "OTP Verification",
+      body: "Your OTP is {{otp}}. Valid for 10 minutes. Do not share with anyone.",
+      channel: "SMS",
+      isActive: true,
+      createdAt: "2024-01-10T08:00:00Z",
+      updatedAt: "2024-01-10T08:00:00Z",
+   },
+   {
+      id: 7,
+      name: "maintenance_alert",
+      subject: "Scheduled Maintenance Notice",
+      body: "The portal will be offline for maintenance on {{date}} from {{start_time}} to {{end_time}}. Please plan accordingly.",
+      channel: "IN_APP",
+      isActive: false,
+      createdAt: "2024-04-01T08:00:00Z",
+      updatedAt: "2024-04-15T10:00:00Z",
+   },
+];
+
+// ── Seed: Notifications ───────────────────────
+
+const notifications: Notification[] = [
+   {
+      id: 1,
+      userId: 101,
+      userEmail: "chidi.okafor@odl.edu.ng",
+      userName: "Chidi Okafor",
+      templateId: 1,
+      subject: "Welcome to ODL University, Chidi!",
+      body: "Dear Chidi,\n\nWelcome to ODL University. Your account has been created successfully.",
+      channel: "EMAIL",
+      status: "SENT",
+      sentAt: "2024-06-01T09:00:00Z",
+      readAt: null,
+      createdAt: "2024-06-01T09:00:00Z",
+   },
+   {
+      id: 2,
+      userId: 102,
+      userEmail: "amara.nwosu@odl.edu.ng",
+      userName: "Amara Nwosu",
+      templateId: 2,
+      subject: "Admission Application Received — APP-2024-0042",
+      body: "Dear Amara,\n\nWe have received your admission application (Ref: APP-2024-0042).",
+      channel: "EMAIL",
+      status: "SENT",
+      sentAt: "2024-06-10T11:00:00Z",
+      readAt: "2024-06-10T14:00:00Z",
+      createdAt: "2024-06-10T11:00:00Z",
+   },
+   {
+      id: 3,
+      userId: 103,
+      userEmail: "emeka.eze@odl.edu.ng",
+      userName: "Emeka Eze",
+      templateId: 3,
+      subject: "Congratulations! Your Admission Has Been Approved",
+      body: "Dear Emeka,\n\nWe are pleased to inform you that your application has been APPROVED.",
+      channel: "EMAIL",
+      status: "SENT",
+      sentAt: "2024-06-20T10:00:00Z",
+      readAt: "2024-06-20T12:00:00Z",
+      createdAt: "2024-06-20T10:00:00Z",
+   },
+   {
+      id: 4,
+      userId: 104,
+      userEmail: "fatima.bello@odl.edu.ng",
+      userName: "Fatima Bello",
+      templateId: 4,
+      subject: "Payment Confirmed — INV-2024-0089",
+      body: "Dear Fatima,\n\nYour payment for invoice INV-2024-0089 (₦195,000) has been confirmed.",
+      channel: "EMAIL",
+      status: "FAILED",
+      sentAt: null,
+      readAt: null,
+      createdAt: "2024-07-01T08:00:00Z",
+   },
+   {
+      id: 5,
+      userId: 101,
+      userEmail: "chidi.okafor@odl.edu.ng",
+      userName: "Chidi Okafor",
+      templateId: 5,
+      subject: "Your 1st Semester Results Are Now Available",
+      body: "Dear Chidi,\n\nYour results for 1st Semester 2024/2025 have been published.",
+      channel: "IN_APP",
+      status: "READ",
+      sentAt: "2024-11-15T08:00:00Z",
+      readAt: "2024-11-15T10:00:00Z",
+      createdAt: "2024-11-15T08:00:00Z",
+   },
+   {
+      id: 6,
+      userId: 102,
+      userEmail: "amara.nwosu@odl.edu.ng",
+      userName: "Amara Nwosu",
+      subject: "Portal Maintenance Tonight",
+      body: "The portal will be offline for maintenance tonight from 11pm to 2am.",
+      channel: "IN_APP",
+      status: "PENDING",
+      sentAt: null,
+      readAt: null,
+      createdAt: "2024-12-01T16:00:00Z",
+   },
+];
+
+// ── Dummy API: Templates ──────────────────────
+
+export const dummyNotificationTemplateApi = {
+   list: async (): Promise<TemplateListResponse> => {
+      await delay();
+      return {
+         data: [...notificationTemplates],
+         meta: { total: notificationTemplates.length, page: 1, limit: 50 },
+      };
+   },
+
+   getById: async (id: number): Promise<{ data: NotificationTemplate }> => {
+      await delay();
+      const item = notificationTemplates.find((t) => t.id === id);
+      if (!item) throw new Error("Template not found");
+      return { data: { ...item } };
+   },
+
+   create: async (payload: CreateTemplatePayload): Promise<{ data: NotificationTemplate }> => {
+      await delay();
+      if (notificationTemplates.some((t) => t.name === payload.name))
+         throw new Error("Template name already exists");
+      const now = new Date().toISOString();
+      const item: NotificationTemplate = { id: notifUid(), ...payload, isActive: true, createdAt: now, updatedAt: now };
+      notificationTemplates.push(item);
+      return { data: { ...item } };
+   },
+
+   update: async (id: number, payload: UpdateTemplatePayload): Promise<{ data: NotificationTemplate }> => {
+      await delay();
+      const item = notificationTemplates.find((t) => t.id === id);
+      if (!item) throw new Error("Template not found");
+      Object.assign(item, payload, { updatedAt: new Date().toISOString() });
+      return { data: { ...item } };
+   },
+
+   remove: async (id: number): Promise<{ message: string }> => {
+      await delay();
+      const idx = notificationTemplates.findIndex((t) => t.id === id);
+      if (idx === -1) throw new Error("Template not found");
+      notificationTemplates.splice(idx, 1);
+      return { message: "Template deleted" };
+   },
+};
+
+// ── Dummy API: Notifications ──────────────────
+
+export const dummyNotificationApi = {
+   list: async (params?: NotificationsQueryParams): Promise<NotificationListResponse> => {
+      await delay();
+      let result = [...notifications];
+      if (params?.status) result = result.filter((n) => n.status === params.status);
+      if (params?.channel) result = result.filter((n) => n.channel === params.channel);
+      const page = params?.page ?? 1;
+      const limit = params?.limit ?? 20;
+      const start = (page - 1) * limit;
+      const unreadCount = result.filter((n) => n.status !== "READ").length;
+      return {
+         data: result.slice(start, start + limit),
+         meta: { total: result.length, page, limit, unreadCount },
+      };
+   },
+
+   getById: async (id: number): Promise<{ data: Notification }> => {
+      await delay();
+      const item = notifications.find((n) => n.id === id);
+      if (!item) throw new Error("Notification not found");
+      return { data: { ...item } };
+   },
+
+   unreadCount: async (): Promise<{ count: number }> => {
+      await delay(150);
+      return { count: notifications.filter((n) => n.status !== "READ").length };
+   },
+
+   send: async (payload: SendNotificationPayload): Promise<{ data: Notification }> => {
+      await delay();
+      const now = new Date().toISOString();
+      const item: Notification = {
+         id: notifUid(),
+         userId: payload.userId,
+         templateId: payload.templateId,
+         subject: payload.subject,
+         body: payload.body,
+         channel: payload.channel,
+         status: payload.channel === "IN_APP" ? "SENT" : "PENDING",
+         sentAt: payload.channel === "IN_APP" ? now : null,
+         readAt: null,
+         createdAt: now,
+      };
+      notifications.unshift(item);
+      return { data: { ...item } };
+   },
+
+   sendBulk: async (payload: BulkNotificationPayload): Promise<BulkNotificationResponse> => {
+      await delay(600);
+      const now = new Date().toISOString();
+      for (const userId of payload.userIds) {
+         notifications.unshift({
+            id: notifUid(),
+            userId,
+            templateId: payload.templateId,
+            subject: payload.subject,
+            body: payload.body,
+            channel: payload.channel,
+            status: payload.channel === "IN_APP" ? "SENT" : "PENDING",
+            sentAt: payload.channel === "IN_APP" ? now : null,
+            readAt: null,
+            createdAt: now,
+         });
+      }
+      return { sent: payload.userIds.length, errors: [] };
+   },
+
+   markRead: async (id: number): Promise<{ data: Notification }> => {
+      await delay(150);
+      const item = notifications.find((n) => n.id === id);
+      if (!item) throw new Error("Notification not found");
+      item.status = "READ";
+      item.readAt = new Date().toISOString();
+      return { data: { ...item } };
+   },
+
+   markAllRead: async (): Promise<{ message: string }> => {
+      await delay(300);
+      const now = new Date().toISOString();
+      notifications.forEach((n) => {
+         if (n.status !== "READ") {
+            n.status = "READ";
+            n.readAt = now;
+         }
+      });
+      return { message: "All notifications marked as read" };
    },
 };
