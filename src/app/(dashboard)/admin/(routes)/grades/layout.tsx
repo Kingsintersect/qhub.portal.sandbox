@@ -4,14 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, TableProperties, BarChart2, Send } from "lucide-react";
 
-const TABS = [
-    { label: "Results", href: "/admin/grades/results", Icon: TableProperties },
-    { label: "Summary", href: "/admin/grades/summary", Icon: BarChart2 },
-    { label: "Publish Results", href: "/admin/grades/publish-results", Icon: Send },
-];
+// const TABS = [
+//     { label: "Results", href: "/admin/grades/results", Icon: TableProperties },
+//     { label: "Summary", href: "/admin/grades/summary", Icon: BarChart2 },
+//     { label: "Publish Results", href: "/admin/grades/publish-results", Icon: Send },
+// ];
 
 export default function GradesLayout({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
+   const pathname = usePathname();
+   // Gets "admin" or "manager"
+      const baseRoute = pathname.split("/")[1];
+      const TABS = [
+         { label: "Results", href: `/${baseRoute}/grades/results`, Icon: TableProperties },
+         { label: "Summary", href: `/${baseRoute}/grades/summary`, Icon: BarChart2 },
+         { label: "Publish Results", href: `/${baseRoute}/grades/publish-results`, Icon: Send },
+      ];
 
     return (
         <div className="flex flex-col min-h-full">

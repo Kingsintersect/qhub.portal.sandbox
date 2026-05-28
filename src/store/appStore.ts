@@ -1,3 +1,5 @@
+"use client";
+
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -46,18 +48,52 @@ const permission = (
 });
 
 const allPermissions: Permission[] = [
+   // ========== ACADEMICS ==========
    permission(1, "results", "view.own", "academics", "View own results"),
-   permission(2, "results", "upload", "academics", "Upload course results"),
-   permission(3, "courses", "register", "academics", "Register courses"),
-   permission(4, "students", "view.class", "students", "View class list"),
-   permission(5, "courses", "approve", "academics", "Approve course registration"),
-   permission(6, "fees", "pay", "finance", "Pay school fees"),
-   permission(7, "fees", "verify", "finance", "Verify fee payment"),
-   permission(8, "users", "manage", "admin", "Manage platform users"),
-   permission(9, "results", "approve", "academics", "Approve uploaded results"),
+   permission(2, "results", "view.all", "academics", "View all results"),
+   permission(3, "results", "manage", "academics", "Create, edit, upload, approve results"),
+   permission(4, "results", "publish", "academics", "Publish results to students"),
+   permission(5, "results", "export", "academics", "Export results reports"),
+   permission(6, "results", "analyze", "academics", "View grade analytics"),
+
+   permission(7, "courses", "register", "academics", "Register for courses"),
+   permission(8, "courses", "approve", "academics", "Approve course registration"),
+
+   // ========== USER MANAGEMENT ==========
+   permission(9, "users", "manage", "admin", "Manage platform users"),
    permission(10, "departments", "manage", "admin", "Manage departments"),
-   permission(11, "fees", "configure", "finance", "Configure fee structures"),
-   permission(12, "students", "admit", "students", "Process student admissions"),
+
+   permission(11, "students", "view", "user-management", "View students"),
+   permission(12, "students", "manage", "user-management", "Manage students"),
+   permission(13, "students", "admit", "user-management", "Admit students"),
+
+   permission(14, "tutors", "view", "user-management", "View tutors"),
+   permission(15, "tutors", "manage", "user-management", "Manage tutors"),
+
+   permission(16, "staff", "view", "user-management", "View staff"),
+   permission(17, "staff", "manage", "user-management", "Manage staff"),
+
+   // ========== FINANCE ==========
+   // Student payments
+   permission(18, "fees", "pay", "finance", "Pay school fees"),
+   permission(19, "fees", "view.own", "finance", "View own fee schedule and transactions"),
+
+   // Fee management (Admin/Bursary)
+   permission(20, "fees", "view", "finance", "View all fee structures and transactions"),
+   permission(21, "fees", "manage", "finance", "Manage freshers fees, tuition fees, other fees"),
+   permission(22, "fees", "configure", "finance", "Configure fee structures and generate accounts"),
+   permission(23, "fees", "verify", "finance", "Verify fee payments and approve waivers"),
+
+   // Financial reporting
+   permission(24, "finance", "view.dashboard", "finance", "View financial dashboard and analytics"),
+   permission(25, "finance", "view.transactions", "finance", "View all student transactions"),
+   permission(26, "finance", "export", "finance", "Export financial reports and invoices"),
+
+   permission(27, "academics", "configure", "academics", "Configure academic sessions and semesters"),
+   permission(28, "admissions", "manage", "admissions", "Manage admission cycles and entry requirements"),
+   permission(29, "admissions", "view", "admissions", "View admission applications and statuses"),
+
+   permission(29, "course_structure", "manage", "academics", "Manage faculties, departments, programs, levels, semesters"),
 ];
 
 const pickPermissions = (...ids: number[]) =>
@@ -79,152 +115,179 @@ const APP_ROLE_ORDER: UserRole[] = [
 ];
 
 const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
+   // ========== STUDENT ==========
    [UserRole.STUDENT]: {
       role: UserRole.STUDENT,
       label: "Student",
       description: "Regular undergraduate or postgraduate student",
       dashboardPath: roleDashboardPath[UserRole.STUDENT],
-      permissions: pickPermissions(1, 3, 6),
+      permissions: pickPermissions(1, 7, 18, 19), // results:view.own, courses:register, fees:pay
       profile: {
          id: "std-001",
          name: "Chukwuemeka Okonkwo",
          email: "c.okonkwo@students.unilag.edu.ng",
          role: UserRole.STUDENT,
          availableRoles: [UserRole.STUDENT],
-         permissions: pickPermissions(1, 3, 6),
+         permissions: pickPermissions(1, 7, 18, 19),
          department: "Computer Science",
          faculty: "Science",
          matricNo: "190404001",
          level: "400 Level",
       },
    },
+
+   // ========== LECTURER ==========
    [UserRole.LECTURER]: {
       role: UserRole.LECTURER,
       label: "Lecturer",
       description: "Course lecturer and academic advisor",
       dashboardPath: roleDashboardPath[UserRole.LECTURER],
-      permissions: pickPermissions(1, 2, 4),
+      permissions: pickPermissions(1, 3, 11, 14), // results:view.own, results:manage, students:view, tutors:view
       profile: {
          id: "lec-001",
          name: "Dr. Aisha Bello",
          email: "a.bello@unilag.edu.ng",
          role: UserRole.LECTURER,
          availableRoles: [UserRole.LECTURER],
-         permissions: pickPermissions(1, 2, 4),
+         permissions: pickPermissions(1, 3, 11, 14),
          department: "Computer Science",
          faculty: "Science",
          staffId: "STAFF-2145",
       },
    },
+
+   // ========== STAFF ==========
    [UserRole.STAFF]: {
       role: UserRole.STAFF,
       label: "Staff",
       description: "General non-academic staff member",
       dashboardPath: roleDashboardPath[UserRole.STAFF],
-      permissions: pickPermissions(4, 8),
+      permissions: pickPermissions(11, 9), // students:view, users:manage
       profile: {
          id: "stf-001",
          name: "Chidinma Eze",
          email: "c.eze@unilag.edu.ng",
          role: UserRole.STAFF,
          availableRoles: [UserRole.STAFF],
-         permissions: pickPermissions(4, 8),
+         permissions: pickPermissions(11, 9),
          department: "Registry",
          staffId: "STF-0020",
       },
    },
+
+   // ========== HOD ==========
    [UserRole.HOD]: {
       role: UserRole.HOD,
       label: "HOD",
       description: "Head of Department with lecturer privileges and approval authority",
       dashboardPath: roleDashboardPath[UserRole.HOD],
-      permissions: pickPermissions(1, 2, 4, 5, 9),
+      permissions: pickPermissions(1, 3, 4, 8, 11, 14), // view.own, manage, publish, approve, view, view tutors
       profile: {
          id: "hod-001",
          name: "Prof. Funke Adeyemi",
          email: "f.adeyemi@unilag.edu.ng",
          role: UserRole.HOD,
          availableRoles: [UserRole.HOD],
-         permissions: pickPermissions(1, 2, 4, 5, 9),
+         permissions: pickPermissions(1, 3, 4, 8, 11, 14),
          department: "Computer Science",
          faculty: "Science",
          staffId: "HOD-0007",
       },
    },
+
+   // ========== DEAN ==========
    [UserRole.DEAN]: {
       role: UserRole.DEAN,
       label: "Dean",
       description: "Faculty dean with cross-department oversight",
       dashboardPath: roleDashboardPath[UserRole.DEAN],
-      permissions: pickPermissions(1, 2, 4, 5, 9),
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16), // view.all, manage, publish, export, analyze, approve, etc
       profile: {
          id: "dean-001",
          name: "Prof. Ngozi Ekanem",
          email: "n.ekanem@unilag.edu.ng",
          role: UserRole.DEAN,
          availableRoles: [UserRole.DEAN],
-         permissions: pickPermissions(1, 2, 4, 5, 9),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16),
          faculty: "Science",
          staffId: "DEAN-0002",
       },
    },
+
+   // ========== BURSARY ==========
    [UserRole.BURSARY]: {
       role: UserRole.BURSARY,
       label: "Bursary",
       description: "Finance office staff responsible for fees and payment operations",
       dashboardPath: roleDashboardPath[UserRole.BURSARY],
-      permissions: pickPermissions(6, 7, 11),
+      permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26), // fees:verify, fees:configure
       profile: {
          id: "bur-001",
          name: "Ibrahim Musa",
          email: "i.musa@unilag.edu.ng",
          role: UserRole.BURSARY,
          availableRoles: [UserRole.BURSARY],
-         permissions: pickPermissions(6, 7, 11),
+         permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26),
          department: "Bursary",
          staffId: "BUR-0011",
       },
    },
+
+   // ========== DIRECTOR ==========
    [UserRole.DIRECTOR]: {
       role: UserRole.DIRECTOR,
       label: "Director",
       description: "Director with oversight of academic and financial operations",
       dashboardPath: roleDashboardPath[UserRole.DIRECTOR],
-      permissions: pickPermissions(1, 2, 4, 5, 6, 7, 9, 11),
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26), // academics + finance
       profile: {
          id: "dir-001",
          name: "Dr. Adebayo Oladipo",
          email: "a.oladipo@unilag.edu.ng",
          role: UserRole.DIRECTOR,
          availableRoles: [UserRole.DIRECTOR],
-         permissions: pickPermissions(1, 2, 4, 5, 6, 7, 9, 11),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26),
          faculty: "Science",
          staffId: "DIR-0001",
       },
    },
+
+   // ========== ADMIN ==========
    [UserRole.ADMIN]: {
       role: UserRole.ADMIN,
       label: "Admin",
-      description: "Legacy manager dashboard role used by the current route structure",
+      description: "System administrator with user management access",
       dashboardPath: roleDashboardPath[UserRole.ADMIN],
-      permissions: pickPermissions(1, 2, 4, 5, 8, 9, 10),
+      permissions: pickPermissions(
+         1, 2, 3, 4, 5, 6, 7, 8,           // Academics
+         9, 10, 11, 12, 13, 14, 15, 16, 17, // User management
+         18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
+         27, 28, 29, //academic session
+      ),
       profile: {
          id: "adm-001",
          name: "Oluwaseun Adeyemi",
          email: "o.adeyemi@admin.unilag.edu.ng",
          role: UserRole.ADMIN,
          availableRoles: [UserRole.ADMIN],
-         permissions: pickPermissions(1, 2, 4, 5, 8, 9, 10),
+         permissions: pickPermissions(
+            1, 2, 3, 4, 5, 6, 7, 8,           // Academics
+            9, 10, 11, 12, 13, 14, 15, 16, 17, // User management
+            18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
+            27, 28, 29, //academic session
+         ),
          department: "Registry",
          staffId: "ADMIN-0012",
       },
    },
+
+   // ========== SUPER ADMIN ==========
    [UserRole.SUPER_ADMIN]: {
       role: UserRole.SUPER_ADMIN,
       label: "Super Admin",
       description: "ICT or system administrator with full platform access",
       dashboardPath: roleDashboardPath[UserRole.SUPER_ADMIN],
-      permissions: allPermissions,
+      permissions: allPermissions, // All 20 permissions
       profile: {
          id: "sa-001",
          name: "Prof. Ngozi Okafor",
