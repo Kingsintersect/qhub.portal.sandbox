@@ -70,6 +70,7 @@ export function useNotifications(params?: NotificationsQueryParams) {
 export function useUnreadCount() {
     return useQuery({
         ...notificationQueryOptions.unreadCount(),
+        staleTime: 1000 * 30,
     });
 }
 
