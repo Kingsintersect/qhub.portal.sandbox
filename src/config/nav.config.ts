@@ -195,23 +195,46 @@ const adminNav: NavGroup[] = [
       label: "Admission",
       items: [
          { title: "Review Applications", href: "/manager/review-applications", matchExactOnly: true, icon: GraduationCap },
-         { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
+      ],
+   },
+   {
+      label: "Academic Sessions",
+      items: [
+         { title: "Sessions", href: "/manager/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
+         { title: "Admissions", href: "/manager/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
+         { title: "Course Structure", href: "/manager/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
+         { title: "Courses", href: "/manager/academics/courses-management", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
       label: "User Management",
       items: [
-         { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
-         { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
-         { title: "Departments", href: "/manager/departments", matchExactOnly: true, icon: Building2 },
          {
-            title: "Courses",
-            icon: BookOpen,
+            title: "User Management",
+            icon: UserCog,
             children: [
-               { title: "Course List", href: "/manager/courses", matchExactOnly: true, icon: Layers },
-               { title: "Allocation", href: "/manager/courses/allocation", matchExactOnly: true, icon: ClipboardList },
+               { title: "Summary", href: "/manager/users/summary", matchExactOnly: true, icon: Users },
+               { title: "Students", href: "/manager/users/students", matchExactOnly: true, icon: GraduationCap },
+               { title: "Tutors", href: "/manager/users/tutors", matchExactOnly: true, icon: BookOpen },
+               { title: "Staff", href: "/manager/users/staff", matchExactOnly: true, icon: UserCog },
             ],
          },
+      ],
+   },
+   {
+      label: "Finance",
+      items: [
+         { title: "Financial Summary", href: "/manager/finance/summary", matchExactOnly: true, icon: LandmarkIcon },
+         { title: "Financial Transactions", href: "/manager/finance/transactions", matchExactOnly: true, icon: Banknote },
+         { title: "Fee Management", href: "/manager/finance/fees", matchExactOnly: true, icon: Banknote },
+      ],
+   },
+   {
+      label: "Grades Management",
+      items: [
+         { title: "Summary Charts", href: "/manager/grades/summary", matchExactOnly: true, icon: BarChart },
+         { title: "Results", href: "/manager/grades/results", matchExactOnly: true, icon: ListChevronsUpDown },
+         { title: "Publish Results", href: "/manager/grades/publish-results", matchExactOnly: true, icon: ListChecks },
       ],
    },
    {
@@ -230,13 +253,7 @@ const adminNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Dean navigation                                                    */
-/* ------------------------------------------------------------------ */
-
-const deanNav: NavGroup[] = adminNav;
-
-/* ------------------------------------------------------------------ */
-/*  Super-admin navigation                                             */
+/*  Super-admin navigation                                            */
 /* ------------------------------------------------------------------ */
 
 const superAdminNav: NavGroup[] = [
@@ -269,7 +286,7 @@ const superAdminNav: NavGroup[] = [
             children: [
                { title: "Summary", href: "/admin/users/summary", matchExactOnly: true, icon: Users },
                { title: "Students", href: "/admin/users/students", matchExactOnly: true, icon: GraduationCap },
-               { title: "Lecturers", href: "/admin/users/lecturers", matchExactOnly: true, icon: BookOpen },
+               { title: "Tutors", href: "/admin/users/tutors", matchExactOnly: true, icon: BookOpen },
                { title: "Staff", href: "/admin/users/staff", matchExactOnly: true, icon: UserCog },
             ],
          },
@@ -278,8 +295,9 @@ const superAdminNav: NavGroup[] = [
    {
       label: "Finance",
       items: [
-         { title: "Fee Management", href: "/admin/finance/fee-management", matchExactOnly: true, icon: Banknote },
-         { title: "Financial Summary", href: "/admin/finance/financial-summary", matchExactOnly: true, icon: LandmarkIcon },
+         { title: "Financial Summary", href: "/admin/finance/summary", matchExactOnly: true, icon: LandmarkIcon },
+         { title: "Financial Transactions", href: "/admin/finance/transactions", matchExactOnly: true, icon: Banknote },
+         { title: "Fee Management", href: "/admin/finance/fees", matchExactOnly: true, icon: Banknote },
       ],
    },
    {
@@ -318,6 +336,12 @@ const superAdminNav: NavGroup[] = [
       ],
    },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Dean navigation                                                    */
+/* ------------------------------------------------------------------ */
+
+const deanNav: NavGroup[] = adminNav;
 
 /* ------------------------------------------------------------------ */
 /*  Bursary navigation                                                 */
@@ -393,13 +417,13 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
-   [UserRole.STUDENT]: "/student",
+   [UserRole.STUDENT]: "/student/dashboard",
    [UserRole.LECTURER]: "/tutor",
-   [UserRole.STAFF]: "/manager",
+   [UserRole.STAFF]: "/manager/dashboard",
    [UserRole.HOD]: "/tutor",
-   [UserRole.DEAN]: "/manager",
+   [UserRole.DEAN]: "/manager/dashboard",
    [UserRole.BURSARY]: "/admin/setup/fee-management",
-   [UserRole.DIRECTOR]: "/director",
-   [UserRole.ADMIN]: "/manager",
-   [UserRole.SUPER_ADMIN]: "/admin",
+   [UserRole.DIRECTOR]: "/director/dashboard",
+   [UserRole.ADMIN]: "/manager/dashboard",
+   [UserRole.SUPER_ADMIN]: "/admin/dashboard",
 };

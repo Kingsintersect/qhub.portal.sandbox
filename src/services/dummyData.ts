@@ -977,7 +977,7 @@ export const dummySettingsApi = {
       const page = params?.page ?? 1;
       const limit = params?.limit ?? 50;
       const start = (page - 1) * limit;
-      return { data: result.slice(start, start + limit), meta: { total: result.length, page, limit } };
+      return { data: result.slice(start, start + limit), total: result.length };
    },
 
    getById: async (id: number): Promise<ApiSingleResponse<Setting>> => {
