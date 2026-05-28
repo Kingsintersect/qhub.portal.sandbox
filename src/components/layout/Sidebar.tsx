@@ -24,6 +24,7 @@ const roleMeta: Record<string, { label: string; cls: string }> = {
    HOD: { label: "HOD", cls: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400" },
    DEAN: { label: "Dean", cls: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
    BURSARY: { label: "Bursary", cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+   DIRECTOR: { label: "Director", cls: "bg-pink-500/15 text-pink-600 dark:text-pink-400" },
    ADMIN: { label: "Admin", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
    SUPER_ADMIN: { label: "Super Admin", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
 };

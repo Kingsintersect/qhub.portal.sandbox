@@ -171,8 +171,8 @@ export default function ApplicationDetailPage() {
    const { personal_info, academic_records, program_choice, documents } = application;
 
    return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-         <div className="space-y-6 max-w-4xl">
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
+         <div className="space-y-6">
             {/* Header */}
             <motion.div
                initial={{ opacity: 0, y: -12 }}

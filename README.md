@@ -11,6 +11,7 @@ Always start from the latest state of the project.
 ```bash
 git checkout develop
 git pull origin develop
+run: npm install
 2. Create Feature Branch
 Use a descriptive name for your task.
 

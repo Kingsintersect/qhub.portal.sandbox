@@ -34,3 +34,12 @@ export const OUR_PROGRAMS = {
 export const APPLICATION_FEE_AMOUNT = 10000;
 export const ACCEPTANCE_FEE_AMOUNT = 30000;
 export const TUITION_FEE_AMOUNT = 195000;
+
+
+// SITE RELATED INFORMATION
+export const SITE_NAME = "QHUB University Portal";
+export const SITE_DESCRIPTION = "Your gateway to academic excellence and seamless university services at QHUB University.";
+export const SITE_KEYWORDS = "QHUB University, student portal, academic services, financial services, course registration, results, admission, fees payment";
+export const SITE_URL = "https://qhub.portal.edu.ng";
+export const SITE_LOGO_URL = "/logo/logo.jpg";
+

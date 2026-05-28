@@ -1,4 +1,4 @@
-import { BarChart, Currency, CurrencyIcon, ListChecks, OctagonMinus, School, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart, CalendarCheck2, ChartNetwork, InspectionPanelIcon, LandmarkIcon, ListChecks, ListChevronsUpDown, NetworkIcon, OctagonMinus, SchoolIcon, TestTubeDiagonalIcon, type LucideIcon } from "lucide-react";
 import {
    LayoutDashboard,
    BookOpen,
@@ -28,9 +28,11 @@ import {
 export enum UserRole {
    STUDENT = 'STUDENT',
    LECTURER = 'LECTURER',
+   STAFF = 'STAFF',
    HOD = 'HOD',
    DEAN = 'DEAN',
    BURSARY = 'BURSARY',
+   DIRECTOR = 'DIRECTOR',
    ADMIN = 'ADMIN',
    SUPER_ADMIN = 'SUPER_ADMIN'
 }
@@ -115,7 +117,7 @@ const lecturerNav: NavGroup[] = [
    {
       label: "Teaching",
       items: [
-         { title: "My Courses", href: "/tutor/courses", matchExactOnly: true, icon: BookOpen },
+         { title: "Course Assignments", href: "/tutor/courses", matchExactOnly: true, icon: CalendarCheck2 },
          { title: "Timetable", href: "/tutor/timetable", matchExactOnly: true, icon: CalendarDays },
          {
             title: "Grading",
@@ -150,6 +152,36 @@ const lecturerNav: NavGroup[] = [
 const hodNav: NavGroup[] = lecturerNav;
 
 /* ------------------------------------------------------------------ */
+/*  Director navigation                                                   */
+/* ------------------------------------------------------------------ */
+
+const directorNav: NavGroup[] = [
+   {
+      items: [
+         { title: "Dashboard", href: "/director/dashboard", matchExactOnly: true, icon: LayoutDashboard },
+      ],
+   },
+   {
+      label: "Scholars",
+      items: [
+         { title: "Student & Lectures", href: "/director/scholars", matchExactOnly: true, icon: GraduationCap },
+      ],
+   },
+   {
+      label: "Academic Reports",
+      items: [
+         { title: "student grades", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
+      ],
+   },
+   {
+      label: "Finances",
+      items: [
+         { title: "Financial Reports", href: "/director/financial-reports", matchExactOnly: true, icon: BarChart3 },
+      ],
+   },
+];
+
+/* ------------------------------------------------------------------ */
 /*  Admin navigation                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -163,23 +195,46 @@ const adminNav: NavGroup[] = [
       label: "Admission",
       items: [
          { title: "Review Applications", href: "/manager/review-applications", matchExactOnly: true, icon: GraduationCap },
-         { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
+      ],
+   },
+   {
+      label: "Academic Sessions",
+      items: [
+         { title: "Sessions", href: "/manager/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
+         { title: "Admissions", href: "/manager/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
+         { title: "Course Structure", href: "/manager/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
+         { title: "Courses", href: "/manager/academics/courses-management", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
       label: "User Management",
       items: [
-         { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
-         { title: "Lecturers", href: "/manager/lecturers", matchExactOnly: true, icon: Users },
-         { title: "Departments", href: "/manager/departments", matchExactOnly: true, icon: Building2 },
          {
-            title: "Courses",
-            icon: BookOpen,
+            title: "User Management",
+            icon: UserCog,
             children: [
-               { title: "Course List", href: "/manager/courses", matchExactOnly: true, icon: Layers },
-               { title: "Allocation", href: "/manager/courses/allocation", matchExactOnly: true, icon: ClipboardList },
+               { title: "Summary", href: "/manager/users/summary", matchExactOnly: true, icon: Users },
+               { title: "Students", href: "/manager/users/students", matchExactOnly: true, icon: GraduationCap },
+               { title: "Tutors", href: "/manager/users/tutors", matchExactOnly: true, icon: BookOpen },
+               { title: "Staff", href: "/manager/users/staff", matchExactOnly: true, icon: UserCog },
             ],
          },
+      ],
+   },
+   {
+      label: "Finance",
+      items: [
+         { title: "Financial Summary", href: "/manager/finance/summary", matchExactOnly: true, icon: LandmarkIcon },
+         { title: "Financial Transactions", href: "/manager/finance/transactions", matchExactOnly: true, icon: Banknote },
+         { title: "Fee Management", href: "/manager/finance/fees", matchExactOnly: true, icon: Banknote },
+      ],
+   },
+   {
+      label: "Grades Management",
+      items: [
+         { title: "Summary Charts", href: "/manager/grades/summary", matchExactOnly: true, icon: BarChart },
+         { title: "Results", href: "/manager/grades/results", matchExactOnly: true, icon: ListChevronsUpDown },
+         { title: "Publish Results", href: "/manager/grades/publish-results", matchExactOnly: true, icon: ListChecks },
       ],
    },
    {
@@ -198,13 +253,7 @@ const adminNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Dean navigation                                                    */
-/* ------------------------------------------------------------------ */
-
-const deanNav: NavGroup[] = adminNav;
-
-/* ------------------------------------------------------------------ */
-/*  Super-admin navigation                                             */
+/*  Super-admin navigation                                            */
 /* ------------------------------------------------------------------ */
 
 const superAdminNav: NavGroup[] = [
@@ -214,41 +263,62 @@ const superAdminNav: NavGroup[] = [
       ],
    },
    {
+      items: [
+         { title: "Installation", href: "/admin/Installation/config", matchExactOnly: true, icon: InspectionPanelIcon },
+      ]
+   },
+   {
       label: "Academics",
       items: [
          { title: "Sessions", href: "/admin/academics/academic-year", matchExactOnly: true, icon: CalendarDays },
          { title: "Admissions", href: "/admin/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
-         {
-            title: "Curriculum",
-            icon: GraduationCap,
-            children: [
-               { title: "Faculties", href: "/admin/academics/curriculum/faculties", matchExactOnly: true, icon: School },
-               { title: "Departments", href: "/admin/academics/curriculum/departments", matchExactOnly: true, icon: Building2 },
-            ],
-         },
-         { title: "Courses", href: "/admin/academics/courses", matchExactOnly: true, icon: BookOpen },
-         { title: "Migrate Session", href: "/admin/academics/migrate-session", matchExactOnly: true, icon: BookOpen },
+         { title: "Course Structure", href: "/admin/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
+         { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
       ],
    },
    {
       label: "User Management",
       items: [
          { title: "Roles & Permissions", href: "/admin/users/roles", matchExactOnly: true, icon: ShieldCheck },
-         { title: "User  Management", href: "/admin/users/summary", matchExactOnly: true, icon: UserCog },
+         {
+            title: "User Management",
+            icon: UserCog,
+            children: [
+               { title: "Summary", href: "/admin/users/summary", matchExactOnly: true, icon: Users },
+               { title: "Students", href: "/admin/users/students", matchExactOnly: true, icon: GraduationCap },
+               { title: "Tutors", href: "/admin/users/tutors", matchExactOnly: true, icon: BookOpen },
+               { title: "Staff", href: "/admin/users/staff", matchExactOnly: true, icon: UserCog },
+            ],
+         },
       ],
    },
    {
       label: "Finance",
       items: [
-         { title: "Fee Management", href: "/admin/finance/fee-management", matchExactOnly: true, icon: CurrencyIcon },
-         { title: "Financial Summary", href: "/admin/finance/financial-summary", matchExactOnly: true, icon: Currency },
+         { title: "Financial Summary", href: "/admin/finance/summary", matchExactOnly: true, icon: LandmarkIcon },
+         { title: "Financial Transactions", href: "/admin/finance/transactions", matchExactOnly: true, icon: Banknote },
+         { title: "Fee Management", href: "/admin/finance/fees", matchExactOnly: true, icon: Banknote },
       ],
    },
    {
       label: "Grades Management",
       items: [
          { title: "Summary Charts", href: "/admin/grades/summary", matchExactOnly: true, icon: BarChart },
-         { title: "Results", href: "/admin/grades/results", matchExactOnly: true, icon: ListChecks },
+         { title: "Results", href: "/admin/grades/results", matchExactOnly: true, icon: ListChevronsUpDown },
+         { title: "Publish Results", href: "/admin/grades/publish-results", matchExactOnly: true, icon: ListChecks },
+      ],
+   },
+   {
+      label: "Auditing",
+      items: [
+         { title: "Audit Overview", href: "/admin/audit", matchExactOnly: true, icon: ChartNetwork },
+         { title: "Audit Logs", href: "/admin/audit/logs", matchExactOnly: true, icon: NetworkIcon },
+      ],
+   },
+   {
+      label: "Communications",
+      items: [
+         { title: "Notifications", href: "/admin/notification", matchExactOnly: true, icon: Bell },
       ],
    },
    {
@@ -266,6 +336,12 @@ const superAdminNav: NavGroup[] = [
       ],
    },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Dean navigation                                                    */
+/* ------------------------------------------------------------------ */
+
+const deanNav: NavGroup[] = adminNav;
 
 /* ------------------------------------------------------------------ */
 /*  Bursary navigation                                                 */
@@ -292,26 +368,62 @@ const bursaryNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Staff navigation                                                   */
+/* ------------------------------------------------------------------ */
+
+const staffNav: NavGroup[] = [
+   {
+      items: [
+         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+      ],
+   },
+   {
+      label: "Records",
+      items: [
+         { title: "Students", href: "/manager/students", matchExactOnly: true, icon: GraduationCap },
+         { title: "Departments", href: "/manager/departments", matchExactOnly: true, icon: Building2 },
+      ],
+   },
+   {
+      label: "Campus",
+      items: [
+         { title: "Announcements", href: "/manager/announcements", matchExactOnly: true, icon: Bell },
+         { title: "Messages", href: "/manager/messages", matchExactOnly: true, icon: MessageSquare },
+      ],
+   },
+   {
+      label: "Account",
+      items: [
+         { title: "Settings", href: "/manager/settings", matchExactOnly: true, icon: Settings },
+      ],
+   },
+];
+
+/* ------------------------------------------------------------------ */
 /*  Combined config keyed by role                                      */
 /* ------------------------------------------------------------------ */
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
    STUDENT: studentNav,
    LECTURER: lecturerNav,
+   STAFF: staffNav,
    HOD: hodNav,
    DEAN: deanNav,
    BURSARY: bursaryNav,
+   DIRECTOR: directorNav,
    ADMIN: adminNav,
    SUPER_ADMIN: superAdminNav,
 };
 
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
-   [UserRole.STUDENT]: "/student",
+   [UserRole.STUDENT]: "/student/dashboard",
    [UserRole.LECTURER]: "/tutor",
+   [UserRole.STAFF]: "/manager/dashboard",
    [UserRole.HOD]: "/tutor",
-   [UserRole.DEAN]: "/manager",
+   [UserRole.DEAN]: "/manager/dashboard",
    [UserRole.BURSARY]: "/admin/setup/fee-management",
-   [UserRole.ADMIN]: "/manager",
-   [UserRole.SUPER_ADMIN]: "/admin",
+   [UserRole.DIRECTOR]: "/director/dashboard",
+   [UserRole.ADMIN]: "/manager/dashboard",
+   [UserRole.SUPER_ADMIN]: "/admin/dashboard",
 };

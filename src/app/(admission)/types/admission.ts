@@ -3,7 +3,7 @@
 /* ------------------------------------------------------------------ */
 
 export type PaymentStatus = "unpaid" | "pending" | "partial" | "paid" | "failed";
-export type AdmissionOfferStatus = "pending" | "offered" | "rejected" | "accepted";
+export type AdmissionOfferStatus = "pending" | "offered" | "rejected" | "accepted" | "declined" | "expired";
 export type ApplicationStatus = "not_started" | "submitted" | "under_review";
 
 /** Represents a single fee item from the API */
@@ -38,6 +38,7 @@ export interface AdmissionStudent {
     has_applied: boolean;
     is_admitted: boolean;
     session: string;
+    offer_expiry_date: string | null;
 }
 
 /** Payment initiation response from the backend */

@@ -193,7 +193,7 @@ export const isActiveSchema = z.boolean().default(true);
 
 export const isDeletedSchema = z.boolean().default(false);
 
-export const roleSchema = z.enum(["SUPER_ADMIN", "STUDENT", "LECTURER", "HOD", "DEAN", "BURSARY", "ADMIN"]).default("STUDENT");
+export const roleSchema = z.enum(["SUPER_ADMIN", "STUDENT", "LECTURER", "HOD", "DEAN", "BURSARY", "DIRECTOR", "ADMIN"]).default("STUDENT");
 
 export const booleanOptionSchema = (optional: boolean = false) => {
    const schema = z.boolean();

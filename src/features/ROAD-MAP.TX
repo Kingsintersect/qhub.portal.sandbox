@@ -1,0 +1,40 @@
+src/
+├── app/
+│   ├── (portals)/
+│   │   ├── super-admin/
+│   │   │   ├── layout.tsx          # Super admin shell + nav
+│   │   │   └── user-management/
+│   │   │       └── page.tsx        # ← thin page, delegates to shared feature
+│   │   ├── manager/
+│   │   │   ├── layout.tsx
+│   │   │   └── user-management/
+│   │   │       └── page.tsx        # ← same thin page
+│   │   ├── student/
+│   │   └── tutor/
+│   └── api/
+│
+├── features/                        # ← the real work lives here
+│   └── user-management/
+│       ├── components/
+│       │   ├── UserManagementShell.tsx   # root component for this feature
+│       │   ├── SummaryCharts.tsx
+│       │   ├── StudentsTable.tsx
+│       │   ├── TutorsTable.tsx
+│       │   └── StaffTable.tsx
+│       ├── hooks/
+│       │   ├── useUserManagement.ts
+│       │   └── useUserStats.ts
+│       └── types.ts
+│
+├── lib/
+│   ├── permissions/
+│   │   ├── roles.ts                # role definitions + permission maps
+│   │   ├── usePermissions.ts       # hook to read current role
+│   │   └── PermissionGate.tsx      # wrapper component
+│   └── stores/
+│       └── authStore.ts            # zustand auth/role store
+
+
+
+
+

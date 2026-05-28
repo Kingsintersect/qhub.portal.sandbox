@@ -53,6 +53,14 @@ export const DUMMY_AUTH_USERS: DummyAuthUser[] = [
       availableRoles: [UserRole.BURSARY],
    },
    {
+      id: "dir-001",
+      name: "Dr. Adebayo Oladipo",
+      email: "a.oladipo@unilag.edu.ng",
+      username: "a.oladipo",
+      role: UserRole.DIRECTOR,
+      availableRoles: [UserRole.DIRECTOR],
+   },
+   {
       id: "adm-001",
       name: "Oluwaseun Adeyemi",
       email: "o.adeyemi@admin.unilag.edu.ng",

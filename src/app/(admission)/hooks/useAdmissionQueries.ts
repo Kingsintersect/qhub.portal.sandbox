@@ -187,6 +187,16 @@ export function useDevSimulate() {
         onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
     });
 
+    const simulateDeclined = useMutation({
+        ...admissionMutationOptions.simulateDeclined(),
+        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
+    });
+
+    const simulateExpired = useMutation({
+        ...admissionMutationOptions.simulateExpired(),
+        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
+    });
+
     const simulateTuitionPaid = useMutation({
         ...admissionMutationOptions.simulateTuitionPaid(),
         onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
@@ -197,5 +207,21 @@ export function useDevSimulate() {
         onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
     });
 
-    return { simulateAppPaymentPaid, simulateApplied, simulateOffered, simulateAccepted, simulateTuitionPaid, resetAll };
+    return { simulateAppPaymentPaid, simulateApplied, simulateOffered, simulateAccepted, simulateDeclined, simulateExpired, simulateTuitionPaid, resetAll };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Decline Admission                                                    */
+/* ------------------------------------------------------------------ */
+
+export function useDeclineAdmission() {
+    const setStudent = useAdmissionStore((s) => s.setStudent);
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        ...admissionMutationOptions.declineAdmission(),
+        onSuccess: async (data) => {
+            await syncAdmissionStudent(queryClient, setStudent, data);
+        },
+    });
 }
