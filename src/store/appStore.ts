@@ -96,11 +96,20 @@ const allPermissions: Permission[] = [
 
    // ========== ASSESSMENTS ==========
    permission(31, "assessments", "view.own", "assessments", "View own assessments (student)"),
-   permission(32, "assessments", "view", "assessments", "View assessments for assigned courses (lecturer)"),
+   permission(32, "assessments", "view", "assessments", "View assessments for assigned courses (tutor)"),
    permission(33, "assessments", "view.all", "assessments", "View all assessments across courses"),
    permission(34, "assessments", "manage", "assessments", "Create, edit and delete assessments"),
    permission(35, "assessments", "toggle.visibility", "assessments", "Show or hide assessments for students"),
    permission(36, "assessments", "sync", "assessments", "Trigger and monitor Moodle assessment sync"),
+
+   // ========== TIMETABLE ==========
+   permission(37, "timetable", "view.own", "timetable", "View own timetable (student/tutor)"),
+   permission(38, "timetable", "view", "timetable", "View timetable for assigned offerings (tutor)"),
+   permission(39, "timetable", "view.all", "timetable", "View all class schedules"),
+   permission(40, "timetable", "manage", "timetable", "Create, edit and delete class schedules"),
+   permission(41, "calendar", "view.own", "timetable", "View own calendar events"),
+   permission(42, "calendar", "view.all", "timetable", "View all calendar events"),
+   permission(43, "calendar", "manage", "timetable", "Toggle calendar event visibility"),
 ];
 
 const pickPermissions = (...ids: number[]) =>
@@ -109,9 +118,14 @@ const pickPermissions = (...ids: number[]) =>
 const clonePermissions = (permissions: Permission[]) =>
    permissions.map((entry) => ({ ...entry }));
 
+const normalizeRole = (role: string): UserRole | null => {
+   if ((Object.values(UserRole) as string[]).includes(role)) return role as UserRole;
+   return null;
+};
+
 const APP_ROLE_ORDER: UserRole[] = [
    UserRole.STUDENT,
-   UserRole.LECTURER,
+   UserRole.TUTOR,
    UserRole.STAFF,
    UserRole.HOD,
    UserRole.DEAN,
@@ -128,14 +142,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Student",
       description: "Regular undergraduate or postgraduate student",
       dashboardPath: roleDashboardPath[UserRole.STUDENT],
-      permissions: pickPermissions(1, 7, 18, 19, 31), // results:view.own, courses:register, fees:pay, assessments:view.own
+      permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41), // + timetable:view.own, calendar:view.own
       profile: {
          id: "std-001",
          name: "Chukwuemeka Okonkwo",
          email: "c.okonkwo@students.unilag.edu.ng",
          role: UserRole.STUDENT,
          availableRoles: [UserRole.STUDENT],
-         permissions: pickPermissions(1, 7, 18, 19, 31),
+         permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41),
          department: "Computer Science",
          faculty: "Science",
          matricNo: "190404001",
@@ -143,20 +157,20 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       },
    },
 
-   // ========== LECTURER ==========
-   [UserRole.LECTURER]: {
-      role: UserRole.LECTURER,
-      label: "Lecturer",
-      description: "Course lecturer and academic advisor",
-      dashboardPath: roleDashboardPath[UserRole.LECTURER],
-      permissions: pickPermissions(1, 3, 11, 14, 32, 35), // + assessments:view, assessments:toggle.visibility
+   // ========== TUTOR ==========
+   [UserRole.TUTOR]: {
+      role: UserRole.TUTOR,
+      label: "Tutor",
+      description: "Course tutor and academic advisor",
+      dashboardPath: roleDashboardPath[UserRole.TUTOR],
+      permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41), // + results:export, timetable:view.own, timetable:view, calendar:view.own
       profile: {
          id: "lec-001",
          name: "Dr. Aisha Bello",
          email: "a.bello@unilag.edu.ng",
-         role: UserRole.LECTURER,
-         availableRoles: [UserRole.LECTURER],
-         permissions: pickPermissions(1, 3, 11, 14, 32, 35),
+         role: UserRole.TUTOR,
+         availableRoles: [UserRole.TUTOR],
+         permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41),
          department: "Computer Science",
          faculty: "Science",
          staffId: "STAFF-2145",
@@ -186,16 +200,16 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
    [UserRole.HOD]: {
       role: UserRole.HOD,
       label: "HOD",
-      description: "Head of Department with lecturer privileges and approval authority",
+      description: "Head of Department with tutor privileges and approval authority",
       dashboardPath: roleDashboardPath[UserRole.HOD],
-      permissions: pickPermissions(1, 3, 4, 8, 11, 14, 32, 35), // + assessments:view, toggle.visibility
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41), // + results:view.all, results:export, results:analyze, timetable:view.own, timetable:view, calendar:view.own
       profile: {
          id: "hod-001",
          name: "Prof. Funke Adeyemi",
          email: "f.adeyemi@unilag.edu.ng",
          role: UserRole.HOD,
          availableRoles: [UserRole.HOD],
-         permissions: pickPermissions(1, 3, 4, 8, 11, 14, 32, 35),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41),
          department: "Computer Science",
          faculty: "Science",
          staffId: "HOD-0007",
@@ -208,14 +222,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Dean",
       description: "Faculty dean with cross-department oversight",
       dashboardPath: roleDashboardPath[UserRole.DEAN],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33), // + assessments:view, view.all
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42), // + timetable, calendar
       profile: {
          id: "dean-001",
          name: "Prof. Ngozi Ekanem",
          email: "n.ekanem@unilag.edu.ng",
          role: UserRole.DEAN,
          availableRoles: [UserRole.DEAN],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42),
          faculty: "Science",
          staffId: "DEAN-0002",
       },
@@ -246,14 +260,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Director",
       description: "Director with oversight of academic and financial operations",
       dashboardPath: roleDashboardPath[UserRole.DIRECTOR],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33), // + assessments:view.all
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42), // + timetable:view.all, calendar:view.all
       profile: {
          id: "dir-001",
          name: "Dr. Adebayo Oladipo",
          email: "a.oladipo@unilag.edu.ng",
          role: UserRole.DIRECTOR,
          availableRoles: [UserRole.DIRECTOR],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42),
          faculty: "Science",
          staffId: "DIR-0001",
       },
@@ -271,6 +285,7 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
          18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
          27, 28, 29, 30,                      // Sessions, admissions, course_structure
          32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
+         37, 38, 39, 40, 41, 42, 43,          // Timetable + Calendar (full)
       ),
       profile: {
          id: "adm-001",
@@ -284,6 +299,7 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
             18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
             27, 28, 29, 30,                      // Sessions, admissions, course_structure
             32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
+            37, 38, 39, 40, 41, 42, 43,          // Timetable + Calendar (full)
          ),
          department: "Registry",
          staffId: "ADMIN-0012",
@@ -310,8 +326,9 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
 };
 
 const normalizeRoles = (roles: UserRole[]) => {
-   const nextRoles = roles.filter((role, index) =>
-      APP_ROLE_ORDER.includes(role) && roles.indexOf(role) === index
+   const mapped = (roles as string[]).map((r) => normalizeRole(r)).filter(Boolean) as UserRole[];
+   const nextRoles = mapped.filter((role, index) =>
+      APP_ROLE_ORDER.includes(role) && mapped.indexOf(role) === index
    );
 
    return nextRoles;
@@ -365,17 +382,25 @@ export const useAppStore = create<AppState>()(
                return;
             }
 
+            const activeRole = normalizeRole(user.role as string);
+
+            if (!activeRole || !APP_ROLE_CATALOG[activeRole]) {
+               console.warn(`[appStore] Unknown role "${user.role}" — clearing session.`);
+               set({ user: null, isAuthenticated: false, activeRole: null, availableRoles: [] });
+               return;
+            }
+
+            const normalizedUser = activeRole !== user.role ? { ...user, role: activeRole } : user;
             const availableRoles = normalizeRoles(
-               user.availableRoles?.length ? user.availableRoles : [user.role]
+               normalizedUser.availableRoles?.length ? normalizedUser.availableRoles : [activeRole]
             );
-            const activeRole = user.role;
 
             set({
                user: {
-                  ...user,
+                  ...normalizedUser,
                   availableRoles,
-                  permissions: user.permissions?.length
-                     ? clonePermissions(user.permissions)
+                  permissions: normalizedUser.permissions?.length
+                     ? clonePermissions(normalizedUser.permissions)
                      : clonePermissions(APP_ROLE_CATALOG[activeRole].permissions),
                },
                isAuthenticated: true,

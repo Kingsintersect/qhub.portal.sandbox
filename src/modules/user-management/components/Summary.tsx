@@ -15,7 +15,7 @@ import {
 
 const COLORS = {
    students: "#10b981",
-   lecturers: "#8b5cf6",
+   tutors: "#8b5cf6",
    staff: "#f59e0b",
    active: "#06b6d4",
    inactive: "#ef4444",
@@ -78,7 +78,7 @@ export default function UsersSummaryPage() {
          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">User Management</h1>
             <p className="text-sm text-muted-foreground mt-1">
-               Overview of all platform users. Use the tabs in the sidebar to manage Students, Lecturers, and Staff.
+               Overview of all platform users. Use the tabs in the sidebar to manage Students, Tutors, and Staff.
             </p>
          </motion.div>
 
@@ -104,7 +104,7 @@ export default function UsersSummaryPage() {
                            <Pie
                               data={[
                                  { name: "Students", value: stats?.total_students ?? 0 },
-                                 { name: "Lecturers", value: stats?.total_lecturers ?? 0 },
+                                 { name: "Tutors", value: stats?.total_tutors ?? 0 },
                                  { name: "Staff", value: stats?.total_staff ?? 0 },
                               ]}
                               innerRadius={55}
@@ -114,7 +114,7 @@ export default function UsersSummaryPage() {
                               strokeWidth={0}
                            >
                               <Cell fill={COLORS.students} />
-                              <Cell fill={COLORS.lecturers} />
+                              <Cell fill={COLORS.tutors} />
                               <Cell fill={COLORS.staff} />
                            </Pie>
                            <Tooltip
@@ -126,7 +126,7 @@ export default function UsersSummaryPage() {
                      <div className="space-y-3">
                         {[
                            { label: "Students", value: stats?.total_students ?? 0, color: COLORS.students, icon: GraduationCap },
-                           { label: "Lecturers", value: stats?.total_lecturers ?? 0, color: COLORS.lecturers, icon: BookOpen },
+                           { label: "Tutors", value: stats?.total_tutors ?? 0, color: COLORS.tutors, icon: BookOpen },
                            { label: "Staff", value: stats?.total_staff ?? 0, color: COLORS.staff, icon: Briefcase },
                         ].map((item) => (
                            <div key={item.label} className="flex items-center gap-2.5">
@@ -157,7 +157,7 @@ export default function UsersSummaryPage() {
                      <BarChart
                         data={[
                            { name: "Students", active: stats?.total_students ?? 0, inactive: 0 },
-                           { name: "Lecturers", active: stats?.total_lecturers ?? 0, inactive: 0 },
+                           { name: "Tutors", active: stats?.total_tutors ?? 0, inactive: 0 },
                            { name: "Staff", active: stats?.total_staff ?? 0, inactive: 0 },
                            {
                               name: "Overall",
@@ -186,7 +186,7 @@ export default function UsersSummaryPage() {
          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
                { label: "Manage Students", desc: "View & update student records", icon: GraduationCap, href: "/admin/users/students", color: "text-emerald-500" },
-               { label: "Manage Lecturers", desc: "Add lecturers from existing users", icon: BookOpen, href: "/admin/users/lecturers", color: "text-violet-500" },
+               { label: "Manage Tutors", desc: "Add tutors from existing users", icon: BookOpen, href: "/admin/users/tutors", color: "text-violet-500" },
                { label: "Manage Staff", desc: "Add staff & assign roles", icon: Briefcase, href: "/admin/users/staff", color: "text-amber-500" },
             ].map((item, i) => (
                <motion.button

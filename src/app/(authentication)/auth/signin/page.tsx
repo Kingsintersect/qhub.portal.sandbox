@@ -109,7 +109,7 @@ function SignInFormContent() {
                     className="rounded-3xl border border-border/70 bg-card/90 p-8 shadow-xl backdrop-blur"
                 >
                     <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                        
+
                         Welcome Back
                     </p>
                     <h1 className="mt-4 text-3xl font-bold tracking-tight">Sign in to your portal</h1>
@@ -188,7 +188,7 @@ function SignInFormContent() {
                             <p className="text-muted-foreground">password123</p>
                         </div>
                         <div className="rounded-2xl border border-border bg-background/60 p-4">
-                            <p className="font-semibold">Lecturer</p>
+                            <p className="font-semibold">Tutor</p>
                             <p className="text-muted-foreground">a.bello@unilag.edu.ng</p>
                             <p className="text-muted-foreground">a.bello</p>
                             <p className="text-muted-foreground">password123</p>

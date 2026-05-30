@@ -2,18 +2,18 @@ import { createApiMutationOptions, createApiQueryOptions } from "@/lib/clients/a
 import type {
    User,
    Student,
-   Lecturer,
+   Tutor,
    Staff,
    UserStats,
    UserQueryFilters,
    StudentQueryFilters,
-   CreateLecturerPayload,
+   CreateTutorPayload,
    CreateStaffPayload,
    UpdateStudentPayload,
-   UpdateLecturerPayload,
+   UpdateTutorPayload,
    UpdateStaffPayload,
    CourseOffering,
-   LecturerCourseAssignment,
+   TutorCourseAssignment,
    AssignCoursePayload,
    EligibleRole,
 } from "@/types/users";
@@ -46,14 +46,14 @@ const users: User[] = [
       first_name: "Chinedu", middle_name: null, last_name: "Okafor",
       phone_number: "08033445566", avatar: null, is_active: true, is_verified: true,
       last_login_at: "2026-04-15T08:45:00Z", created_at: "2024-01-15T00:00:00Z", updated_at: "2026-04-15T08:45:00Z",
-      roles: [{ id: 2, name: "Lecturer", slug: "lecturer" }],
+      roles: [{ id: 2, name: "Tutor", slug: "tutor" }],
    },
    {
       id: 4, email: "prof.adeyemi@staff.edu.ng", username: "funkeadeyemi",
       first_name: "Funke", middle_name: null, last_name: "Adeyemi",
       phone_number: "08077889900", avatar: null, is_active: true, is_verified: true,
       last_login_at: "2026-04-14T11:00:00Z", created_at: "2023-06-01T00:00:00Z", updated_at: "2026-04-14T11:00:00Z",
-      roles: [{ id: 2, name: "Lecturer", slug: "lecturer" }, { id: 3, name: "Head of Department", slug: "hod" }],
+      roles: [{ id: 2, name: "Tutor", slug: "tutor" }, { id: 3, name: "Head of Department", slug: "hod" }],
    },
    {
       id: 5, email: "admin@edu.ng", username: "ibrahimmusa",
@@ -138,13 +138,13 @@ const students: Student[] = [
    },
 ];
 
-// ── seed: lecturers ─────────────────────────
+// ── seed: tutors ─────────────────────────
 
-const lecturers: Lecturer[] = [
+const tutors: Tutor[] = [
    {
       id: 1, user_id: 3, staff_number: "STF/2019/012",
       department_id: 1, department_name: "Computer Science", faculty_name: "Science",
-      designation: "Senior Lecturer", specialization: "Machine Learning & AI",
+      designation: "Senior Tutor", specialization: "Machine Learning & AI",
       office_location: "Block B, Room 210", office_phone: "01-4567890",
       qualifications: "Ph.D Computer Science (MIT), M.Sc (UNILAG), B.Sc (UNILAG)",
       research_areas: "Deep Learning, NLP, Computer Vision", bio: "Dr. Okafor is a leading researcher in AI/ML.",
@@ -199,18 +199,18 @@ const courseOfferings: CourseOffering[] = [
 
 // ── seed: course assignments ────────────────
 
-const courseAssignments: LecturerCourseAssignment[] = [
-   { id: 1, offering_id: 1, lecturer_id: 1, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[0] },
-   { id: 2, offering_id: 3, lecturer_id: 1, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[2] },
-   { id: 3, offering_id: 5, lecturer_id: 2, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[4] },
-   { id: 4, offering_id: 6, lecturer_id: 2, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[5] },
+const courseAssignments: TutorCourseAssignment[] = [
+   { id: 1, offering_id: 1, tutor_id: 1, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[0] },
+   { id: 2, offering_id: 3, tutor_id: 1, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[2] },
+   { id: 3, offering_id: 5, tutor_id: 2, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[4] },
+   { id: 4, offering_id: 6, tutor_id: 2, role: "primary", created_at: "2026-01-10T00:00:00Z", offering: courseOfferings[5] },
 ];
 
-// ── seed: roles eligible for staff/lecturer assignment ──
+// ── seed: roles eligible for staff/tutor assignment ──
 
 const STAFF_ELIGIBLE_ROLES: EligibleRole[] = [
    { id: 7, name: "Staff", slug: "staff", description: "General non-academic staff member" },
-   { id: 3, name: "Head of Department", slug: "hod", description: "Head of Department — inherits lecturer privileges plus approval rights" },
+   { id: 3, name: "Head of Department", slug: "hod", description: "Head of Department — inherits tutor privileges plus approval rights" },
    { id: 4, name: "Dean", slug: "dean", description: "Faculty Dean with oversight across departments" },
    { id: 5, name: "Bursary", slug: "bursary", description: "Finance/Bursary department staff" },
    { id: 8, name: "Registrar", slug: "registrar", description: "Academic registry staff with student records access" },
@@ -218,7 +218,7 @@ const STAFF_ELIGIBLE_ROLES: EligibleRole[] = [
    { id: 6, name: "Super Admin", slug: "super-admin", description: "ICT/System Administrator with full platform access" },
 ];
 
-const LECTURER_ROLE: EligibleRole = { id: 2, name: "Lecturer", slug: "lecturer", description: "Course lecturer and academic advisor" };
+const TUTOR_ROLE: EligibleRole = { id: 2, name: "Tutor", slug: "tutor", description: "Course tutor and academic advisor" };
 
 // ── API implementations ─────────────────────
 
@@ -285,10 +285,10 @@ export const usersApi = {
       return { data: { ...students[idx] }, message: "Student updated" };
    },
 
-   /* ── Lecturers ── */
-   async listLecturers(filters?: UserQueryFilters): Promise<ApiListResponse<Lecturer>> {
+   /* ── Tutors ── */
+   async listTutors(filters?: UserQueryFilters): Promise<ApiListResponse<Tutor>> {
       await delay();
-      let result = [...lecturers];
+      let result = [...tutors];
       if (filters?.search) {
          const q = filters.search.toLowerCase();
          result = result.filter((l) =>
@@ -298,27 +298,27 @@ export const usersApi = {
       return { data: result, total: result.length };
    },
 
-   async getLecturerById(id: number): Promise<ApiSingleResponse<Lecturer>> {
+   async getTutorById(id: number): Promise<ApiSingleResponse<Tutor>> {
       await delay(200);
-      const l = lecturers.find((x) => x.id === id);
-      if (!l) throw new Error("Lecturer not found");
+      const l = tutors.find((x) => x.id === id);
+      if (!l) throw new Error("Tutor not found");
       return { data: l };
    },
 
-   async createLecturer(payload: CreateLecturerPayload): Promise<ApiSingleResponse<Lecturer>> {
+   async createTutor(payload: CreateTutorPayload): Promise<ApiSingleResponse<Tutor>> {
       await delay(600);
       const user = users.find((u) => u.id === payload.user_id);
       if (!user) throw new Error("User not found");
-      if (lecturers.some((l) => l.user_id === payload.user_id)) throw new Error("User already has a lecturer record");
+      if (tutors.some((l) => l.user_id === payload.user_id)) throw new Error("User already has a tutor record");
       user.first_name = payload.first_name;
       user.last_name = payload.last_name;
       if (payload.middle_name) user.middle_name = payload.middle_name;
       if (payload.phone_number) user.phone_number = payload.phone_number;
-      // Assign "lecturer" role via UserRole
-      if (!user.roles.some((r) => r.id === LECTURER_ROLE.id)) {
-         user.roles.push({ id: LECTURER_ROLE.id, name: LECTURER_ROLE.name, slug: LECTURER_ROLE.slug });
+      // Assign "tutor" role via UserRole
+      if (!user.roles.some((r) => r.id === TUTOR_ROLE.id)) {
+         user.roles.push({ id: TUTOR_ROLE.id, name: TUTOR_ROLE.name, slug: TUTOR_ROLE.slug });
       }
-      const newLecturer: Lecturer = {
+      const newTutor: Tutor = {
          id: nid(), user_id: payload.user_id, staff_number: payload.staff_number,
          department_id: payload.department_id, department_name: "Computer Science", faculty_name: "Science",
          designation: payload.designation, specialization: payload.specialization ?? null,
@@ -328,16 +328,16 @@ export const usersApi = {
          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
          user: { id: user.id, email: user.email, username: user.username, first_name: user.first_name, middle_name: user.middle_name, last_name: user.last_name, phone_number: user.phone_number, avatar: user.avatar, is_active: user.is_active },
       };
-      lecturers.push(newLecturer);
-      return { data: newLecturer, message: "Lecturer created" };
+      tutors.push(newTutor);
+      return { data: newTutor, message: "Tutor created" };
    },
 
-   async updateLecturer(id: number, payload: UpdateLecturerPayload): Promise<ApiSingleResponse<Lecturer>> {
+   async updateTutor(id: number, payload: UpdateTutorPayload): Promise<ApiSingleResponse<Tutor>> {
       await delay(500);
-      const idx = lecturers.findIndex((x) => x.id === id);
-      if (idx === -1) throw new Error("Lecturer not found");
-      lecturers[idx] = { ...lecturers[idx], ...payload, updated_at: new Date().toISOString() };
-      return { data: { ...lecturers[idx] }, message: "Lecturer updated" };
+      const idx = tutors.findIndex((x) => x.id === id);
+      if (idx === -1) throw new Error("Tutor not found");
+      tutors[idx] = { ...tutors[idx], ...payload, updated_at: new Date().toISOString() };
+      return { data: { ...tutors[idx] }, message: "Tutor updated" };
    },
 
    /* ── Staff ── */
@@ -402,24 +402,24 @@ export const usersApi = {
    },
 
    /* ── Course Assignments ── */
-   async getLecturerCourses(lecturerId: number): Promise<ApiListResponse<LecturerCourseAssignment>> {
+   async getTutorCourses(tutorId: number): Promise<ApiListResponse<TutorCourseAssignment>> {
       await delay(300);
-      const result = courseAssignments.filter((a) => a.lecturer_id === lecturerId);
+      const result = courseAssignments.filter((a) => a.tutor_id === tutorId);
       return { data: result, total: result.length };
    },
 
-   async assignCourse(payload: AssignCoursePayload): Promise<ApiSingleResponse<LecturerCourseAssignment>> {
+   async assignCourse(payload: AssignCoursePayload): Promise<ApiSingleResponse<TutorCourseAssignment>> {
       await delay(500);
       const existing = courseAssignments.find(
-         (a) => a.offering_id === payload.offering_id && a.lecturer_id === payload.lecturer_id,
+         (a) => a.offering_id === payload.offering_id && a.tutor_id === payload.tutor_id,
       );
-      if (existing) throw new Error("Course already assigned to this lecturer");
+      if (existing) throw new Error("Course already assigned to this tutor");
       const offering = courseOfferings.find((o) => o.id === payload.offering_id);
       if (!offering) throw new Error("Course offering not found");
-      const assignment: LecturerCourseAssignment = {
+      const assignment: TutorCourseAssignment = {
          id: nid(),
          offering_id: payload.offering_id,
-         lecturer_id: payload.lecturer_id,
+         tutor_id: payload.tutor_id,
          role: payload.role ?? "primary",
          created_at: new Date().toISOString(),
          offering,
@@ -443,7 +443,7 @@ export const usersApi = {
          data: {
             total_users: users.length,
             total_students: students.length,
-            total_lecturers: lecturers.length,
+            total_tutors: tutors.length,
             total_staff: staffMembers.length,
             active_users: users.filter((u) => u.is_active).length,
          },
@@ -469,11 +469,11 @@ export const usersKeys = {
       list: (filters?: StudentQueryFilters) => [...usersKeys.students.all, "list", filters ?? {}] as const,
       detail: (id: number) => [...usersKeys.students.all, "detail", id] as const,
    },
-   lecturers: {
-      all: [...["users"], "lecturers"] as const,
-      list: (filters?: UserQueryFilters) => [...usersKeys.lecturers.all, "list", filters ?? {}] as const,
-      detail: (id: number) => [...usersKeys.lecturers.all, "detail", id] as const,
-      courses: (id: number) => [...usersKeys.lecturers.all, "courses", id] as const,
+   tutors: {
+      all: [...["users"], "tutors"] as const,
+      list: (filters?: UserQueryFilters) => [...usersKeys.tutors.all, "list", filters ?? {}] as const,
+      detail: (id: number) => [...usersKeys.tutors.all, "detail", id] as const,
+      courses: (id: number) => [...usersKeys.tutors.all, "courses", id] as const,
    },
    staff: {
       all: [...["users"], "staff"] as const,
@@ -498,13 +498,13 @@ export const usersQueryOptions = {
       detail: (id: number) =>
          createApiQueryOptions({ queryKey: usersKeys.students.detail(id), queryFn: () => usersApi.getStudentById(id) }),
    },
-   lecturers: {
+   tutors: {
       list: (filters?: UserQueryFilters) =>
-         createApiQueryOptions({ queryKey: usersKeys.lecturers.list(filters), queryFn: () => usersApi.listLecturers(filters) }),
+         createApiQueryOptions({ queryKey: usersKeys.tutors.list(filters), queryFn: () => usersApi.listTutors(filters) }),
       detail: (id: number) =>
-         createApiQueryOptions({ queryKey: usersKeys.lecturers.detail(id), queryFn: () => usersApi.getLecturerById(id) }),
+         createApiQueryOptions({ queryKey: usersKeys.tutors.detail(id), queryFn: () => usersApi.getTutorById(id) }),
       courses: (id: number) =>
-         createApiQueryOptions({ queryKey: usersKeys.lecturers.courses(id), queryFn: () => usersApi.getLecturerCourses(id) }),
+         createApiQueryOptions({ queryKey: usersKeys.tutors.courses(id), queryFn: () => usersApi.getTutorCourses(id) }),
    },
    courseOfferings: () =>
       createApiQueryOptions({ queryKey: [...usersKeys.all, "course-offerings"] as const, queryFn: () => usersApi.listCourseOfferings() }),
@@ -531,24 +531,24 @@ export const usersMutationOptions = {
          mutationKey: [...usersKeys.students.all, "update"],
          mutationFn: ({ id, payload }) => usersApi.updateStudent(id, payload),
       }),
-   createLecturer: () =>
-      createApiMutationOptions<ApiSingleResponse<Lecturer>, CreateLecturerPayload>({
-         mutationKey: [...usersKeys.lecturers.all, "create"],
-         mutationFn: (payload) => usersApi.createLecturer(payload),
+   createTutor: () =>
+      createApiMutationOptions<ApiSingleResponse<Tutor>, CreateTutorPayload>({
+         mutationKey: [...usersKeys.tutors.all, "create"],
+         mutationFn: (payload) => usersApi.createTutor(payload),
       }),
-   updateLecturer: () =>
-      createApiMutationOptions<ApiSingleResponse<Lecturer>, { id: number; payload: UpdateLecturerPayload }>({
-         mutationKey: [...usersKeys.lecturers.all, "update"],
-         mutationFn: ({ id, payload }) => usersApi.updateLecturer(id, payload),
+   updateTutor: () =>
+      createApiMutationOptions<ApiSingleResponse<Tutor>, { id: number; payload: UpdateTutorPayload }>({
+         mutationKey: [...usersKeys.tutors.all, "update"],
+         mutationFn: ({ id, payload }) => usersApi.updateTutor(id, payload),
       }),
    assignCourse: () =>
-      createApiMutationOptions<ApiSingleResponse<LecturerCourseAssignment>, AssignCoursePayload>({
-         mutationKey: [...usersKeys.lecturers.all, "assign-course"],
+      createApiMutationOptions<ApiSingleResponse<TutorCourseAssignment>, AssignCoursePayload>({
+         mutationKey: [...usersKeys.tutors.all, "assign-course"],
          mutationFn: (payload) => usersApi.assignCourse(payload),
       }),
    unassignCourse: () =>
       createApiMutationOptions<ApiSingleResponse<null>, number>({
-         mutationKey: [...usersKeys.lecturers.all, "unassign-course"],
+         mutationKey: [...usersKeys.tutors.all, "unassign-course"],
          mutationFn: (id) => usersApi.unassignCourse(id),
       }),
    createStaff: () =>

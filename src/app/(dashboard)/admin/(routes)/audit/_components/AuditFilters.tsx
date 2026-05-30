@@ -20,7 +20,7 @@ const ACTION_OPTIONS: AuditAction[] = [
 ];
 
 const ENTITY_OPTIONS: AuditEntityType[] = [
-    "Student", "Grade", "Invoice", "Course", "Lecturer",
+    "Student", "Grade", "Invoice", "Course", "Tutor",
     "Clearance", "Payment", "User", "Setting", "StudentEnrollment",
     "Document", "Announcement", "MoodleUser", "MoodleEnrollment",
 ];

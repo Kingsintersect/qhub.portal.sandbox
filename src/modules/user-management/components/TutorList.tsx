@@ -12,19 +12,19 @@ import Combobox from "@/components/custom/Combobox";
 import { PermissionGate } from "@/lib/permissions/PermissionGate";
 import { usePermissions } from "@/lib/permissions/usePermissions";
 import {
-   useLecturers,
-   useCreateLecturer,
-   useUpdateLecturer,
-   useLecturerCourses,
+   useTutors,
+   useCreateTutor,
+   useUpdateTutor,
+   useTutorCourses,
    useCourseOfferings,
    useAssignCourse,
    useUnassignCourse,
 } from "../hooks/useUsersData";
 import type {
-   Lecturer,
-   CreateLecturerPayload,
-   UpdateLecturerPayload,
-   LecturerCourseRole,
+   Tutor,
+   CreateTutorPayload,
+   UpdateTutorPayload,
+   TutorCourseRole,
 } from "@/types/users";
 
 // ── Permission constants ──────────────────────────────────────────────────────
@@ -35,9 +35,9 @@ const PERM = {
 } as const;
 
 // ── Column definition (static — no permission logic needed here) ──────────────
-const baseColumns: Column<Lecturer & Record<string, unknown>>[] = [
+const baseColumns: Column<Tutor & Record<string, unknown>>[] = [
    {
-      key: "name", header: "Lecturer", sortable: true, width: "28%",
+      key: "name", header: "Tutor", sortable: true, width: "28%",
       render: (row) => (
          <div className="flex items-center gap-3">
             <Avatar
@@ -74,13 +74,13 @@ const baseColumns: Column<Lecturer & Record<string, unknown>>[] = [
 ];
 
 // ── Props ────────────────────────────────────────────────────────────────────
-interface LecturersPageProps {
+interface TutorsPageProps {
    canDelete?: boolean;
    canCreate?: boolean;
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-export default function LecturersPage({ canDelete: canDeleteProp, canCreate: canCreateProp }: LecturersPageProps = {}) {
+export default function TutorsPage({ canDelete: canDeleteProp, canCreate: canCreateProp }: TutorsPageProps = {}) {
    const { can } = usePermissions();
 
    // Props take precedence; fall back to internally-derived values
@@ -90,24 +90,24 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
    const canEdit = can(PERM.maanageTutors);
    const canManageCourses = can(PERM.manageDepts);   // SUPER_ADMIN only
 
-   const { data, isLoading } = useLecturers();
-   const createLecturer = useCreateLecturer();
-   const updateLecturer = useUpdateLecturer();
+   const { data, isLoading } = useTutors();
+   const createTutor = useCreateTutor();
+   const updateTutor = useUpdateTutor();
 
-   const [selected, setSelected] = useState<Lecturer | null>(null);
+   const [selected, setSelected] = useState<Tutor | null>(null);
    const [showCreate, setShowCreate] = useState(false);
-   const [editing, setEditing] = useState<Lecturer | null>(null);
-   const [coursesFor, setCoursesFor] = useState<Lecturer | null>(null);
+   const [editing, setEditing] = useState<Tutor | null>(null);
+   const [coursesFor, setCoursesFor] = useState<Tutor | null>(null);
 
    // Actions column is built here because it needs the permission flags
-   const actionsColumn: Column<Lecturer & Record<string, unknown>> = {
+   const actionsColumn: Column<Tutor & Record<string, unknown>> = {
       key: "actions", header: "", align: "center", width: "130px",
       render: (row) => (
          <div className="flex gap-1">
             {/* View — anyone who can see this page */}
             <Button
                variant="ghost" size="sm"
-               onClick={() => setSelected(row as unknown as Lecturer)}
+               onClick={() => setSelected(row as unknown as Tutor)}
                title="View"
             >
                <Eye size={14} />
@@ -117,7 +117,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
             {canEdit && (
                <Button
                   variant="ghost" size="sm"
-                  onClick={() => setEditing(row as unknown as Lecturer)}
+                  onClick={() => setEditing(row as unknown as Tutor)}
                   title="Edit"
                >
                   <Pencil size={14} />
@@ -128,7 +128,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
             {canManageCourses && (
                <Button
                   variant="ghost" size="sm"
-                  onClick={() => setCoursesFor(row as unknown as Lecturer)}
+                  onClick={() => setCoursesFor(row as unknown as Tutor)}
                   title="Manage Courses"
                >
                   <BookMarked size={14} />
@@ -152,18 +152,18 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
                   </div>
                   <div>
                      <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                        Lecturers
+                        Tutors
                      </h1>
                      <p className="text-sm text-muted-foreground">
-                        Manage lecturers — assign lecturer roles to existing users.
+                        Manage tutors — assign tutor roles to existing users.
                      </p>
                   </div>
                </div>
 
-               {/* Add Lecturer — gated to users:manage */}
+               {/* Add Tutor — gated to users:manage */}
                <PermissionGate require={PERM.maanageTutors}>
                   <Button onClick={() => setShowCreate(true)} className="gap-2">
-                     <Plus size={16} /> Add Lecturer
+                     <Plus size={16} /> Add Tutor
                   </Button>
                </PermissionGate>
             </div>
@@ -175,7 +175,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
             transition={{ delay: 0.15 }}
          >
             <DataTable
-               data={(data?.data ?? []) as (Lecturer & Record<string, unknown>)[]}
+               data={(data?.data ?? []) as (Tutor & Record<string, unknown>)[]}
                columns={[...baseColumns, actionsColumn]}
                loading={isLoading}
                searchPlaceholder="Search by name, staff no, department…"
@@ -184,7 +184,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
                }
                rowKey="id"
                pageSize={10}
-               emptyMessage="No lecturers found"
+               emptyMessage="No tutors found"
             />
          </motion.div>
 
@@ -196,7 +196,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
             subtitle={selected?.staff_number}
             size="lg"
          >
-            {selected && <LecturerDetail lecturer={selected} />}
+            {selected && <TutorDetail tutor={selected} />}
          </Modal>
 
          {/* Create modal — only reachable if canCreate, but guard the open state too */}
@@ -204,16 +204,16 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
             <Modal
                open={showCreate}
                onClose={() => setShowCreate(false)}
-               title="Add New Lecturer"
-               subtitle="Select an existing user and fill in lecturer details"
+               title="Add New Tutor"
+               subtitle="Select an existing user and fill in tutor details"
                size="xl"
             >
-               <CreateLecturerForm
+               <CreateTutorForm
                   onSubmit={async (payload) => {
-                     await createLecturer.mutateAsync(payload);
+                     await createTutor.mutateAsync(payload);
                      setShowCreate(false);
                   }}
-                  isSubmitting={createLecturer.isPending}
+                  isSubmitting={createTutor.isPending}
                />
             </Modal>
          )}
@@ -228,13 +228,13 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
                size="xl"
             >
                {editing && (
-                  <EditLecturerForm
-                     lecturer={editing}
+                  <EditTutorForm
+                     tutor={editing}
                      onSubmit={async (payload) => {
-                        await updateLecturer.mutateAsync({ id: editing.id, payload });
+                        await updateTutor.mutateAsync({ id: editing.id, payload });
                         setEditing(null);
                      }}
-                     isSubmitting={updateLecturer.isPending}
+                     isSubmitting={updateTutor.isPending}
                   />
                )}
             </Modal>
@@ -253,7 +253,7 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
                subtitle={coursesFor?.staff_number}
                size="xl"
             >
-               {coursesFor && <LecturerCoursesPanel lecturer={coursesFor} />}
+               {coursesFor && <TutorCoursesPanel tutor={coursesFor} />}
             </Modal>
          )}
       </div>
@@ -261,21 +261,21 @@ export default function LecturersPage({ canDelete: canDeleteProp, canCreate: can
 }
 
 // ── Detail view ───────────────────────────────────────────────────────────────
-function LecturerDetail({ lecturer }: { lecturer: Lecturer }) {
+function TutorDetail({ tutor }: { tutor: Tutor }) {
    const fields = [
-      { label: "Full Name", value: `${lecturer.user.first_name} ${lecturer.user.middle_name ?? ""} ${lecturer.user.last_name}` },
-      { label: "Email", value: lecturer.user.email },
-      { label: "Phone", value: lecturer.user.phone_number ?? "—" },
-      { label: "Staff Number", value: lecturer.staff_number },
-      { label: "Department", value: lecturer.department_name },
-      { label: "Faculty", value: lecturer.faculty_name },
-      { label: "Designation", value: lecturer.designation },
-      { label: "Specialization", value: lecturer.specialization ?? "—" },
-      { label: "Office", value: lecturer.office_location ?? "—" },
-      { label: "Office Phone", value: lecturer.office_phone ?? "—" },
-      { label: "Qualifications", value: lecturer.qualifications ?? "—" },
-      { label: "Research Areas", value: lecturer.research_areas ?? "—" },
-      { label: "Bio", value: lecturer.bio ?? "—" },
+      { label: "Full Name", value: `${tutor.user.first_name} ${tutor.user.middle_name ?? ""} ${tutor.user.last_name}` },
+      { label: "Email", value: tutor.user.email },
+      { label: "Phone", value: tutor.user.phone_number ?? "—" },
+      { label: "Staff Number", value: tutor.staff_number },
+      { label: "Department", value: tutor.department_name },
+      { label: "Faculty", value: tutor.faculty_name },
+      { label: "Designation", value: tutor.designation },
+      { label: "Specialization", value: tutor.specialization ?? "—" },
+      { label: "Office", value: tutor.office_location ?? "—" },
+      { label: "Office Phone", value: tutor.office_phone ?? "—" },
+      { label: "Qualifications", value: tutor.qualifications ?? "—" },
+      { label: "Research Areas", value: tutor.research_areas ?? "—" },
+      { label: "Bio", value: tutor.bio ?? "—" },
    ];
 
    return (
@@ -300,14 +300,14 @@ const inputCls =
    "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all " +
    "placeholder:text-muted-foreground text-foreground";
 
-function CreateLecturerForm({
+function CreateTutorForm({
    onSubmit,
    isSubmitting,
 }: {
-   onSubmit: (p: CreateLecturerPayload) => Promise<void>;
+   onSubmit: (p: CreateTutorPayload) => Promise<void>;
    isSubmitting: boolean;
 }) {
-   const [form, setForm] = useState<CreateLecturerPayload>({
+   const [form, setForm] = useState<CreateTutorPayload>({
       user_id: 0,
       first_name: "",
       last_name: "",
@@ -316,7 +316,7 @@ function CreateLecturerForm({
       designation: "",
    });
 
-   const update = (key: keyof CreateLecturerPayload, value: string | number) =>
+   const update = (key: keyof CreateTutorPayload, value: string | number) =>
       setForm((prev) => ({ ...prev, [key]: value }));
 
    const handleSubmit = (e: React.FormEvent) => {
@@ -327,7 +327,7 @@ function CreateLecturerForm({
    return (
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
          <p className="text-xs text-muted-foreground">
-            Enter the existing User ID of the person you want to assign as a lecturer.
+            Enter the existing User ID of the person you want to assign as a tutor.
          </p>
 
          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -366,7 +366,7 @@ function CreateLecturerForm({
             <div>
                <label className="text-xs font-medium text-foreground mb-1 block">Designation *</label>
                <input
-                  className={inputCls} placeholder="Senior Lecturer" required
+                  className={inputCls} placeholder="Senior Tutor" required
                   value={form.designation}
                   onChange={(e) => update("designation", e.target.value)}
                />
@@ -401,7 +401,7 @@ function CreateLecturerForm({
          <div className="flex justify-end pt-2">
             <Button type="submit" disabled={isSubmitting} className="gap-2">
                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-               Create Lecturer
+               Create Tutor
             </Button>
          </div>
       </form>
@@ -409,26 +409,26 @@ function CreateLecturerForm({
 }
 
 // ── Edit form ─────────────────────────────────────────────────────────────────
-function EditLecturerForm({
-   lecturer,
+function EditTutorForm({
+   tutor,
    onSubmit,
    isSubmitting,
 }: {
-   lecturer: Lecturer;
-   onSubmit: (p: UpdateLecturerPayload) => Promise<void>;
+   tutor: Tutor;
+   onSubmit: (p: UpdateTutorPayload) => Promise<void>;
    isSubmitting: boolean;
 }) {
-   const [form, setForm] = useState<UpdateLecturerPayload>({
-      designation: lecturer.designation,
-      specialization: lecturer.specialization ?? "",
-      office_location: lecturer.office_location ?? "",
-      office_phone: lecturer.office_phone ?? "",
-      qualifications: lecturer.qualifications ?? "",
-      research_areas: lecturer.research_areas ?? "",
-      bio: lecturer.bio ?? "",
+   const [form, setForm] = useState<UpdateTutorPayload>({
+      designation: tutor.designation,
+      specialization: tutor.specialization ?? "",
+      office_location: tutor.office_location ?? "",
+      office_phone: tutor.office_phone ?? "",
+      qualifications: tutor.qualifications ?? "",
+      research_areas: tutor.research_areas ?? "",
+      bio: tutor.bio ?? "",
    });
 
-   const update = (key: keyof UpdateLecturerPayload, value: string) =>
+   const update = (key: keyof UpdateTutorPayload, value: string) =>
       setForm((prev) => ({ ...prev, [key]: value }));
 
    const handleSubmit = (e: React.FormEvent) => {
@@ -480,13 +480,13 @@ function EditLecturerForm({
 }
 
 // ── Course assignment panel ───────────────────────────────────────────────────
-const ROLE_OPTIONS: { value: LecturerCourseRole; label: string }[] = [
+const ROLE_OPTIONS: { value: TutorCourseRole; label: string }[] = [
    { value: "primary", label: "Primary" },
    { value: "assistant", label: "Assistant" },
    { value: "supervisor", label: "Supervisor" },
 ];
 
-const roleVariant: Record<LecturerCourseRole, "success" | "info" | "purple"> = {
+const roleVariant: Record<TutorCourseRole, "success" | "info" | "purple"> = {
    primary: "success",
    assistant: "info",
    supervisor: "purple",
@@ -496,14 +496,14 @@ const selectCls =
    "w-full px-3 py-2 text-sm bg-muted border border-transparent rounded-xl outline-none " +
    "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-foreground appearance-none";
 
-function LecturerCoursesPanel({ lecturer }: { lecturer: Lecturer }) {
-   const { data: coursesData, isLoading } = useLecturerCourses(lecturer.id);
+function TutorCoursesPanel({ tutor }: { tutor: Tutor }) {
+   const { data: coursesData, isLoading } = useTutorCourses(tutor.id);
    const { data: offeringsData } = useCourseOfferings();
    const assignCourse = useAssignCourse();
    const unassignCourse = useUnassignCourse();
 
    const [selectedOffering, setSelectedOffering] = useState<number>(0);
-   const [selectedRole, setSelectedRole] = useState<LecturerCourseRole>("primary");
+   const [selectedRole, setSelectedRole] = useState<TutorCourseRole>("primary");
 
    const assignments = coursesData?.data ?? [];
    const assignedOfferingIds = new Set(assignments.map((a) => a.offering_id));
@@ -524,7 +524,7 @@ function LecturerCoursesPanel({ lecturer }: { lecturer: Lecturer }) {
    const handleAssign = async () => {
       if (!selectedOffering) return;
       await assignCourse.mutateAsync({
-         lecturer_id: lecturer.id,
+         tutor_id: tutor.id,
          offering_id: selectedOffering,
          role: selectedRole,
       });
@@ -556,7 +556,7 @@ function LecturerCoursesPanel({ lecturer }: { lecturer: Lecturer }) {
                   <select
                      className={selectCls}
                      value={selectedRole}
-                     onChange={(e) => setSelectedRole(e.target.value as LecturerCourseRole)}
+                     onChange={(e) => setSelectedRole(e.target.value as TutorCourseRole)}
                   >
                      {ROLE_OPTIONS.map((r) => (
                         <option key={r.value} value={r.value}>{r.label}</option>

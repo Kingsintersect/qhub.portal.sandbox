@@ -20,7 +20,7 @@ import { UNIVERSITY_NAME } from "@/config/global.config";
 
 const roleMeta: Record<string, { label: string; cls: string }> = {
    STUDENT: { label: "Student", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
-   LECTURER: { label: "Lecturer", cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+   TUTOR: { label: "Tutor", cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
    HOD: { label: "HOD", cls: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400" },
    DEAN: { label: "Dean", cls: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
    BURSARY: { label: "Bursary", cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },

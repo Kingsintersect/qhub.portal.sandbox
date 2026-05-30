@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { Clock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ export function UpcomingAssessments({ limit = 5, viewAllHref }: UpcomingAssessme
                                 key={item.id}
                                 assessment={item}
                                 index={idx}
-                                href={`/assessments/${item.id}`}
+                                href={`/student/assessments/${item.id}`}
                             />
                         ))}
                     </div>
