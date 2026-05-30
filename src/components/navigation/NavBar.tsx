@@ -57,6 +57,7 @@ export default function NavBar() {
                      <a className="text-sm hover:text-primary transition-colors" href="/admissions">Admissions</a>
                      <a className="text-sm hover:text-primary transition-colors" href="/academics">Academics</a>
                      <a className="text-sm hover:text-primary transition-colors" href="/research">Research</a>
+                     <a className="text-sm hover:text-primary transition-colors" href="/assessments">Assessments</a>
                      <a className="text-sm hover:text-primary transition-colors" href="/contact">Contact</a>
                   </div>
 
