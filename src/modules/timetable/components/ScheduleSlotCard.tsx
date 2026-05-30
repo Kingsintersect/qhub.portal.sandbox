@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { MapPin, Clock } from "lucide-react";
 import type { TimetableSlot } from "../types/timetable.types";
 
@@ -57,9 +56,9 @@ export function ScheduleSlotCard({ slot, compact = false, actions, className }: 
                 </span>
             </div>
 
-            {/* Lecturer */}
+            {/* Tutor */}
             {!compact && (
-                <p className="text-xs text-muted-foreground truncate">{slot.lecturerName}</p>
+                <p className="text-xs text-muted-foreground truncate">{slot.tutorName}</p>
             )}
 
             {/* Optional actions (edit/delete for admin) */}

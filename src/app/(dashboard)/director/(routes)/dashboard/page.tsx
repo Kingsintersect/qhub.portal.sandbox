@@ -99,7 +99,7 @@ export default function DirectorDashboardPage() {
                   <tr>
                      <th>Faculty</th>
                      <th>Students</th>
-                     <th>Lecturers</th>
+                     <th>Tutors</th>
                      <th>Distribution</th>
                   </tr>
                </thead>
@@ -116,7 +116,7 @@ export default function DirectorDashboardPage() {
                         <tr key={f.faculty}>
                            <td className="faculty-name">{f.faculty}</td>
                            <td className="num">{f.students.toLocaleString()}</td>
-                           <td className="num">{f.lecturers}</td>
+                           <td className="num">{f.tutors}</td>
                            <td>
                               <div className="progress-wrap">
                                  <div

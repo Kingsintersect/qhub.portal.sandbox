@@ -8,16 +8,16 @@ import { AcademicCalendarBanner } from "@/modules/timetable/components/AcademicC
 import { CalendarDays, Clock, List } from "lucide-react";
 
 const TAB_LINKS = [
-    { href: "/timetable", label: "My Timetable", icon: CalendarDays, exact: true },
-    { href: "/timetable/calendar", label: "Calendar", icon: List, exact: false },
-    { href: "/timetable/upcoming", label: "Upcoming", icon: Clock, exact: false },
+    { href: "/student/timetable", label: "My Timetable", icon: CalendarDays, exact: true },
+    { href: "/student/timetable/calendar", label: "Calendar", icon: List, exact: false },
+    { href: "/student/timetable/upcoming", label: "Upcoming", icon: Clock, exact: false },
 ];
 
 export default function TimetableLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        <div className="mx-auto px-4 py-8 space-y-6">
             {/* Banner */}
             <AcademicCalendarBanner />
 

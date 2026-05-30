@@ -1,13 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, ClipboardList, MessageSquare, Calendar, Award, ExternalLink, RefreshCw, ArrowLeft } from "lucide-react";
+import { BookOpen, ClipboardList, MessageSquare, ExternalLink, RefreshCw, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/custom/StatusBadge";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
 import { useAssessmentDetail } from "../hooks/use-assessment-detail";
-import type { AssessmentType, AssessmentDetail } from "../types";
+import type { AssessmentType } from "../types";
 
 const typeConfig: Record<AssessmentType, { icon: React.ElementType; label: string; badge: "info" | "purple" | "orange" }> = {
     assignment: { icon: ClipboardList, label: "Assignment", badge: "info" },

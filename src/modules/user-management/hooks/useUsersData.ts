@@ -74,44 +74,44 @@ export function useUpdateStudent() {
    });
 }
 
-/* ── Lecturers ── */
+/* ── Tutors ── */
 
-export function useLecturers(filters?: UserQueryFilters) {
+export function useTutors(filters?: UserQueryFilters) {
    return useQuery({
-      ...usersQueryOptions.lecturers.list(filters),
+      ...usersQueryOptions.tutors.list(filters),
       staleTime: 1000 * 60 * 2,
    });
 }
 
-export function useLecturer(id: number) {
+export function useTutor(id: number) {
    return useQuery({
-      ...usersQueryOptions.lecturers.detail(id),
+      ...usersQueryOptions.tutors.detail(id),
       enabled: id > 0,
    });
 }
 
-export function useCreateLecturer() {
+export function useCreateTutor() {
    const qc = useQueryClient();
    return useMutation({
-      ...usersMutationOptions.createLecturer(),
+      ...usersMutationOptions.createTutor(),
       onSuccess: async () => {
-         await qc.invalidateQueries({ queryKey: usersKeys.lecturers.all });
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
          await qc.invalidateQueries({ queryKey: usersKeys.all });
-         toast.success("Lecturer created successfully");
+         toast.success("Tutor created successfully");
       },
-      onError: () => toast.error("Failed to create lecturer"),
+      onError: () => toast.error("Failed to create tutor"),
    });
 }
 
-export function useUpdateLecturer() {
+export function useUpdateTutor() {
    const qc = useQueryClient();
    return useMutation({
-      ...usersMutationOptions.updateLecturer(),
+      ...usersMutationOptions.updateTutor(),
       onSuccess: async () => {
-         await qc.invalidateQueries({ queryKey: usersKeys.lecturers.all });
-         toast.success("Lecturer updated");
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
+         toast.success("Tutor updated");
       },
-      onError: () => toast.error("Failed to update lecturer"),
+      onError: () => toast.error("Failed to update tutor"),
    });
 }
 
@@ -124,10 +124,10 @@ export function useCourseOfferings() {
    });
 }
 
-export function useLecturerCourses(lecturerId: number) {
+export function useTutorCourses(tutorId: number) {
    return useQuery({
-      ...usersQueryOptions.lecturers.courses(lecturerId),
-      enabled: lecturerId > 0,
+      ...usersQueryOptions.tutors.courses(tutorId),
+      enabled: tutorId > 0,
    });
 }
 
@@ -136,7 +136,7 @@ export function useAssignCourse() {
    return useMutation({
       ...usersMutationOptions.assignCourse(),
       onSuccess: async () => {
-         await qc.invalidateQueries({ queryKey: usersKeys.lecturers.all });
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
          toast.success("Course assigned successfully");
       },
       onError: (err) => toast.error(err?.message ?? "Failed to assign course"),
@@ -148,7 +148,7 @@ export function useUnassignCourse() {
    return useMutation({
       ...usersMutationOptions.unassignCourse(),
       onSuccess: async () => {
-         await qc.invalidateQueries({ queryKey: usersKeys.lecturers.all });
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
          toast.success("Course unassigned");
       },
       onError: () => toast.error("Failed to unassign course"),

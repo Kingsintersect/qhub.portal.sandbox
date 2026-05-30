@@ -72,7 +72,7 @@ export default function GradesSummaryPage({ canViewOwn = true }: GradesSummaryPa
                   </SectionCard>
                </motion.div>
 
-               {/* Top performers + Grade scale - only show for staff/lecturers */}
+               {/* Top performers + Grade scale - only show for staff/tutors */}
                {canViewOwn && data.topPerformers.length > 0 && (
                   <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                      {/* Top performers */}

@@ -2,7 +2,7 @@
 
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { usePermissions } from '@/lib/permissions/usePermissions'
-import LecturersPage from './TutorList'
+import TutorsPage from './TutorList'
 import StaffPage from './StaffList'
 import StudentsPage from './StudentList'
 import UsersSummaryPage from './Summary'
@@ -87,7 +87,7 @@ export function TutorManagementShell() {
       <div className="space-y-8">
          {/* Tutors table — same gate */}
          <PermissionGate require={{ resource: 'tutors', action: 'view' }}>
-            <LecturersPage
+            <TutorsPage
                canDelete={canDelete}
                canCreate={canCreate}
             />

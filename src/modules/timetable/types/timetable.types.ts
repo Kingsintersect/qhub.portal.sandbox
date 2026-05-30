@@ -39,7 +39,7 @@ export interface TimetableSlot {
     courseCode: string;
     courseTitle: string;
     creditUnits: number;
-    lecturerName: string;
+    tutorName: string;
     offeringId: number;
 }
 
@@ -78,7 +78,7 @@ export interface BusySlot {
     startTime: string;
     endTime: string;
     courseCode: string;
-    lecturerName: string;
+    tutorName: string;
 }
 
 export interface TimeWindow {

@@ -109,10 +109,10 @@ function generateStudents(count = 200) {
   });
 }
 
-// ─── Mock Generator: Lecturers ────────────────────────────────────────────────
+// ─── Mock Generator: Tutors ────────────────────────────────────────────────
 
-function generateLecturers(count = 60) {
-  const designations = ["Professor", "Associate Professor", "Senior Lecturer", "Lecturer I", "Lecturer II", "Assistant Lecturer", "Graduate Assistant"];
+function generateTutors(count = 60) {
+  const designations = ["Professor", "Associate Professor", "Senior Tutor", "Tutor I", "Tutor II", "Assistant Tutor", "Graduate Assistant"];
   return Array.from({ length: count }, (_, i) => {
     const faculty = FACULTIES[rnd(0, FACULTIES.length - 1)];
     const depts = DEPARTMENTS[faculty];
@@ -121,7 +121,7 @@ function generateLecturers(count = 60) {
       id: `LEC-${i + 1}`,
       staffId: randomStaffId(),
       fullName: randomName(),
-      email: `lecturer${i + 1}@unizik.edu.ng`,
+      email: `tutor${i + 1}@unizik.edu.ng`,
       phone: `080${rnd(10000000, 99999999)}`,
       faculty,
       department,
@@ -145,10 +145,10 @@ function generatePayments(students: ReturnType<typeof generateStudents>): Paymen
       statusPick === "paid"
         ? expected
         : statusPick === "partial"
-        ? rnd(50000, expected - 10000)
-        : statusPick === "unpaid"
-        ? 0
-        : rnd(0, 40000);
+          ? rnd(50000, expected - 10000)
+          : statusPick === "unpaid"
+            ? 0
+            : rnd(0, 40000);
     return {
       id: `PAY-${s.id}`,
       studentId: s.id,
@@ -185,7 +185,7 @@ function generateGrades(students: ReturnType<typeof generateStudents>) {
         grade: g,
         gradePoints: GRADE_POINTS[g],
         semester: SEMESTERS[rnd(0, 1)],
-        lecturerName: randomName(),
+        tutorName: randomName(),
       };
     });
 
@@ -220,16 +220,16 @@ function generateGrades(students: ReturnType<typeof generateStudents>) {
 // ─── Cached Seed ──────────────────────────────────────────────────────────────
 
 let _students: ReturnType<typeof generateStudents> | null = null;
-let _lecturers: ReturnType<typeof generateLecturers> | null = null;
+let _tutors: ReturnType<typeof generateTutors> | null = null;
 let _payments: PaymentRecord[] | null = null;
 let _grades: ReturnType<typeof generateGrades> | null = null;
 
 function getSeeds() {
   if (!_students) _students = generateStudents(300);
-  if (!_lecturers) _lecturers = generateLecturers(80);
+  if (!_tutors) _tutors = generateTutors(80);
   if (!_payments) _payments = generatePayments(_students);
   if (!_grades) _grades = generateGrades(_students);
-  return { students: _students, lecturers: _lecturers, payments: _payments, grades: _grades };
+  return { students: _students, tutors: _tutors, payments: _payments, grades: _grades };
 }
 
 // ─── Service Methods ──────────────────────────────────────────────────────────
@@ -241,19 +241,19 @@ export const directorService = {
     // LIVE: const res = await apiClient.get<DashboardOverview>("/director/overview");
     // LIVE: return res.data;
     await simulateDelay(600);
-    const { students, lecturers, payments } = getSeeds();
+    const { students, tutors, payments } = getSeeds();
     const totalRevenue = payments.reduce((a, p) => a + p.amountPaid, 0);
     const pendingPayments = payments.filter((p) => p.status !== "paid").reduce((a, p) => a + p.balance, 0);
     return {
       totalStudents: students.length,
-      totalLecturers: lecturers.length,
+      totalTutors: tutors.length,
       totalRevenue,
       pendingPayments,
       activePrograms: 42,
       graduationRate: 87.4,
       metrics: [
         { label: "Total Students", value: students.length, change: 5.2, changeLabel: "vs last session", icon: "users", trend: "up" },
-        { label: "Total Lecturers", value: lecturers.length, change: 3.1, changeLabel: "vs last session", icon: "book-open", trend: "up" },
+        { label: "Total Tutors", value: tutors.length, change: 3.1, changeLabel: "vs last session", icon: "book-open", trend: "up" },
         { label: "Total Revenue", value: `₦${(totalRevenue / 1_000_000).toFixed(1)}M`, change: 12.5, changeLabel: "vs last session", icon: "banknote", trend: "up" },
         { label: "Outstanding Fees", value: `₦${(pendingPayments / 1_000_000).toFixed(1)}M`, change: -8.3, changeLabel: "vs last session", icon: "alert-circle", trend: "down" },
         { label: "Active Programs", value: 42, change: 2, changeLabel: "new programs", icon: "graduation-cap", trend: "up" },
@@ -270,7 +270,7 @@ export const directorService = {
     return months.map((month) => ({
       month,
       students: rnd(4500, 5500),
-      lecturers: rnd(70, 90),
+      tutors: rnd(70, 90),
       newEnrollments: rnd(80, 400),
     }));
   },
@@ -287,7 +287,7 @@ export const directorService = {
     return FACULTIES.map((f) => ({
       faculty: f,
       students: map[f],
-      lecturers: rnd(5, 20),
+      tutors: rnd(5, 20),
       percentage: parseFloat(((map[f] / total) * 100).toFixed(1)),
     }));
   },
@@ -360,18 +360,18 @@ export const directorService = {
     // LIVE: const res = await apiClient.get<StatisticalReport>("/director/statistical-report", { params: filter });
     // LIVE: return res.data;
     await simulateDelay(800);
-    const { students, lecturers } = getSeeds();
+    const { students, tutors } = getSeeds();
 
     let filteredStudents = [...students];
-    let filteredLecturers = [...lecturers];
+    let filteredTutors = [...tutors];
 
     if (filter?.faculty && filter.faculty !== "all") {
       filteredStudents = filteredStudents.filter((s) => s.faculty === filter.faculty);
-      filteredLecturers = filteredLecturers.filter((l) => l.faculty === filter.faculty);
+      filteredTutors = filteredTutors.filter((l) => l.faculty === filter.faculty);
     }
     if (filter?.department && filter.department !== "all") {
       filteredStudents = filteredStudents.filter((s) => s.department === filter.department);
-      filteredLecturers = filteredLecturers.filter((l) => l.department === filter.department);
+      filteredTutors = filteredTutors.filter((l) => l.department === filter.department);
     }
     if (filter?.level && filter.level !== "all") {
       filteredStudents = filteredStudents.filter((s) => s.level === filter.level);
@@ -379,7 +379,7 @@ export const directorService = {
     if (filter?.search) {
       const q = filter.search.toLowerCase();
       filteredStudents = filteredStudents.filter((s) => s.fullName.toLowerCase().includes(q) || s.matricNumber.toLowerCase().includes(q));
-      filteredLecturers = filteredLecturers.filter((l) => l.fullName.toLowerCase().includes(q));
+      filteredTutors = filteredTutors.filter((l) => l.fullName.toLowerCase().includes(q));
     }
 
     const studentsByLevel: Record<string, number> = { "100": 0, "200": 0, "300": 0, "400": 0, "500": 0 };
@@ -389,18 +389,18 @@ export const directorService = {
     const female = filteredStudents.filter((s) => s.gender === "Female").length;
 
     const designationMap: Record<string, number> = {};
-    filteredLecturers.forEach((l) => {
+    filteredTutors.forEach((l) => {
       designationMap[l.designation] = (designationMap[l.designation] || 0) + 1;
     });
 
     return {
       students: filteredStudents.slice(0, 100) as any,
-      lecturers: filteredLecturers.slice(0, 50) as any,
+      tutors: filteredTutors.slice(0, 50) as any,
       totalStudents: filteredStudents.length,
-      totalLecturers: filteredLecturers.length,
+      totalTutors: filteredTutors.length,
       studentsByLevel: studentsByLevel as any,
       studentsByGender: { male, female },
-      lecturersByDesignation: designationMap,
+      tutorsByDesignation: designationMap,
     };
   },
 

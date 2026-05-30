@@ -61,9 +61,9 @@ export interface Student {
    user: Pick<User, "id" | "email" | "username" | "first_name" | "middle_name" | "last_name" | "phone_number" | "avatar" | "is_active">;
 }
 
-// ── Lecturer ────────────────────────────────
+// ── Tutor ────────────────────────────────
 
-export interface Lecturer {
+export interface Tutor {
    id: number;
    user_id: number;
    staff_number: string;
@@ -101,7 +101,7 @@ export interface Staff {
 
 // ── Payload types ───────────────────────────
 
-export interface CreateLecturerPayload {
+export interface CreateTutorPayload {
    user_id: number;
    first_name: string;
    middle_name?: string;
@@ -149,7 +149,7 @@ export interface UpdateStudentPayload {
    phone_number?: string;
 }
 
-export interface UpdateLecturerPayload {
+export interface UpdateTutorPayload {
    designation?: string;
    specialization?: string;
    office_location?: string;
@@ -170,7 +170,7 @@ export interface UpdateStaffPayload {
 
 export type CourseType = "GENERAL" | "FACULTY" | "DEPARTMENTAL" | "ELECTIVE";
 export type CourseOfferingStatus = "PLANNED" | "OPEN" | "CLOSED" | "CANCELLED";
-export type LecturerCourseRole = "primary" | "assistant" | "supervisor";
+export type TutorCourseRole = "primary" | "assistant" | "supervisor";
 
 export interface Course {
    id: number;
@@ -194,22 +194,22 @@ export interface CourseOffering {
    status: CourseOfferingStatus;
 }
 
-export interface LecturerCourseAssignment {
+export interface TutorCourseAssignment {
    id: number;
    offering_id: number;
-   lecturer_id: number;
-   role: LecturerCourseRole;
+   tutor_id: number;
+   role: TutorCourseRole;
    created_at: string;
    offering: CourseOffering;
 }
 
 export interface AssignCoursePayload {
-   lecturer_id: number;
+   tutor_id: number;
    offering_id: number;
-   role?: LecturerCourseRole;
+   role?: TutorCourseRole;
 }
 
-// ── Role eligible for staff/lecturer assignment ─
+// ── Role eligible for staff/tutor assignment ─
 
 export interface EligibleRole {
    id: number;
@@ -234,7 +234,7 @@ export interface StudentQueryFilters extends UserQueryFilters {
 export interface UserStats {
    total_users: number;
    total_students: number;
-   total_lecturers: number;
+   total_tutors: number;
    total_staff: number;
    active_users: number;
 }

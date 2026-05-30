@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function MyAssessmentsLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
+        <div className="mx-auto px-4 py-10 space-y-6">
             {/* Section header */}
             <div>
                 <h1 className="text-2xl font-bold text-foreground">My Assessments</h1>
@@ -20,8 +20,8 @@ export default function MyAssessmentsLayout({ children }: { children: React.Reac
 
             {/* Sub-nav tabs */}
             <nav className="flex gap-1 border-b border-border pb-0">
-                <TabLink href="/assessments/my-assessments" exact icon={BookOpen} label="All" />
-                <TabLink href="/assessments/my-assessments/upcoming" icon={Clock} label="Upcoming" />
+                <TabLink href="/student/assessments/my-assessments" exact icon={BookOpen} label="All" />
+                <TabLink href="/student/assessments/my-assessments/upcoming" icon={Clock} label="Upcoming" />
             </nav>
 
             {children}

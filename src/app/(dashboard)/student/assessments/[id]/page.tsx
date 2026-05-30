@@ -14,8 +14,8 @@ export default async function AssessmentDetailPage({ params }: Props) {
     const numId = parseInt(id, 10);
 
     return (
-        <div className="max-w-3xl mx-auto px-4 py-10">
-            <AssessmentDetailView id={numId} backHref="/assessments/my-assessments" />
+        <div className="max-w-6xl mx-auto px-4 py-10">
+            <AssessmentDetailView id={numId} backHref="/student/assessments/my-assessments" />
         </div>
     );
 }

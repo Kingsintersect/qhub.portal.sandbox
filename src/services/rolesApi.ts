@@ -45,15 +45,15 @@ const roles: Role[] = [
       users_count: 1240,
    },
    {
-      id: 2, name: "Lecturer", slug: "lecturer",
-      description: "Course lecturer and academic advisor",
+      id: 2, name: "Tutor", slug: "tutor",
+      description: "Course tutor and academic advisor",
       is_default: false, created_at: "2024-09-01T00:00:00Z",
       permissions: permissions.filter((p) => [1, 2, 4].includes(p.id)),
       users_count: 86,
    },
    {
       id: 3, name: "Head of Department", slug: "hod",
-      description: "Head of Department — inherits lecturer privileges plus approval rights",
+      description: "Head of Department — inherits tutor privileges plus approval rights",
       is_default: false, created_at: "2024-09-01T00:00:00Z",
       permissions: permissions.filter((p) => [1, 2, 4, 5, 9].includes(p.id)),
       users_count: 12,

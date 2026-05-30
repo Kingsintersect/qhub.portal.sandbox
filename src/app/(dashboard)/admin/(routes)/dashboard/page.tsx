@@ -19,7 +19,7 @@ export default function AdminPage() {
                     tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 },
                 {
-                    title: "Lecturer Records",
+                    title: "Tutor Records",
                     value: "742",
                     detail: "31 profiles updated this week",
                     icon: Users,
@@ -52,7 +52,7 @@ export default function AdminPage() {
                 {
                     title: "Department staffing balance",
                     meta: "Academic planning · 6 departments affected",
-                    description: "Review lecturer allocation gaps in Engineering and Science before auto-publishing the new teaching load summary.",
+                    description: "Review tutor allocation gaps in Engineering and Science before auto-publishing the new teaching load summary.",
                     status: "In review",
                     tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 },
