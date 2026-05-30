@@ -92,8 +92,15 @@ const allPermissions: Permission[] = [
    permission(27, "academics", "configure", "academics", "Configure academic sessions and semesters"),
    permission(28, "admissions", "manage", "admissions", "Manage admission cycles and entry requirements"),
    permission(29, "admissions", "view", "admissions", "View admission applications and statuses"),
+   permission(30, "course_structure", "manage", "academics", "Manage faculties, departments, programs, levels, semesters"),
 
-   permission(29, "course_structure", "manage", "academics", "Manage faculties, departments, programs, levels, semesters"),
+   // ========== ASSESSMENTS ==========
+   permission(31, "assessments", "view.own", "assessments", "View own assessments (student)"),
+   permission(32, "assessments", "view", "assessments", "View assessments for assigned courses (lecturer)"),
+   permission(33, "assessments", "view.all", "assessments", "View all assessments across courses"),
+   permission(34, "assessments", "manage", "assessments", "Create, edit and delete assessments"),
+   permission(35, "assessments", "toggle.visibility", "assessments", "Show or hide assessments for students"),
+   permission(36, "assessments", "sync", "assessments", "Trigger and monitor Moodle assessment sync"),
 ];
 
 const pickPermissions = (...ids: number[]) =>
@@ -121,14 +128,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Student",
       description: "Regular undergraduate or postgraduate student",
       dashboardPath: roleDashboardPath[UserRole.STUDENT],
-      permissions: pickPermissions(1, 7, 18, 19), // results:view.own, courses:register, fees:pay
+      permissions: pickPermissions(1, 7, 18, 19, 31), // results:view.own, courses:register, fees:pay, assessments:view.own
       profile: {
          id: "std-001",
          name: "Chukwuemeka Okonkwo",
          email: "c.okonkwo@students.unilag.edu.ng",
          role: UserRole.STUDENT,
          availableRoles: [UserRole.STUDENT],
-         permissions: pickPermissions(1, 7, 18, 19),
+         permissions: pickPermissions(1, 7, 18, 19, 31),
          department: "Computer Science",
          faculty: "Science",
          matricNo: "190404001",
@@ -142,14 +149,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Lecturer",
       description: "Course lecturer and academic advisor",
       dashboardPath: roleDashboardPath[UserRole.LECTURER],
-      permissions: pickPermissions(1, 3, 11, 14), // results:view.own, results:manage, students:view, tutors:view
+      permissions: pickPermissions(1, 3, 11, 14, 32, 35), // + assessments:view, assessments:toggle.visibility
       profile: {
          id: "lec-001",
          name: "Dr. Aisha Bello",
          email: "a.bello@unilag.edu.ng",
          role: UserRole.LECTURER,
          availableRoles: [UserRole.LECTURER],
-         permissions: pickPermissions(1, 3, 11, 14),
+         permissions: pickPermissions(1, 3, 11, 14, 32, 35),
          department: "Computer Science",
          faculty: "Science",
          staffId: "STAFF-2145",
@@ -181,14 +188,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "HOD",
       description: "Head of Department with lecturer privileges and approval authority",
       dashboardPath: roleDashboardPath[UserRole.HOD],
-      permissions: pickPermissions(1, 3, 4, 8, 11, 14), // view.own, manage, publish, approve, view, view tutors
+      permissions: pickPermissions(1, 3, 4, 8, 11, 14, 32, 35), // + assessments:view, toggle.visibility
       profile: {
          id: "hod-001",
          name: "Prof. Funke Adeyemi",
          email: "f.adeyemi@unilag.edu.ng",
          role: UserRole.HOD,
          availableRoles: [UserRole.HOD],
-         permissions: pickPermissions(1, 3, 4, 8, 11, 14),
+         permissions: pickPermissions(1, 3, 4, 8, 11, 14, 32, 35),
          department: "Computer Science",
          faculty: "Science",
          staffId: "HOD-0007",
@@ -201,14 +208,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Dean",
       description: "Faculty dean with cross-department oversight",
       dashboardPath: roleDashboardPath[UserRole.DEAN],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16), // view.all, manage, publish, export, analyze, approve, etc
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33), // + assessments:view, view.all
       profile: {
          id: "dean-001",
          name: "Prof. Ngozi Ekanem",
          email: "n.ekanem@unilag.edu.ng",
          role: UserRole.DEAN,
          availableRoles: [UserRole.DEAN],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33),
          faculty: "Science",
          staffId: "DEAN-0002",
       },
@@ -239,14 +246,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Director",
       description: "Director with oversight of academic and financial operations",
       dashboardPath: roleDashboardPath[UserRole.DIRECTOR],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26), // academics + finance
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33), // + assessments:view.all
       profile: {
          id: "dir-001",
          name: "Dr. Adebayo Oladipo",
          email: "a.oladipo@unilag.edu.ng",
          role: UserRole.DIRECTOR,
          availableRoles: [UserRole.DIRECTOR],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33),
          faculty: "Science",
          staffId: "DIR-0001",
       },
@@ -259,10 +266,11 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       description: "System administrator with user management access",
       dashboardPath: roleDashboardPath[UserRole.ADMIN],
       permissions: pickPermissions(
-         1, 2, 3, 4, 5, 6, 7, 8,           // Academics
-         9, 10, 11, 12, 13, 14, 15, 16, 17, // User management
+         1, 2, 3, 4, 5, 6, 7, 8,             // Academics
+         9, 10, 11, 12, 13, 14, 15, 16, 17,  // User management
          18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
-         27, 28, 29, //academic session
+         27, 28, 29, 30,                      // Sessions, admissions, course_structure
+         32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
       ),
       profile: {
          id: "adm-001",
@@ -271,10 +279,11 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
          role: UserRole.ADMIN,
          availableRoles: [UserRole.ADMIN],
          permissions: pickPermissions(
-            1, 2, 3, 4, 5, 6, 7, 8,           // Academics
-            9, 10, 11, 12, 13, 14, 15, 16, 17, // User management
+            1, 2, 3, 4, 5, 6, 7, 8,             // Academics
+            9, 10, 11, 12, 13, 14, 15, 16, 17,  // User management
             18, 19, 20, 21, 22, 23, 24, 25, 26, // Finance (full)
-            27, 28, 29, //academic session
+            27, 28, 29, 30,                      // Sessions, admissions, course_structure
+            32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
          ),
          department: "Registry",
          staffId: "ADMIN-0012",
@@ -287,7 +296,7 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Super Admin",
       description: "ICT or system administrator with full platform access",
       dashboardPath: roleDashboardPath[UserRole.SUPER_ADMIN],
-      permissions: allPermissions, // All 20 permissions
+      permissions: allPermissions, // All permissions
       profile: {
          id: "sa-001",
          name: "Prof. Ngozi Okafor",
