@@ -1,4 +1,4 @@
-// src/features/course-structure/CourseStructurePage.tsx
+// src/modules/course-structure/CourseStructurePage.tsx
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";

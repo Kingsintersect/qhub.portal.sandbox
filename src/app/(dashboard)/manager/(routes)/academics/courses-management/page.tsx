@@ -1,4 +1,4 @@
-import { CourseManagementShell } from "@/features/academics/AcademicsShell";
+import { CourseManagementShell } from "@/modules/academics/AcademicsShell";
 
 export default function AdminCourseManagementPage() {
    return <CourseManagementShell />;

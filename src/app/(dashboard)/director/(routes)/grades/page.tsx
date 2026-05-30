@@ -2,14 +2,16 @@
 
 import React, { useState } from "react";
 import { AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
-import { useDirectorGrades } from "../../features/hooks/useDirectorData";
-import { DirectorFilterBar } from "../../features/components/DirectorFilterBar";
 import {
-  GradeRadarChart,
-  GpaLineChart,
-} from "../../features/components/charts/DirectorCharts";
-import { DataTable, StatusBadge, Column } from "../../features/components/DataTable";
-import { StudentGradeRecord, CourseGrade } from "../../features/types/director.types";
+   useDirectorGrades,
+   StatusBadge,
+   StudentGradeRecord,
+   CourseGrade,
+   DirectorFilterBar,
+   Column,
+   GradeRadarChart,
+   GpaLineChart
+} from "@/modules/director";
 
 // ─── Grade colours ────────────────────────────────────────────────────────────
 const GRADE_COLORS: Record<string, string> = {

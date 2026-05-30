@@ -1,4 +1,4 @@
-import { CourseStructureShell } from "@/features/academics/AcademicsShell";
+import { CourseStructureShell } from "@/modules/academics/AcademicsShell";
 
 export default function AdminCourseStructurePage() {
    return <CourseStructureShell />;
