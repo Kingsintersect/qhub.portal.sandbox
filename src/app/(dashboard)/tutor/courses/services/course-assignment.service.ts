@@ -1,4 +1,4 @@
-// ─── Lecturer Course Assignment Service (Mock) ────────────────────────────────
+// ─── Tutor Course Assignment Service (Mock) ────────────────────────────────
 
 import type {
     AssignedCourse,
@@ -93,17 +93,17 @@ const assignedCourses: AssignedCourse[] = [
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const courseAssignmentService = {
-    /** Return all courses assigned to the authenticated lecturer for the current semester */
+    /** Return all courses assigned to the authenticated tutor for the current semester */
     async getAssignedCourses(): Promise<AssignedCourse[]> {
         await delay();
-        // LIVE: return apiClient.get<AssignedCourse[]>("/lecturer/assigned-courses");
+        // LIVE: return apiClient.get<AssignedCourse[]>("/tutor/assigned-courses");
         return assignedCourses.map((c) => ({ ...c, schedule: [...c.schedule] }));
     },
 
     /** Persist an updated schedule for a single course */
     async updateSchedule(payload: UpdateSchedulePayload): Promise<AssignedCourse> {
         await delay(500);
-        // LIVE: return apiClient.patch<AssignedCourse>(`/lecturer/assigned-courses/${payload.courseId}/schedule`, payload);
+        // LIVE: return apiClient.patch<AssignedCourse>(`/tutor/assigned-courses/${payload.courseId}/schedule`, payload);
         const course = assignedCourses.find((c) => c.id === payload.courseId);
         if (!course) throw new Error("Course not found");
         course.schedule = payload.schedule.map((s) => ({ ...s } as ClassScheduleSlot));

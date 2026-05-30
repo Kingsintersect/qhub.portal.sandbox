@@ -68,7 +68,7 @@ export default function TutorAssessmentsPage() {
                items={items}
                isLoading={isLoading}
                showVisibilityToggle
-               baseHref="/assessments"
+               baseHref="/tutor/assessments"
             />
          </div>
       </PermissionGate>

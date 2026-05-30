@@ -5,7 +5,7 @@ import { assessmentMutationOptions, assessmentKeys } from "../services/assessmen
 import type { UpdateVisibilityPayload } from "../types";
 
 /**
- * Toggle assessment visibility (Admin / Lecturer).
+ * Toggle assessment visibility (Admin / Tutor).
  */
 export function useUpdateVisibility() {
     const qc = useQueryClient();

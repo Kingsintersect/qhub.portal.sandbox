@@ -1,6 +1,6 @@
 // ─── Director Feature Types ─────────────────────────────────────────────────
 
-export type UserRole = "student" | "lecturer" | "director" | "admin";
+export type UserRole = "student" | "tutor" | "director" | "admin";
 
 export type Faculty =
   | "Engineering"
@@ -33,7 +33,7 @@ export interface DashboardMetric {
 
 export interface DashboardOverview {
   totalStudents: number;
-  totalLecturers: number;
+  totalTutors: number;
   totalRevenue: number;
   pendingPayments: number;
   activePrograms: number;
@@ -46,14 +46,14 @@ export interface DashboardOverview {
 export interface EnrollmentDataPoint {
   month: string;
   students: number;
-  lecturers: number;
+  tutors: number;
   newEnrollments: number;
 }
 
 export interface FacultyDistribution {
   faculty: Faculty;
   students: number;
-  lecturers: number;
+  tutors: number;
   percentage: number;
 }
 
@@ -97,7 +97,7 @@ export interface FinancialSummary {
   }[];
 }
 
-// ─── Student / Lecturer Report Types ────────────────────────────────────────
+// ─── Student / Tutor Report Types ────────────────────────────────────────
 
 export interface StudentRecord {
   id: string;
@@ -117,7 +117,7 @@ export interface StudentRecord {
   gender: "Male" | "Female";
 }
 
-export interface LecturerRecord {
+export interface TutorRecord {
   id: string;
   staffId: string;
   fullName: string;
@@ -135,12 +135,12 @@ export interface LecturerRecord {
 
 export interface StatisticalReport {
   students: StudentRecord[];
-  lecturers: LecturerRecord[];
+  tutors: TutorRecord[];
   totalStudents: number;
-  totalLecturers: number;
+  totalTutors: number;
   studentsByLevel: Record<AcademicLevel, number>;
   studentsByGender: { male: number; female: number };
-  lecturersByDesignation: Record<string, number>;
+  tutorsByDesignation: Record<string, number>;
 }
 
 // ─── Grade Report Types ──────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ export interface CourseGrade {
   grade: GradePoint;
   gradePoints: number;
   semester: Semester;
-  lecturerName: string;
+  tutorName: string;
 }
 
 export interface StudentGradeRecord {

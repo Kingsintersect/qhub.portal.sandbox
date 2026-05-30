@@ -34,7 +34,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC301",
       courseTitle: "Data Structures & Algorithms",
       creditUnits: 3,
-      lecturerName: "Dr. Aisha Bello",
+      tutorName: "Dr. Aisha Bello",
       offeringId: 55,
    },
    {
@@ -47,7 +47,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC303",
       courseTitle: "Operating Systems",
       creditUnits: 3,
-      lecturerName: "Dr. Emeka Chukwu",
+      tutorName: "Dr. Emeka Chukwu",
       offeringId: 56,
    },
    {
@@ -60,7 +60,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC303",
       courseTitle: "Operating Systems",
       creditUnits: 3,
-      lecturerName: "Dr. Emeka Chukwu",
+      tutorName: "Dr. Emeka Chukwu",
       offeringId: 56,
    },
    {
@@ -73,7 +73,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC301",
       courseTitle: "Data Structures & Algorithms",
       creditUnits: 3,
-      lecturerName: "Dr. Aisha Bello",
+      tutorName: "Dr. Aisha Bello",
       offeringId: 55,
    },
    {
@@ -86,7 +86,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "MTH201",
       courseTitle: "Mathematical Methods I",
       creditUnits: 4,
-      lecturerName: "Prof. Amaka Nwosu",
+      tutorName: "Prof. Amaka Nwosu",
       offeringId: 57,
    },
    {
@@ -99,7 +99,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC301",
       courseTitle: "Data Structures & Algorithms",
       creditUnits: 3,
-      lecturerName: "Dr. Aisha Bello",
+      tutorName: "Dr. Aisha Bello",
       offeringId: 55,
    },
    {
@@ -112,7 +112,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "MTH201",
       courseTitle: "Mathematical Methods I",
       creditUnits: 4,
-      lecturerName: "Prof. Amaka Nwosu",
+      tutorName: "Prof. Amaka Nwosu",
       offeringId: 57,
    },
    {
@@ -125,7 +125,7 @@ const mockSchedules: TimetableSlot[] = [
       courseCode: "CSC303",
       courseTitle: "Operating Systems",
       creditUnits: 3,
-      lecturerName: "Dr. Emeka Chukwu",
+      tutorName: "Dr. Emeka Chukwu",
       offeringId: 56,
    },
 ];
@@ -246,9 +246,9 @@ const mockAcademicCalendar: AcademicCalendarMeta = {
 // ── Mock offering lookup ──────────────────────────────────────────────────────
 
 export const mockOfferings = [
-   { id: 55, courseCode: "CSC301", courseTitle: "Data Structures & Algorithms", lecturerId: 1, lecturerName: "Dr. Aisha Bello" },
-   { id: 56, courseCode: "CSC303", courseTitle: "Operating Systems", lecturerId: 2, lecturerName: "Dr. Emeka Chukwu" },
-   { id: 57, courseCode: "MTH201", courseTitle: "Mathematical Methods I", lecturerId: 3, lecturerName: "Prof. Amaka Nwosu" },
+   { id: 55, courseCode: "CSC301", courseTitle: "Data Structures & Algorithms", tutorId: 1, tutorName: "Dr. Aisha Bello" },
+   { id: 56, courseCode: "CSC303", courseTitle: "Operating Systems", tutorId: 2, tutorName: "Dr. Emeka Chukwu" },
+   { id: 57, courseCode: "MTH201", courseTitle: "Mathematical Methods I", tutorId: 3, tutorName: "Prof. Amaka Nwosu" },
 ];
 
 // ── Sort helper ───────────────────────────────────────────────────────────────
@@ -282,13 +282,13 @@ export const timetableService = {
       return slots.sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
    },
 
-   async getLecturerTimetable(lecturerId: number, _params: { semesterId?: number } = {}): Promise<TimetableSlot[] | TimetableGrouped> {
-      // Real API: return apiClient.get<{ slots: TimetableSlot[] }>(`/api/v1/timetable/lecturer/${lecturerId}`, { access_token: true, params: _params });
+   async getTutorTimetable(tutorId: number, _params: { semesterId?: number } = {}): Promise<TimetableSlot[] | TimetableGrouped> {
+      // Real API: return apiClient.get<{ slots: TimetableSlot[] }>(`/api/v1/timetable/tutor/${tutorId}`, { access_token: true, params: _params });
       await delay();
-      // Mock: lecturer ID 1 = Dr. Aisha Bello (CSC301), ID 2 = Dr. Emeka Chukwu (CSC303)
+      // Mock: tutor ID 1 = Dr. Aisha Bello (CSC301), ID 2 = Dr. Emeka Chukwu (CSC303)
       const slots = mockSchedules.filter((s) => {
          const offering = mockOfferings.find((o) => o.id === s.offeringId);
-         return offering?.lecturerId === lecturerId;
+         return offering?.tutorId === tutorId;
       });
       return slots.sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
    },
@@ -347,7 +347,7 @@ export const timetableService = {
          courseCode: offering.courseCode,
          courseTitle: offering.courseTitle,
          creditUnits: 3,
-         lecturerName: offering.lecturerName,
+         tutorName: offering.tutorName,
          offeringId: dto.offeringId,
       };
       mockSchedules.push(newSlot);
@@ -394,7 +394,7 @@ export const timetableService = {
                s.id !== params.excludeScheduleId
          )
          .sort((a, b) => a.startTime.localeCompare(b.startTime))
-         .map((s) => ({ startTime: s.startTime, endTime: s.endTime, courseCode: s.courseCode, lecturerName: s.lecturerName }));
+         .map((s) => ({ startTime: s.startTime, endTime: s.endTime, courseCode: s.courseCode, tutorName: s.tutorName }));
 
       // Compute free windows (08:00–20:00 working day)
       const workStart = "08:00";
@@ -521,7 +521,7 @@ export const timetableKeys = {
    all: ["timetable"] as const,
    my: (params?: object) => ["timetable", "my", params] as const,
    student: (id: string, params?: object) => ["timetable", "student", id, params] as const,
-   lecturer: (id: number, params?: object) => ["timetable", "lecturer", id, params] as const,
+   tutor: (id: number, params?: object) => ["timetable", "tutor", id, params] as const,
    byOffering: (offeringId: number) => ["timetable", "offering", offeringId] as const,
    admin: (filters?: object) => ["timetable", "admin", filters] as const,
    detail: (id: number) => ["timetable", "detail", id] as const,
@@ -553,10 +553,10 @@ export const timetableQueryOptions = {
          queryFn: () => timetableService.getMyTimetable(params),
       }),
 
-   lecturer: (lecturerId: number, params?: { semesterId?: number }) =>
+   tutor: (tutorId: number, params?: { semesterId?: number }) =>
       createApiQueryOptions({
-         queryKey: timetableKeys.lecturer(lecturerId, params),
-         queryFn: () => timetableService.getLecturerTimetable(lecturerId, params),
+         queryKey: timetableKeys.tutor(tutorId, params),
+         queryFn: () => timetableService.getTutorTimetable(tutorId, params),
       }),
 
    student: (studentId: string, params?: { semesterId?: number }) =>

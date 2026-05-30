@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import ThemeToggle from '../ThemeToggle'
 import Logo from '@/components/branding/Logo'
 import { roleDashboardPath, UserRole } from '@/config/nav.config'
+import Link from 'next/link'
 
 export default function NavBar() {
    const [scrolled, setScrolled] = useState(false)
@@ -12,7 +13,7 @@ export default function NavBar() {
 
    const isAuthenticated = status === 'authenticated'
    const role = session?.user?.role as UserRole | undefined
-   const dashboardHref = role ? roleDashboardPath[role] : '/auth/signin'
+   const dashboardHref = (role && roleDashboardPath[role]) ?? '/auth/signin'
 
    useEffect(() => {
       const onScroll = () => {
@@ -53,23 +54,22 @@ export default function NavBar() {
                   </div>
 
                   <div className="hidden md:flex items-center gap-6">
-                     <a className="text-sm hover:text-primary transition-colors" href="/about">About</a>
-                     <a className="text-sm hover:text-primary transition-colors" href="/admissions">Admissions</a>
-                     <a className="text-sm hover:text-primary transition-colors" href="/academics">Academics</a>
-                     <a className="text-sm hover:text-primary transition-colors" href="/research">Research</a>
-                     <a className="text-sm hover:text-primary transition-colors" href="/assessments">Assessments</a>
-                     <a className="text-sm hover:text-primary transition-colors" href="/contact">Contact</a>
+                     <Link className="text-sm hover:text-primary transition-colors" href="/about">About</Link>
+                     <Link className="text-sm hover:text-primary transition-colors" href="/admissions">Admissions</Link>
+                     <Link className="text-sm hover:text-primary transition-colors" href="/academics">Academics</Link>
+                     <Link className="text-sm hover:text-primary transition-colors" href="/research">Research</Link>
+                     <Link className="text-sm hover:text-primary transition-colors" href="/contact">Contact</Link>
                   </div>
 
                   <div className="flex items-center gap-3">
-                     <a className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/dev-login">Visit Portal</a>
+                     <Link className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/dev-login">Visit Portal</Link>
                      {/* Theme toggle shown here again for larger screens */}
-                     <a
+                     <Link
                         className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition"
                         href={isAuthenticated ? dashboardHref : '/admissions'}
                      >
                         {isAuthenticated ? 'Visit Dashboard' : 'Apply For Admission'}
-                     </a>
+                     </Link>
                      {isAuthenticated && (
                         <button
                            onClick={() => signOut({ callbackUrl: '/' })}

@@ -78,7 +78,7 @@ export default function AdminAssessmentsPage() {
                items={items}
                isLoading={isLoading}
                showVisibilityToggle
-               baseHref="/assessments"
+               baseHref="/admin/assessments"
             />
          </div>
       </PermissionGate>

@@ -25,8 +25,8 @@ export const DUMMY_AUTH_USERS: DummyAuthUser[] = [
       name: "Dr. Aisha Bello",
       email: "a.bello@unilag.edu.ng",
       username: "a.bello",
-      role: UserRole.LECTURER,
-      availableRoles: [UserRole.LECTURER],
+      role: UserRole.TUTOR,
+      availableRoles: [UserRole.TUTOR],
    },
    {
       id: "hod-001",

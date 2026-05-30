@@ -14,11 +14,11 @@ export function useMyTimetable(params?: { semesterId?: number; groupByDay?: bool
     return useQuery({ ...timetableQueryOptions.my(params), staleTime: 5 * 60 * 1000 });
 }
 
-export function useLecturerTimetable(lecturerId: number, params?: { semesterId?: number }) {
+export function useTutorTimetable(tutorId: number, params?: { semesterId?: number }) {
     return useQuery({
-        ...timetableQueryOptions.lecturer(lecturerId, params),
+        ...timetableQueryOptions.tutor(tutorId, params),
         staleTime: 5 * 60 * 1000,
-        enabled: lecturerId > 0,
+        enabled: tutorId > 0,
     });
 }
 

@@ -1,24 +1,23 @@
 "use client";
 
 import { useMemo } from "react";
-import { ShieldOff } from "lucide-react";
-import { AssessmentFilters } from "@/modules/assessments/components/assessment-filters";
+import { Clock, ShieldOff } from "lucide-react";
 import { AssessmentList } from "@/modules/assessments/components/assessment-list";
-import { useMyAssessments } from "@/modules/assessments/hooks/use-my-assessments";
+import { useUpcomingAssessments } from "@/modules/assessments/hooks/use-upcoming-assessments";
+import { AssessmentFilters } from "@/modules/assessments/components/assessment-filters";
 import { useAssessmentsUiStore } from "@/modules/assessments/store/assessments-ui.store";
 import { PermissionGate } from "@/lib/permissions/PermissionGate";
 
-export default function MyAssessmentsPage() {
-   const { activeType, upcomingOnly, page, limit } = useAssessmentsUiStore();
+export default function UpcomingAssessmentsPage() {
+   const { activeType } = useAssessmentsUiStore();
 
-   const { data, isLoading } = useMyAssessments({
-      type: activeType ?? undefined,
-      upcoming: upcomingOnly || undefined,
-      page,
-      limit,
-   });
+   const { data, isLoading } = useUpcomingAssessments(20);
 
-   const items = useMemo(() => data?.data ?? [], [data]);
+   const items = useMemo(() => {
+      const all = data?.data ?? [];
+      if (!activeType) return all;
+      return all.filter((a) => a.assessmentType === activeType);
+   }, [data, activeType]);
 
    return (
       <PermissionGate
@@ -31,11 +30,15 @@ export default function MyAssessmentsPage() {
          }
       >
          <div className="space-y-4">
-            <AssessmentFilters showUpcomingToggle />
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+               <Clock size={16} />
+               <span className="text-sm font-medium">Sorted by nearest deadline</span>
+            </div>
+            <AssessmentFilters />
             <AssessmentList
                items={items}
                isLoading={isLoading}
-               baseHref="/assessments"
+               baseHref="/student/assessments"
             />
          </div>
       </PermissionGate>

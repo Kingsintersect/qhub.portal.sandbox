@@ -1,19 +1,17 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { CalendarDays, LayoutGrid, List, ShieldOff } from "lucide-react";
+import { ShieldOff, LayoutGrid, List } from "lucide-react";
 import { PermissionGate } from "@/lib/permissions/PermissionGate";
 import { Button } from "@/components/ui/button";
 import { TimetableGrid } from "@/modules/timetable/components/TimetableGrid";
 import { TimetableList } from "@/modules/timetable/components/TimetableList";
-import { useTutorTimetable } from "@/modules/timetable/hooks/useTimetable";
+import { useMyTimetable } from "@/modules/timetable/hooks/useTimetable";
 import { useTimetableUIStore } from "@/modules/timetable/store/useTimetableUIStore";
 import type { TimetableSlot } from "@/modules/timetable/types/timetable.types";
 
-export default function TutorTimetablePage() {
+export default function MyTimetablePage() {
    const { viewMode, setViewMode } = useTimetableUIStore();
-   // Real API: const user = useAppStore(s => s.user); tutorId = user?.staffId → parsed int
-   const { data, isLoading } = useTutorTimetable(1);
+   const { data, isLoading } = useMyTimetable();
    const slots: TimetableSlot[] = Array.isArray(data)
       ? data
       : data
@@ -22,33 +20,18 @@ export default function TutorTimetablePage() {
 
    return (
       <PermissionGate
-         require={{ resource: "timetable", action: "view" }}
+         require={{ resource: "timetable", action: "view.own" }}
          fallback={
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
                <ShieldOff size={40} className="opacity-40" />
-               <p className="text-sm">You do not have permission to view course timetables.</p>
+               <p className="text-sm">You do not have permission to view your timetable.</p>
             </div>
          }
       >
-         <div className="space-y-6 p-6">
-            <motion.div
-               initial={{ opacity: 0, y: -8 }}
-               animate={{ opacity: 1, y: 0 }}
-               className="flex items-start justify-between gap-4 flex-wrap"
-            >
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                     <CalendarDays size={18} className="text-primary" />
-                  </div>
-                  <div>
-                     <h1 className="text-xl font-bold">My Teaching Schedule</h1>
-                     <p className="text-xs text-muted-foreground mt-0.5">
-                        Weekly timetable for your assigned courses
-                     </p>
-                  </div>
-               </div>
-
-               {/* View toggle */}
+         <div className="space-y-4">
+            {/* View toggle */}
+            <div className="flex items-center justify-between">
+               <h1 className="text-lg font-semibold text-foreground">My Weekly Schedule</h1>
                <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
                   <Button
                      variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -69,8 +52,9 @@ export default function TutorTimetablePage() {
                      List
                   </Button>
                </div>
-            </motion.div>
+            </div>
 
+            {/* Content */}
             {viewMode === "grid" ? (
                <TimetableGrid slots={slots} isLoading={isLoading} />
             ) : (

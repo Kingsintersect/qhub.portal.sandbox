@@ -92,15 +92,15 @@ export function VenueAvailabilityChecker() {
                               <tr>
                                  <th className="text-left px-3 py-2 font-medium">Time</th>
                                  <th className="text-left px-3 py-2 font-medium">Course</th>
-                                 <th className="text-left px-3 py-2 font-medium">Lecturer</th>
+                                 <th className="text-left px-3 py-2 font-medium">Tutor</th>
                               </tr>
                            </thead>
                            <tbody>
-                              {data.busySlots.map((s: { startTime: string; endTime: string; courseCode: string; lecturerName: string }, i: number) => (
+                              {data.busySlots.map((s: { startTime: string; endTime: string; courseCode: string; tutorName: string }, i: number) => (
                                  <tr key={i} className={cn(i % 2 && "bg-muted/20")}>
                                     <td className="px-3 py-2 font-mono">{s.startTime}–{s.endTime}</td>
                                     <td className="px-3 py-2">{s.courseCode}</td>
-                                    <td className="px-3 py-2">{s.lecturerName}</td>
+                                    <td className="px-3 py-2">{s.tutorName}</td>
                                  </tr>
                               ))}
                            </tbody>

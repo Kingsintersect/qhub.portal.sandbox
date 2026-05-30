@@ -27,7 +27,7 @@ import {
 
 export enum UserRole {
    STUDENT = 'STUDENT',
-   LECTURER = 'LECTURER',
+   TUTOR = 'TUTOR',
    STAFF = 'STAFF',
    HOD = 'HOD',
    DEAN = 'DEAN',
@@ -69,7 +69,6 @@ const studentNav: NavGroup[] = [
             icon: OctagonMinus,
             children: [
                { title: "Test Page", href: "/student/test", matchExactOnly: true, icon: TestTubeDiagonalIcon },
-               { title: "Grades", href: "/student/test/grades", matchExactOnly: true, icon: CalendarDays },
             ],
          },
       ],
@@ -78,14 +77,15 @@ const studentNav: NavGroup[] = [
       label: "Academics",
       items: [
          { title: "My Courses", href: "/student/courses", matchExactOnly: true, icon: BookOpen },
-         { title: "Timetable", href: "/timetable", matchExactOnly: false, icon: CalendarDays },
-         { title: "Assessments", href: "/assessments/my-assessments", matchExactOnly: false, icon: ClipboardList },
+         { title: "Timetable", href: "/student/timetable", matchExactOnly: false, icon: CalendarDays },
+         { title: "Assessments", href: "/student/assessments/my-assessments", matchExactOnly: false, icon: ClipboardList },
          {
             title: "Results",
             href: "/student/results",
             matchExactOnly: true,
             icon: ClipboardList,
          },
+         { title: "Grades", href: "/student/results/grades", matchExactOnly: true, icon: CalendarDays },
          { title: "Registration", href: "/student/registration", matchExactOnly: true, icon: FileText },
       ],
    },
@@ -94,7 +94,7 @@ const studentNav: NavGroup[] = [
       items: [
          { title: "Announcements", href: "/student/announcements", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
          { title: "Messages", href: "/student/messages", matchExactOnly: true, icon: MessageSquare },
-         { title: "Calendar & Events", href: "/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
+         { title: "Calendar & Events", href: "/student/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
          { title: "Payments", href: "/student/payments", matchExactOnly: true, icon: CreditCard },
       ],
    },
@@ -107,10 +107,10 @@ const studentNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Lecturer navigation                                                */
+/*  Tutor navigation                                                */
 /* ------------------------------------------------------------------ */
 
-const lecturerNav: NavGroup[] = [
+const tutorNav: NavGroup[] = [
    {
       items: [
          { title: "Dashboard", href: "/tutor", matchExactOnly: true, icon: LayoutDashboard },
@@ -138,7 +138,7 @@ const lecturerNav: NavGroup[] = [
       items: [
          { title: "Announcements", href: "/tutor/announcements", matchExactOnly: true, icon: Bell },
          { title: "Messages", href: "/tutor/messages", matchExactOnly: true, icon: MessageSquare },
-         { title: "Calendar & Events", href: "/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
+         { title: "Calendar & Events", href: "/tutor/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
       ],
    },
    {
@@ -153,7 +153,7 @@ const lecturerNav: NavGroup[] = [
 /*  HOD navigation                                                     */
 /* ------------------------------------------------------------------ */
 
-const hodNav: NavGroup[] = lecturerNav;
+const hodNav: NavGroup[] = tutorNav;
 
 /* ------------------------------------------------------------------ */
 /*  Director navigation                                                   */
@@ -174,7 +174,7 @@ const directorNav: NavGroup[] = [
    {
       label: "Academic Reports",
       items: [
-         { title: "student grades", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
+         { title: "Grade Reports", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
       ],
    },
    {
@@ -426,7 +426,7 @@ const staffNav: NavGroup[] = [
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
    STUDENT: studentNav,
-   LECTURER: lecturerNav,
+   TUTOR: tutorNav,
    STAFF: staffNav,
    HOD: hodNav,
    DEAN: deanNav,
@@ -439,7 +439,7 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
    [UserRole.STUDENT]: "/student/dashboard",
-   [UserRole.LECTURER]: "/tutor",
+   [UserRole.TUTOR]: "/tutor",
    [UserRole.STAFF]: "/manager/dashboard",
    [UserRole.HOD]: "/tutor",
    [UserRole.DEAN]: "/manager/dashboard",
