@@ -30,7 +30,7 @@ src/
 │   └── grades/
 │       └── page.tsx                  ← Grade reports
 │
-└── features/director/
+└── @modules/directordirector/
     ├── index.ts                      ← Barrel exports
     ├── types/
     │   └── director.types.ts         ← All TypeScript interfaces & types
@@ -66,7 +66,7 @@ npm install react react-dom
 
 ## Step 2 — Copy Files
 
-Copy the entire `src/features/director/` and `src/app/(dashboard)/director/` folders into your project.
+Copy the entire `src/@modules/directordirector/` and `src/app/(dashboard)/director/` folders into your project.
 
 ---
 
@@ -125,7 +125,7 @@ If your app has a global dashboard layout, add the director nav items:
 Each service method follows the same pattern. To go live, just swap the comment blocks:
 
 ```typescript
-// In src/features/director/services/director.service.ts
+// In src/@modules/directordirector/services/director.service.ts
 
 async fetchOverview(): Promise<DashboardOverview> {
   // ── LIVE MODE ────────────────────────────────────

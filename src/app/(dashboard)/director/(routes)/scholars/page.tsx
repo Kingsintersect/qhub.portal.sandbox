@@ -2,12 +2,7 @@
 
 import React, { useState } from "react";
 import { AlertTriangle, RefreshCw, Users, BookOpen } from "lucide-react";
-import { DataTable, StatusBadge, Column } from "../../features/components/DataTable";
-import {
-   StudentRecord,
-   LecturerRecord,
-} from "../../features/types/director.types";
-import { DirectorFilterBar, GenderPieChart, useDirectorStatistical } from "../../features";
+import { Column, DataTable, DirectorFilterBar, GenderPieChart, LecturerRecord, StatusBadge, StudentRecord, useDirectorStatistical } from "@/modules/director";
 
 // ─── Table Columns ────────────────────────────────────────────────────────────
 

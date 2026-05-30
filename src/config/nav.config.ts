@@ -79,6 +79,7 @@ const studentNav: NavGroup[] = [
       items: [
          { title: "My Courses", href: "/student/courses", matchExactOnly: true, icon: BookOpen },
          { title: "Timetable", href: "/student/timetable", matchExactOnly: true, icon: CalendarDays },
+         { title: "Assessments", href: "/assessments/my-assessments", matchExactOnly: false, icon: ClipboardList },
          {
             title: "Results",
             href: "/student/results",
@@ -118,6 +119,7 @@ const lecturerNav: NavGroup[] = [
       label: "Teaching",
       items: [
          { title: "Course Assignments", href: "/tutor/courses", matchExactOnly: true, icon: CalendarCheck2 },
+         { title: "Assessments", href: "/tutor/assessments", matchExactOnly: true, icon: ClipboardList },
          { title: "Timetable", href: "/tutor/timetable", matchExactOnly: true, icon: CalendarDays },
          {
             title: "Grading",
@@ -188,7 +190,7 @@ const directorNav: NavGroup[] = [
 const adminNav: NavGroup[] = [
    {
       items: [
-         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "Dashboard", href: "/manager/dashboard", matchExactOnly: true, icon: LayoutDashboard },
       ],
    },
    {
@@ -274,6 +276,14 @@ const superAdminNav: NavGroup[] = [
          { title: "Admissions", href: "/admin/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
          { title: "Course Structure", href: "/admin/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
          { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
+         {
+            title: "Assessments",
+            icon: ClipboardList,
+            children: [
+               { title: "All Assessments", href: "/admin/assessments", matchExactOnly: true, icon: ClipboardList },
+               { title: "Sync Status", href: "/admin/assessments/sync-status", matchExactOnly: true, icon: Database },
+            ],
+         },
       ],
    },
    {
@@ -374,7 +384,7 @@ const bursaryNav: NavGroup[] = [
 const staffNav: NavGroup[] = [
    {
       items: [
-         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "Dashboard", href: "/manager/dashboard", matchExactOnly: true, icon: LayoutDashboard },
       ],
    },
    {

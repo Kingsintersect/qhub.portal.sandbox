@@ -13,7 +13,7 @@ src/
 │   │   └── tutor/
 │   └── api/
 │
-├── features/                        # ← the real work lives here
+├── modules/                        # ← the real work lives here
 │   └── user-management/
 │       ├── components/
 │       │   ├── UserManagementShell.tsx   # root component for this feature
