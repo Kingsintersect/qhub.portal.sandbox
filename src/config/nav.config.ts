@@ -78,7 +78,7 @@ const studentNav: NavGroup[] = [
       label: "Academics",
       items: [
          { title: "My Courses", href: "/student/courses", matchExactOnly: true, icon: BookOpen },
-         { title: "Timetable", href: "/student/timetable", matchExactOnly: true, icon: CalendarDays },
+         { title: "Timetable", href: "/timetable", matchExactOnly: false, icon: CalendarDays },
          { title: "Assessments", href: "/assessments/my-assessments", matchExactOnly: false, icon: ClipboardList },
          {
             title: "Results",
@@ -94,6 +94,7 @@ const studentNav: NavGroup[] = [
       items: [
          { title: "Announcements", href: "/student/announcements", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
          { title: "Messages", href: "/student/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Calendar & Events", href: "/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
          { title: "Payments", href: "/student/payments", matchExactOnly: true, icon: CreditCard },
       ],
    },
@@ -137,6 +138,7 @@ const lecturerNav: NavGroup[] = [
       items: [
          { title: "Announcements", href: "/tutor/announcements", matchExactOnly: true, icon: Bell },
          { title: "Messages", href: "/tutor/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Calendar & Events", href: "/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
       ],
    },
    {
@@ -284,6 +286,14 @@ const superAdminNav: NavGroup[] = [
                { title: "Sync Status", href: "/admin/assessments/sync-status", matchExactOnly: true, icon: Database },
             ],
          },
+         {
+            title: "Timetable",
+            icon: CalendarDays,
+            children: [
+               { title: "All Schedules", href: "/admin/timetable", matchExactOnly: true, icon: CalendarDays },
+               { title: "Venue Checker", href: "/admin/timetable/venue-check", matchExactOnly: true, icon: Building2 },
+            ],
+         },
       ],
    },
    {
@@ -329,6 +339,7 @@ const superAdminNav: NavGroup[] = [
       label: "Communications",
       items: [
          { title: "Notifications", href: "/admin/notification", matchExactOnly: true, icon: Bell },
+         { title: "Calendar Events", href: "/admin/calendar", matchExactOnly: true, icon: CalendarDays },
       ],
    },
    {
