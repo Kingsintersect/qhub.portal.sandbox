@@ -92,8 +92,7 @@ const studentNav: NavGroup[] = [
    {
       label: "Campus",
       items: [
-         { title: "Announcements", href: "/student/announcements", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
-         { title: "Messages", href: "/student/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Notifications", href: "/student/notifications", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
          { title: "Calendar & Events", href: "/student/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
          { title: "Payments", href: "/student/payments", matchExactOnly: true, icon: CreditCard },
       ],
@@ -136,8 +135,7 @@ const tutorNav: NavGroup[] = [
    {
       label: "Campus",
       items: [
-         { title: "Announcements", href: "/tutor/announcements", matchExactOnly: true, icon: Bell },
-         { title: "Messages", href: "/tutor/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Notifications", href: "/tutor/notifications", matchExactOnly: true, icon: Bell },
          { title: "Calendar & Events", href: "/tutor/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
       ],
    },
@@ -439,9 +437,9 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
    [UserRole.STUDENT]: "/student/dashboard",
-   [UserRole.TUTOR]: "/tutor",
+   [UserRole.TUTOR]: "/tutor/dashboard",
    [UserRole.STAFF]: "/manager/dashboard",
-   [UserRole.HOD]: "/tutor",
+   [UserRole.HOD]: "/tutor/dashboard",
    [UserRole.DEAN]: "/manager/dashboard",
    [UserRole.BURSARY]: "/admin/setup/fee-management",
    [UserRole.DIRECTOR]: "/director/dashboard",
