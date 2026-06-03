@@ -4,7 +4,7 @@ import {
    queryOptions,
    type MutationOptions,
    type QueryKey,
-   type QueryOptions,
+   type UseQueryOptions,
 } from '@tanstack/react-query'
 import axios, {
    AxiosError,
@@ -99,7 +99,7 @@ export class ApiClientError extends Error {
 type QueryFactoryConfig<TResponse> = {
    queryKey: QueryKey
    queryFn: () => Promise<TResponse>
-} & Omit<QueryOptions<TResponse, ApiClientError, TResponse, QueryKey>, 'queryKey' | 'queryFn'>
+} & Omit<UseQueryOptions<TResponse, ApiClientError, TResponse, QueryKey>, 'queryKey' | 'queryFn'>
 
 type MutationFactoryConfig<TResponse, TVariables> = {
    mutationKey?: QueryKey

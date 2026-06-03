@@ -110,6 +110,10 @@ const allPermissions: Permission[] = [
    permission(41, "calendar", "view.own", "timetable", "View own calendar events"),
    permission(42, "calendar", "view.all", "timetable", "View all calendar events"),
    permission(43, "calendar", "manage", "timetable", "Toggle calendar event visibility"),
+
+   // ========== NOTIFICATIONS ==========
+   permission(44, "notifications", "view.own", "notifications", "View own notifications"),
+   permission(45, "notifications", "read", "notifications", "Mark notifications as read"),
 ];
 
 const pickPermissions = (...ids: number[]) =>
@@ -142,14 +146,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Student",
       description: "Regular undergraduate or postgraduate student",
       dashboardPath: roleDashboardPath[UserRole.STUDENT],
-      permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41), // + timetable:view.own, calendar:view.own
+      permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41, 44, 45), // + notifications
       profile: {
          id: "std-001",
          name: "Chukwuemeka Okonkwo",
          email: "c.okonkwo@students.unilag.edu.ng",
          role: UserRole.STUDENT,
          availableRoles: [UserRole.STUDENT],
-         permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41),
+         permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41, 44, 45),
          department: "Computer Science",
          faculty: "Science",
          matricNo: "190404001",
@@ -163,14 +167,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Tutor",
       description: "Course tutor and academic advisor",
       dashboardPath: roleDashboardPath[UserRole.TUTOR],
-      permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41), // + results:export, timetable:view.own, timetable:view, calendar:view.own
+      permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41, 44, 45), // + notifications
       profile: {
          id: "lec-001",
          name: "Dr. Aisha Bello",
          email: "a.bello@unilag.edu.ng",
          role: UserRole.TUTOR,
          availableRoles: [UserRole.TUTOR],
-         permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41),
+         permissions: pickPermissions(1, 3, 5, 11, 14, 32, 35, 37, 38, 41, 44, 45),
          department: "Computer Science",
          faculty: "Science",
          staffId: "STAFF-2145",
@@ -183,14 +187,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Staff",
       description: "General non-academic staff member",
       dashboardPath: roleDashboardPath[UserRole.STAFF],
-      permissions: pickPermissions(11, 9), // students:view, users:manage
+      permissions: pickPermissions(11, 9, 44, 45), // + notifications
       profile: {
          id: "stf-001",
          name: "Chidinma Eze",
          email: "c.eze@unilag.edu.ng",
          role: UserRole.STAFF,
          availableRoles: [UserRole.STAFF],
-         permissions: pickPermissions(11, 9),
+         permissions: pickPermissions(11, 9, 44, 45),
          department: "Registry",
          staffId: "STF-0020",
       },
@@ -202,14 +206,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "HOD",
       description: "Head of Department with tutor privileges and approval authority",
       dashboardPath: roleDashboardPath[UserRole.HOD],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41), // + results:view.all, results:export, results:analyze, timetable:view.own, timetable:view, calendar:view.own
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41, 44, 45), // + notifications
       profile: {
          id: "hod-001",
          name: "Prof. Funke Adeyemi",
          email: "f.adeyemi@unilag.edu.ng",
          role: UserRole.HOD,
          availableRoles: [UserRole.HOD],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 32, 35, 37, 38, 41, 44, 45),
          department: "Computer Science",
          faculty: "Science",
          staffId: "HOD-0007",
@@ -222,14 +226,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Dean",
       description: "Faculty dean with cross-department oversight",
       dashboardPath: roleDashboardPath[UserRole.DEAN],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42), // + timetable, calendar
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42, 44, 45), // + notifications
       profile: {
          id: "dean-001",
          name: "Prof. Ngozi Ekanem",
          email: "n.ekanem@unilag.edu.ng",
          role: UserRole.DEAN,
          availableRoles: [UserRole.DEAN],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 32, 33, 37, 38, 39, 41, 42, 44, 45),
          faculty: "Science",
          staffId: "DEAN-0002",
       },
@@ -241,14 +245,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Bursary",
       description: "Finance office staff responsible for fees and payment operations",
       dashboardPath: roleDashboardPath[UserRole.BURSARY],
-      permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26), // fees:verify, fees:configure
+      permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26, 44, 45), // + notifications
       profile: {
          id: "bur-001",
          name: "Ibrahim Musa",
          email: "i.musa@unilag.edu.ng",
          role: UserRole.BURSARY,
          availableRoles: [UserRole.BURSARY],
-         permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26),
+         permissions: pickPermissions(19, 20, 21, 23, 24, 25, 26, 44, 45),
          department: "Bursary",
          staffId: "BUR-0011",
       },
@@ -260,14 +264,14 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
       label: "Director",
       description: "Director with oversight of academic and financial operations",
       dashboardPath: roleDashboardPath[UserRole.DIRECTOR],
-      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42), // + timetable:view.all, calendar:view.all
+      permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42, 44, 45), // + notifications
       profile: {
          id: "dir-001",
          name: "Dr. Adebayo Oladipo",
          email: "a.oladipo@unilag.edu.ng",
          role: UserRole.DIRECTOR,
          availableRoles: [UserRole.DIRECTOR],
-         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42),
+         permissions: pickPermissions(1, 2, 3, 4, 5, 6, 8, 11, 14, 16, 19, 20, 24, 25, 26, 33, 39, 42, 44, 45),
          faculty: "Science",
          staffId: "DIR-0001",
       },
@@ -286,6 +290,7 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
          27, 28, 29, 30,                      // Sessions, admissions, course_structure
          32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
          37, 38, 39, 40, 41, 42, 43,          // Timetable + Calendar (full)
+         44, 45,                              // Notifications
       ),
       profile: {
          id: "adm-001",
@@ -300,6 +305,7 @@ const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
             27, 28, 29, 30,                      // Sessions, admissions, course_structure
             32, 33, 34, 35,                      // Assessments: view, view.all, manage, toggle.visibility
             37, 38, 39, 40, 41, 42, 43,          // Timetable + Calendar (full)
+            44, 45,                              // Notifications
          ),
          department: "Registry",
          staffId: "ADMIN-0012",
