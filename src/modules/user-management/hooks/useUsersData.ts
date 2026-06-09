@@ -1,0 +1,206 @@
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+   usersKeys,
+   usersQueryOptions,
+   usersMutationOptions,
+} from "@/services/usersApi";
+import type { UserQueryFilters, StudentQueryFilters } from "@/types/users";
+
+/* ── Stats ── */
+
+export function useUserStats() {
+   return useQuery({
+      ...usersQueryOptions.stats(),
+      staleTime: 1000 * 60 * 5,
+   });
+}
+
+/* ── Users ── */
+
+export function useUsers(filters?: UserQueryFilters) {
+   return useQuery({
+      ...usersQueryOptions.list(filters),
+      staleTime: 1000 * 60 * 2,
+   });
+}
+
+export function useUser(id: number) {
+   return useQuery({
+      ...usersQueryOptions.detail(id),
+      enabled: id > 0,
+   });
+}
+
+export function useToggleUserActive() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.toggleActive(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.all });
+         toast.success("User status updated");
+      },
+      onError: () => toast.error("Failed to update user status"),
+   });
+}
+
+/* ── Students ── */
+
+export function useStudents(filters?: StudentQueryFilters) {
+   return useQuery({
+      ...usersQueryOptions.students.list(filters),
+      staleTime: 1000 * 60 * 2,
+   });
+}
+
+export function useStudent(id: number) {
+   return useQuery({
+      ...usersQueryOptions.students.detail(id),
+      enabled: id > 0,
+   });
+}
+
+export function useUpdateStudent() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.updateStudent(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.students.all });
+         toast.success("Student updated");
+      },
+      onError: () => toast.error("Failed to update student"),
+   });
+}
+
+/* ── Tutors ── */
+
+export function useTutors(filters?: UserQueryFilters) {
+   return useQuery({
+      ...usersQueryOptions.tutors.list(filters),
+      staleTime: 1000 * 60 * 2,
+   });
+}
+
+export function useTutor(id: number) {
+   return useQuery({
+      ...usersQueryOptions.tutors.detail(id),
+      enabled: id > 0,
+   });
+}
+
+export function useCreateTutor() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.createTutor(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
+         await qc.invalidateQueries({ queryKey: usersKeys.all });
+         toast.success("Tutor created successfully");
+      },
+      onError: () => toast.error("Failed to create tutor"),
+   });
+}
+
+export function useUpdateTutor() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.updateTutor(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
+         toast.success("Tutor updated");
+      },
+      onError: () => toast.error("Failed to update tutor"),
+   });
+}
+
+/* ── Course Assignments ── */
+
+export function useCourseOfferings() {
+   return useQuery({
+      ...usersQueryOptions.courseOfferings(),
+      staleTime: 1000 * 60 * 5,
+   });
+}
+
+export function useTutorCourses(tutorId: number) {
+   return useQuery({
+      ...usersQueryOptions.tutors.courses(tutorId),
+      enabled: tutorId > 0,
+   });
+}
+
+export function useAssignCourse() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.assignCourse(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
+         toast.success("Course assigned successfully");
+      },
+      onError: (err) => toast.error(err?.message ?? "Failed to assign course"),
+   });
+}
+
+export function useUnassignCourse() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.unassignCourse(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.tutors.all });
+         toast.success("Course unassigned");
+      },
+      onError: () => toast.error("Failed to unassign course"),
+   });
+}
+
+/* ── Staff ── */
+
+export function useStaffList(filters?: UserQueryFilters) {
+   return useQuery({
+      ...usersQueryOptions.staff.list(filters),
+      staleTime: 1000 * 60 * 2,
+   });
+}
+
+export function useStaffMember(id: number) {
+   return useQuery({
+      ...usersQueryOptions.staff.detail(id),
+      enabled: id > 0,
+   });
+}
+
+export function useCreateStaff() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.createStaff(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.staff.all });
+         await qc.invalidateQueries({ queryKey: usersKeys.all });
+         toast.success("Staff member created successfully");
+      },
+      onError: () => toast.error("Failed to create staff member"),
+   });
+}
+
+export function useUpdateStaff() {
+   const qc = useQueryClient();
+   return useMutation({
+      ...usersMutationOptions.updateStaff(),
+      onSuccess: async () => {
+         await qc.invalidateQueries({ queryKey: usersKeys.staff.all });
+         toast.success("Staff member updated");
+      },
+      onError: () => toast.error("Failed to update staff member"),
+   });
+}
+
+/* ── Eligible Roles (for staff creation) ── */
+
+export function useStaffEligibleRoles() {
+   return useQuery({
+      ...usersQueryOptions.staffEligibleRoles(),
+      staleTime: 1000 * 60 * 10,
+   });
+}

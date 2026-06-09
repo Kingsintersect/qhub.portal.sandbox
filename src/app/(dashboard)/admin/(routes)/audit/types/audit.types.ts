@@ -17,7 +17,7 @@ export type AuditEntityType =
   | "Grade"
   | "Invoice"
   | "Course"
-  | "Lecturer"
+  | "Tutor"
   | "Clearance"
   | "Payment"
   | "MoodleUser"

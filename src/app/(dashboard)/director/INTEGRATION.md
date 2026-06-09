@@ -10,7 +10,7 @@ This module adds a fully-featured **Director's Portal** to the UNIZIK student po
 |-------|------|-------------|
 | `/director/dashboard` | Overview Dashboard | Metrics, enrollment trends, faculty distribution |
 | `/director/financial` | Financial Reports | Fee collection, revenue analytics, payment records |
-| `/director/students`  | Statistical Reports | Student & lecturer population analytics, gender breakdown |
+| `/director/students`  | Statistical Reports | Student & tutor population analytics, gender breakdown |
 | `/director/grades`    | Grade Reports | GPA analytics, grade distribution, expandable per-student courses |
 
 ---
@@ -30,7 +30,7 @@ src/
 │   └── grades/
 │       └── page.tsx                  ← Grade reports
 │
-└── features/director/
+└── @modules/directordirector/
     ├── index.ts                      ← Barrel exports
     ├── types/
     │   └── director.types.ts         ← All TypeScript interfaces & types
@@ -66,7 +66,7 @@ npm install react react-dom
 
 ## Step 2 — Copy Files
 
-Copy the entire `src/features/director/` and `src/app/(dashboard)/director/` folders into your project.
+Copy the entire `src/@modules/directordirector/` and `src/app/(dashboard)/director/` folders into your project.
 
 ---
 
@@ -125,7 +125,7 @@ If your app has a global dashboard layout, add the director nav items:
 Each service method follows the same pattern. To go live, just swap the comment blocks:
 
 ```typescript
-// In src/features/director/services/director.service.ts
+// In src/@modules/directordirector/services/director.service.ts
 
 async fetchOverview(): Promise<DashboardOverview> {
   // ── LIVE MODE ────────────────────────────────────
@@ -135,7 +135,7 @@ async fetchOverview(): Promise<DashboardOverview> {
 
   // SIMULATED (remove the block below when going live):
   await simulateDelay(600);
-  const { students, lecturers, payments } = getSeeds();
+  const { students, tutors, payments } = getSeeds();
   // ...
 }
 ```

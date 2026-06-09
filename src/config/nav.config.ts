@@ -27,7 +27,7 @@ import {
 
 export enum UserRole {
    STUDENT = 'STUDENT',
-   LECTURER = 'LECTURER',
+   TUTOR = 'TUTOR',
    STAFF = 'STAFF',
    HOD = 'HOD',
    DEAN = 'DEAN',
@@ -69,7 +69,6 @@ const studentNav: NavGroup[] = [
             icon: OctagonMinus,
             children: [
                { title: "Test Page", href: "/student/test", matchExactOnly: true, icon: TestTubeDiagonalIcon },
-               { title: "Grades", href: "/student/test/grades", matchExactOnly: true, icon: CalendarDays },
             ],
          },
       ],
@@ -78,21 +77,23 @@ const studentNav: NavGroup[] = [
       label: "Academics",
       items: [
          { title: "My Courses", href: "/student/courses", matchExactOnly: true, icon: BookOpen },
-         { title: "Timetable", href: "/student/timetable", matchExactOnly: true, icon: CalendarDays },
+         { title: "Timetable", href: "/student/timetable", matchExactOnly: false, icon: CalendarDays },
+         { title: "Assessments", href: "/student/assessments/my-assessments", matchExactOnly: false, icon: ClipboardList },
          {
             title: "Results",
             href: "/student/results",
             matchExactOnly: true,
             icon: ClipboardList,
          },
+         { title: "Grades", href: "/student/results/grades", matchExactOnly: true, icon: CalendarDays },
          { title: "Registration", href: "/student/registration", matchExactOnly: true, icon: FileText },
       ],
    },
    {
       label: "Campus",
       items: [
-         { title: "Announcements", href: "/student/announcements", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
-         { title: "Messages", href: "/student/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Notifications", href: "/student/notifications", matchExactOnly: true, icon: Bell, badge: 3, badgeVariant: "warning" },
+         { title: "Calendar & Events", href: "/student/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
          { title: "Payments", href: "/student/payments", matchExactOnly: true, icon: CreditCard },
       ],
    },
@@ -105,10 +106,10 @@ const studentNav: NavGroup[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Lecturer navigation                                                */
+/*  Tutor navigation                                                */
 /* ------------------------------------------------------------------ */
 
-const lecturerNav: NavGroup[] = [
+const tutorNav: NavGroup[] = [
    {
       items: [
          { title: "Dashboard", href: "/tutor", matchExactOnly: true, icon: LayoutDashboard },
@@ -118,6 +119,7 @@ const lecturerNav: NavGroup[] = [
       label: "Teaching",
       items: [
          { title: "Course Assignments", href: "/tutor/courses", matchExactOnly: true, icon: CalendarCheck2 },
+         { title: "Assessments", href: "/tutor/assessments", matchExactOnly: true, icon: ClipboardList },
          { title: "Timetable", href: "/tutor/timetable", matchExactOnly: true, icon: CalendarDays },
          {
             title: "Grading",
@@ -133,8 +135,8 @@ const lecturerNav: NavGroup[] = [
    {
       label: "Campus",
       items: [
-         { title: "Announcements", href: "/tutor/announcements", matchExactOnly: true, icon: Bell },
-         { title: "Messages", href: "/tutor/messages", matchExactOnly: true, icon: MessageSquare },
+         { title: "Notifications", href: "/tutor/notifications", matchExactOnly: true, icon: Bell },
+         { title: "Calendar & Events", href: "/tutor/timetable/calendar", matchExactOnly: false, icon: CalendarDays },
       ],
    },
    {
@@ -149,7 +151,7 @@ const lecturerNav: NavGroup[] = [
 /*  HOD navigation                                                     */
 /* ------------------------------------------------------------------ */
 
-const hodNav: NavGroup[] = lecturerNav;
+const hodNav: NavGroup[] = tutorNav;
 
 /* ------------------------------------------------------------------ */
 /*  Director navigation                                                   */
@@ -170,7 +172,7 @@ const directorNav: NavGroup[] = [
    {
       label: "Academic Reports",
       items: [
-         { title: "student grades", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
+         { title: "Grade Reports", href: "/director/grades", matchExactOnly: true, icon: GraduationCap },
       ],
    },
    {
@@ -188,7 +190,7 @@ const directorNav: NavGroup[] = [
 const adminNav: NavGroup[] = [
    {
       items: [
-         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "Dashboard", href: "/manager/dashboard", matchExactOnly: true, icon: LayoutDashboard },
       ],
    },
    {
@@ -274,6 +276,22 @@ const superAdminNav: NavGroup[] = [
          { title: "Admissions", href: "/admin/academics/admissions", matchExactOnly: true, icon: SchoolIcon },
          { title: "Course Structure", href: "/admin/academics/course-structure", matchExactOnly: true, icon: GraduationCap },
          { title: "Courses", href: "/admin/academics/courses-management", matchExactOnly: true, icon: BookOpen },
+         {
+            title: "Assessments",
+            icon: ClipboardList,
+            children: [
+               { title: "All Assessments", href: "/admin/assessments", matchExactOnly: true, icon: ClipboardList },
+               { title: "Sync Status", href: "/admin/assessments/sync-status", matchExactOnly: true, icon: Database },
+            ],
+         },
+         {
+            title: "Timetable",
+            icon: CalendarDays,
+            children: [
+               { title: "All Schedules", href: "/admin/timetable", matchExactOnly: true, icon: CalendarDays },
+               { title: "Venue Checker", href: "/admin/timetable/venue-check", matchExactOnly: true, icon: Building2 },
+            ],
+         },
       ],
    },
    {
@@ -319,6 +337,7 @@ const superAdminNav: NavGroup[] = [
       label: "Communications",
       items: [
          { title: "Notifications", href: "/admin/notification", matchExactOnly: true, icon: Bell },
+         { title: "Calendar Events", href: "/admin/calendar", matchExactOnly: true, icon: CalendarDays },
       ],
    },
    {
@@ -374,7 +393,7 @@ const bursaryNav: NavGroup[] = [
 const staffNav: NavGroup[] = [
    {
       items: [
-         { title: "Dashboard", href: "/manager/dashbaord", matchExactOnly: true, icon: LayoutDashboard },
+         { title: "Dashboard", href: "/manager/dashboard", matchExactOnly: true, icon: LayoutDashboard },
       ],
    },
    {
@@ -405,7 +424,7 @@ const staffNav: NavGroup[] = [
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
    STUDENT: studentNav,
-   LECTURER: lecturerNav,
+   TUTOR: tutorNav,
    STAFF: staffNav,
    HOD: hodNav,
    DEAN: deanNav,
@@ -418,9 +437,9 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
    [UserRole.STUDENT]: "/student/dashboard",
-   [UserRole.LECTURER]: "/tutor",
+   [UserRole.TUTOR]: "/tutor/dashboard",
    [UserRole.STAFF]: "/manager/dashboard",
-   [UserRole.HOD]: "/tutor",
+   [UserRole.HOD]: "/tutor/dashboard",
    [UserRole.DEAN]: "/manager/dashboard",
    [UserRole.BURSARY]: "/admin/setup/fee-management",
    [UserRole.DIRECTOR]: "/director/dashboard",

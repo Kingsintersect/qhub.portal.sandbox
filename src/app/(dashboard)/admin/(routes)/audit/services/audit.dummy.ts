@@ -107,7 +107,7 @@ export const ALL_AUDIT_LOGS: AuditLog[] = [
     mkLog(36, 2, "CREATE", "Course", 105, "2025-02-04T10:10:00Z", null, { code: "EEE301", title: "Digital Electronics", creditUnits: 3, semester: "Second" }, 1),
     mkLog(37, 5, "ENROLL", "StudentEnrollment", 1004, "2025-02-05T09:00:00Z", null, { studentId: 5, courseId: 104, academicYear: "2024/2025", semester: "Second" }, 3, true),
     mkLog(38, 6, "ENROLL", "StudentEnrollment", 1005, "2025-02-05T09:05:00Z", null, { studentId: 6, courseId: 105, academicYear: "2024/2025", semester: "Second" }, 4, true),
-    mkLog(39, 3, "UPDATE", "Lecturer", 3, "2025-02-10T14:00:00Z", { office: "Block C, Room 12" }, { office: "Block D, Room 05" }, 2),
+    mkLog(39, 3, "UPDATE", "Tutor", 3, "2025-02-10T14:00:00Z", { office: "Block C, Room 12" }, { office: "Block D, Room 05" }, 2),
 
     // ── Mar 2025 ──────────────────────────────────────────────────────────────
     mkLog(40, 7, "CREATE", "Invoice", 3003, "2025-03-01T09:00:00Z", null, { studentId: 5, type: "Acceptance", amount: 30000, academicYear: "2024/2025" }, 5),
@@ -267,7 +267,7 @@ export const DUMMY_AUDIT_STATS: AuditStats = {
         [
             "Grade", "User", "Course", "StudentEnrollment", "Payment",
             "Invoice", "Clearance", "MoodleUser", "MoodleEnrollment",
-            "Setting", "Announcement", "Document", "Lecturer",
+            "Setting", "Announcement", "Document", "Tutor",
         ] as AuditEntityType[]
     )
         .map((entityType) => ({

@@ -2,12 +2,7 @@
 
 import React, { useState } from "react";
 import { AlertTriangle, RefreshCw, Users, BookOpen } from "lucide-react";
-import { DataTable, StatusBadge, Column } from "../../features/components/DataTable";
-import {
-   StudentRecord,
-   LecturerRecord,
-} from "../../features/types/director.types";
-import { DirectorFilterBar, GenderPieChart, useDirectorStatistical } from "../../features";
+import { Column, DataTable, DirectorFilterBar, GenderPieChart, TutorRecord, StatusBadge, StudentRecord, useDirectorStatistical } from "@/modules/director";
 
 // ─── Table Columns ────────────────────────────────────────────────────────────
 
@@ -36,7 +31,7 @@ const STUDENT_COLUMNS: Column<StudentRecord>[] = [
    },
 ];
 
-const LECTURER_COLUMNS: Column<LecturerRecord>[] = [
+const TUTOR_COLUMNS: Column<TutorRecord>[] = [
    { key: "staffId", header: "Staff ID", width: "110px" },
    { key: "fullName", header: "Name", width: "170px" },
    { key: "gender", header: "Gender", width: "80px", align: "center" },
@@ -56,7 +51,7 @@ const LECTURER_COLUMNS: Column<LecturerRecord>[] = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "students" | "lecturers";
+type Tab = "students" | "tutors";
 
 export default function StatisticalReportsPage() {
    const [activeTab, setActiveTab] = useState<Tab>("students");
@@ -77,7 +72,7 @@ export default function StatisticalReportsPage() {
          <div className="page-header">
             <div className="page-header-text">
                <h2>Statistical Reports</h2>
-               <p>Population analytics, gender ratios, and profiles for students & lecturers</p>
+               <p>Population analytics, gender ratios, and profiles for students & tutors</p>
             </div>
             <button className="btn-refresh" onClick={() => refetch()} disabled={isLoading}>
                <RefreshCw size={15} className={isLoading ? "spin" : ""} />
@@ -95,7 +90,7 @@ export default function StatisticalReportsPage() {
          <div className="stat-kpi-row">
             {[
                { label: "Total Students", value: report?.totalStudents.toLocaleString() ?? "—", icon: <Users size={18} />, color: "primary" },
-               { label: "Total Lecturers", value: report?.totalLecturers.toLocaleString() ?? "—", icon: <BookOpen size={18} />, color: "accent" },
+               { label: "Total Tutors", value: report?.totalTutors.toLocaleString() ?? "—", icon: <BookOpen size={18} />, color: "accent" },
                { label: "Male Students", value: report?.studentsByGender.male.toLocaleString() ?? "—", icon: <Users size={18} />, color: "success" },
                { label: "Female Students", value: report?.studentsByGender.female.toLocaleString() ?? "—", icon: <Users size={18} />, color: "warning" },
             ].map((k) => (
@@ -149,17 +144,17 @@ export default function StatisticalReportsPage() {
             {/* Designation breakdown */}
             <div className="chart-wrap">
                <div className="chart-header">
-                  <h3 className="chart-title">Lecturer Designations</h3>
-                  <span className="chart-subtitle">{report?.totalLecturers ?? "—"} total staff</span>
+                  <h3 className="chart-title">Tutor Designations</h3>
+                  <span className="chart-subtitle">{report?.totalTutors ?? "—"} total staff</span>
                </div>
                {isLoading ? (
                   <div className="chart-skeleton" />
                ) : (
                   <div className="designation-list">
-                     {Object.entries(report?.lecturersByDesignation ?? {})
+                     {Object.entries(report?.tutorsByDesignation ?? {})
                         .sort((a, b) => b[1] - a[1])
                         .map(([desig, count]) => {
-                           const total = Object.values(report?.lecturersByDesignation ?? {}).reduce((a, v) => a + v, 0);
+                           const total = Object.values(report?.tutorsByDesignation ?? {}).reduce((a, v) => a + v, 0);
                            const pct = total > 0 ? ((count / total) * 100).toFixed(1) : "0";
                            return (
                               <div key={desig} className="desig-row">
@@ -187,10 +182,10 @@ export default function StatisticalReportsPage() {
                <Users size={15} /> Students ({report?.totalStudents.toLocaleString() ?? 0})
             </button>
             <button
-               className={`tab-btn${activeTab === "lecturers" ? " active" : ""}`}
-               onClick={() => setActiveTab("lecturers")}
+               className={`tab-btn${activeTab === "tutors" ? " active" : ""}`}
+               onClick={() => setActiveTab("tutors")}
             >
-               <BookOpen size={15} /> Lecturers ({report?.totalLecturers.toLocaleString() ?? 0})
+               <BookOpen size={15} /> Tutors ({report?.totalTutors.toLocaleString() ?? 0})
             </button>
          </div>
 
@@ -208,7 +203,7 @@ export default function StatisticalReportsPage() {
                   : [{ label: "Active", value: "active" }, { label: "On Leave", value: "on-leave" }, { label: "Sabbatical", value: "sabbatical" }]
             }
             isLoading={isLoading}
-            title={`Filter ${activeTab === "students" ? "Students" : "Lecturers"}`}
+            title={`Filter ${activeTab === "students" ? "Students" : "Tutors"}`}
          />
 
          {activeTab === "students" ? (
@@ -220,12 +215,12 @@ export default function StatisticalReportsPage() {
                emptyMessage="No students match the selected filters."
             />
          ) : (
-            <DataTable<LecturerRecord>
-               columns={LECTURER_COLUMNS}
-               data={report?.lecturers ?? []}
+            <DataTable<TutorRecord>
+               columns={TUTOR_COLUMNS}
+               data={report?.tutors ?? []}
                isLoading={isLoading}
                rowKey={(r) => r.id}
-               emptyMessage="No lecturers match the selected filters."
+               emptyMessage="No tutors match the selected filters."
             />
          )}
 

@@ -1,4 +1,4 @@
-// ─── Lecturer Course Assignment Types ────────────────────────────────────────
+// ─── Tutor Course Assignment Types ────────────────────────────────────────
 
 export type DayOfWeek =
     | "Monday"

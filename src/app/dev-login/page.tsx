@@ -76,7 +76,7 @@ export default function DevLoginPage() {
                {(
                   [
                      { role: UserRole.STUDENT, label: "Student", color: "bg-blue-600 hover:bg-blue-700" },
-                     { role: UserRole.LECTURER, label: "Lecturer", color: "bg-violet-600 hover:bg-violet-700" },
+                     { role: UserRole.TUTOR, label: "Tutor", color: "bg-violet-600 hover:bg-violet-700" },
                      { role: UserRole.HOD, label: "HOD", color: "bg-fuchsia-600 hover:bg-fuchsia-700" },
                      { role: UserRole.DEAN, label: "Dean", color: "bg-orange-600 hover:bg-orange-700" },
                      { role: UserRole.BURSARY, label: "Bursary", color: "bg-cyan-600 hover:bg-cyan-700" },
