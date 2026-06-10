@@ -17,13 +17,12 @@
       "name": "next"
     }],
     "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
-         "@/*": ["src/*"],
-         "@modules/*": ["src/modules/*"],
-         "@components/*": ["src/components/*"],
-         "@hooks/*": ["src/hooks/*"],
-         "@lib/*": ["src/lib/*"]
+         "@/*": ["./src/*"],
+         "@modules/*": ["./src/modules/*"],
+         "@components/*": ["./src/components/*"],
+         "@hooks/*": ["./src/hooks/*"],
+         "@lib/*": ["./src/lib/*"]
     }
   },
   "include": [
