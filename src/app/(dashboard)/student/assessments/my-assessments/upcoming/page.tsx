@@ -9,15 +9,34 @@ import { useAssessmentsUiStore } from "@/modules/assessments/store/assessments-u
 import { PermissionGate } from "@/lib/permissions/PermissionGate";
 
 export default function UpcomingAssessmentsPage() {
-   const { activeType } = useAssessmentsUiStore();
+   const { activeType, searchQuery } = useAssessmentsUiStore();
 
    const { data, isLoading } = useUpcomingAssessments(20);
 
    const items = useMemo(() => {
       const all = data?.data ?? [];
-      if (!activeType) return all;
-      return all.filter((a) => a.assessmentType === activeType);
-   }, [data, activeType]);
+      const byType = activeType
+         ? all.filter((assessment) => assessment.assessmentType === activeType)
+         : all;
+
+      const search = searchQuery.trim().toLowerCase();
+      if (!search) return byType;
+
+      return byType.filter((item) => {
+         const haystack = [
+            item.name,
+            item.description ?? "",
+            item.course.code,
+            item.course.title,
+            item.course.semesterName,
+            item.assessmentType,
+         ]
+            .join(" ")
+            .toLowerCase();
+
+         return haystack.includes(search);
+      });
+   }, [data, activeType, searchQuery]);
 
    return (
       <PermissionGate
