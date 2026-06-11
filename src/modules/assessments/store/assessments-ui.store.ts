@@ -9,6 +9,7 @@ import type { AssessmentType } from "../types";
 interface AssessmentsUiState {
     // Shared filters
     activeType: AssessmentType | null;
+    searchQuery: string;
     page: number;
     limit: number;
 
@@ -20,6 +21,7 @@ interface AssessmentsUiState {
 
     // Actions
     setActiveType: (type: AssessmentType | null) => void;
+    setSearchQuery: (query: string) => void;
     setPage: (page: number) => void;
     setLimit: (limit: number) => void;
     setVisibilityFilter: (v: "all" | "visible" | "hidden") => void;
@@ -29,6 +31,7 @@ interface AssessmentsUiState {
 
 const initialState = {
     activeType: null,
+    searchQuery: "",
     page: 1,
     limit: 20,
     visibilityFilter: "all" as const,
@@ -39,6 +42,7 @@ export const useAssessmentsUiStore = create<AssessmentsUiState>()((set) => ({
     ...initialState,
 
     setActiveType: (type) => set({ activeType: type, page: 1 }),
+    setSearchQuery: (searchQuery) => set({ searchQuery, page: 1 }),
     setPage: (page) => set({ page }),
     setLimit: (limit) => set({ limit, page: 1 }),
     setVisibilityFilter: (visibilityFilter) => set({ visibilityFilter, page: 1 }),
