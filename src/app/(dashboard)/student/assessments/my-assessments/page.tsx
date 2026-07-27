@@ -9,7 +9,7 @@ import { useAssessmentsUiStore } from "@/modules/assessments/store/assessments-u
 import { PermissionGate } from "@/lib/permissions/PermissionGate";
 
 export default function MyAssessmentsPage() {
-   const { activeType, upcomingOnly, page, limit } = useAssessmentsUiStore();
+   const { activeType, searchQuery, upcomingOnly, page, limit } = useAssessmentsUiStore();
 
    const { data, isLoading } = useMyAssessments({
       type: activeType ?? undefined,
@@ -18,7 +18,26 @@ export default function MyAssessmentsPage() {
       limit,
    });
 
-   const items = useMemo(() => data?.data ?? [], [data]);
+   const items = useMemo(() => {
+      const all = data?.data ?? [];
+      const search = searchQuery.trim().toLowerCase();
+      if (!search) return all;
+
+      return all.filter((item) => {
+         const haystack = [
+            item.name,
+            item.description ?? "",
+            item.course.code,
+            item.course.title,
+            item.course.semesterName,
+            item.assessmentType,
+         ]
+            .join(" ")
+            .toLowerCase();
+
+         return haystack.includes(search);
+      });
+   }, [data, searchQuery]);
 
    return (
       <PermissionGate

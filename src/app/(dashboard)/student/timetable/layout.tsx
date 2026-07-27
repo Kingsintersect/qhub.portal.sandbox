@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AcademicCalendarBanner } from "@/modules/timetable/components/AcademicCalendarBanner";
-import { CalendarDays, Clock, List } from "lucide-react";
+import { CalendarDays, Clock, List, Sparkles } from "lucide-react";
 
 const TAB_LINKS = [
     { href: "/student/timetable", label: "My Timetable", icon: CalendarDays, exact: true },
@@ -17,26 +17,26 @@ export default function TimetableLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
 
     return (
-        <div className="mx-auto px-4 py-8 space-y-6">
-            {/* Banner */}
+        <div className="mx-auto px-4 py-8 space-y-5">
             <AcademicCalendarBanner />
 
-            {/* Tab nav */}
-            <div className="flex items-center gap-1 border-b border-border pb-0">
+            <div className="rounded-2xl border border-border/70 bg-card/95 p-2 shadow-sm">
+                {/* <div className="mb-2 flex items-center gap-2 px-2 pt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    <Sparkles size={13} className="text-primary" />
+                    Timetable Views
+                </div> */}
+                <div className="flex flex-wrap items-center gap-2">
                 {TAB_LINKS.map(({ href, label, icon: Icon, exact }) => {
-                    const active = exact ? pathname === href : pathname.startsWith(href) && pathname !== "/timetable";
-                    const isRootActive = href === "/timetable" && pathname === "/timetable";
-                    const isActive = isRootActive || (!exact && pathname.startsWith(href) && href !== "/timetable");
-                    const finalActive = href === "/timetable" ? pathname === href : pathname.startsWith(href);
+                    const isActive = exact ? pathname === href : pathname.startsWith(href);
                     return (
                         <Link
                             key={href}
                             href={href}
                             className={cn(
-                                "flex items-center gap-1.5 text-sm px-3 py-2.5 border-b-2 transition-colors -mb-px",
-                                finalActive
-                                    ? "border-primary text-primary font-medium"
-                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                                "inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-colors",
+                                isActive
+                                    ? "border-primary/40 bg-primary/10 text-primary font-medium"
+                                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/40"
                             )}
                         >
                             <Icon size={14} />
@@ -44,9 +44,9 @@ export default function TimetableLayout({ children }: { children: ReactNode }) {
                         </Link>
                     );
                 })}
+                </div>
             </div>
 
-            {/* Page content */}
             {children}
         </div>
     );

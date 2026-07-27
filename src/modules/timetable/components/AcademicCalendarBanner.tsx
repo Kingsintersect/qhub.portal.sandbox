@@ -1,12 +1,45 @@
 "use client";
 
-import { format } from "date-fns";
-import { CalendarDays, BookOpen, GraduationCap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BookOpen, GraduationCap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from "@/components/ui/select";
 import { useAcademicCalendar } from "../hooks/useAcademicCalendar";
+import { useTimetableUIStore } from "../store/useTimetableUIStore";
 
 export function AcademicCalendarBanner() {
    const { data, isLoading } = useAcademicCalendar();
+   const [selectedAcademicYear, setSelectedAcademicYear] = useState("");
+   const { selectedSemesterId, setSelectedSemesterId } = useTimetableUIStore();
+
+   const academicYearOptions = useMemo(() => {
+      if (!data?.session?.name) return [];
+
+      const current = data.session.name;
+      const match = current.match(/^(\d{4})\/(\d{4})$/);
+      if (!match) return [current];
+
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      return [`${start - 1}/${end - 1}`, current, `${start + 1}/${end + 1}`];
+   }, [data?.session?.name]);
+
+   useEffect(() => {
+      if (!data?.session?.name || selectedAcademicYear) return;
+      setSelectedAcademicYear(data.session.name);
+   }, [data?.session?.name, selectedAcademicYear]);
+
+   useEffect(() => {
+      const activeSemester = data?.currentSemester;
+      if (!activeSemester || selectedSemesterId) return;
+      setSelectedSemesterId(activeSemester.id);
+   }, [data?.currentSemester, selectedSemesterId, setSelectedSemesterId]);
 
    if (isLoading) {
       return <Skeleton className="h-14 w-full rounded-xl" />;
@@ -14,43 +47,61 @@ export function AcademicCalendarBanner() {
 
    if (!data) return null;
 
-   const active = data.semesters?.find((s: { isActive: boolean }) => s.isActive);
-
    return (
-      <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
-         {/* Session */}
-         <span className="flex items-center gap-1.5 font-medium text-foreground">
-            <GraduationCap size={15} className="text-primary" />
-            {data.session.name}
-         </span>
+      <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm">
+         <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
+            <span className="flex items-center gap-1.5 font-medium text-foreground">
+               <GraduationCap size={15} className="text-primary" />
+               Academic Year & Semester
+            </span>
 
-         {/* Current semester */}
-         {active && (
-            <>
-               <div className="h-4 w-px bg-border hidden sm:block" />
-               <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <BookOpen size={13} />
-                  {active.name}
-               </span>
+            <div className="h-4 w-px bg-border hidden sm:block" />
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+               <BookOpen size={13} />
+               Select current academic year and semester
+            </span>
+         </div>
 
-               {/* Dates */}
-               <div className="h-4 w-px bg-border hidden sm:block" />
-               <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <CalendarDays size={13} />
-                  {format(new Date(active.startDate), "d MMM")} – {format(new Date(active.endDate), "d MMM yyyy")}
-               </span>
+         <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-55">
+               <Select
+                  value={selectedAcademicYear}
+                  onValueChange={setSelectedAcademicYear}
+               >
+                  <SelectTrigger className="w-full justify-between bg-background">
+                     <SelectValue placeholder="Select academic year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     {academicYearOptions.map((year) => (
+                        <SelectItem key={year} value={year}>
+                           {year}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
+            </div>
 
-               {/* Registration window */}
-               {active.registrationStart && active.registrationEnd && (
-                  <>
-                     <div className="h-4 w-px bg-border hidden sm:block" />
-                     <span className="text-xs text-muted-foreground">
-                        Registration: {format(new Date(active.registrationStart), "d MMM")} – {format(new Date(active.registrationEnd), "d MMM")}
-                     </span>
-                  </>
-               )}
-            </>
-         )}
+            <div className="min-w-48">
+               <Select
+                  value={selectedSemesterId ? String(selectedSemesterId) : "all"}
+                  onValueChange={(value) =>
+                     setSelectedSemesterId(value === "all" ? null : Number(value))
+                  }
+               >
+                  <SelectTrigger className="w-full justify-between bg-background">
+                     <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     <SelectItem value="all">All semesters</SelectItem>
+                     {(data?.semesters ?? []).map((semester) => (
+                        <SelectItem key={semester.id} value={String(semester.id)}>
+                           {semester.name}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
+            </div>
+         </div>
       </div>
    );
 }

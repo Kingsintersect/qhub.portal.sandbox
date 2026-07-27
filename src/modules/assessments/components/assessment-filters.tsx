@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -30,15 +30,21 @@ interface AssessmentFiltersProps {
 export function AssessmentFilters({ showVisibilityFilter = false, showUpcomingToggle = false }: AssessmentFiltersProps) {
     const {
         activeType,
+        searchQuery,
         visibilityFilter,
         upcomingOnly,
         setActiveType,
+        setSearchQuery,
         setVisibilityFilter,
         setUpcomingOnly,
         resetFilters,
     } = useAssessmentsUiStore();
 
-    const isDirty = activeType !== null || visibilityFilter !== "all" || upcomingOnly;
+    const isDirty =
+        activeType !== null ||
+        searchQuery.trim().length > 0 ||
+        visibilityFilter !== "all" ||
+        upcomingOnly;
 
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -69,6 +75,16 @@ export function AssessmentFilters({ showVisibilityFilter = false, showUpcomingTo
                         {t.label}
                     </button>
                 ))}
+            </div>
+
+            <div className="relative min-w-56 grow sm:grow-0">
+                <Search size={14} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+                <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search assessment or course"
+                    className="h-8 w-full rounded-md border border-input bg-background pr-3 pl-9 text-xs text-foreground outline-none transition-shadow focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
             </div>
 
             {/* Visibility filter */}
