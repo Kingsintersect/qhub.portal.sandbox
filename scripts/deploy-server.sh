@@ -49,7 +49,8 @@ BACKEND_URL="${6:-https://qhub.api.sandbox.qverselearning.org/api/v1/}"   # opti
 WEBSERVER_OVERRIDE="${7:-}"   # optional: force "nginx" or "apache" — leave blank for auto-detect
 ENV_INCOMING_PATH="${8:-}"    # optional: path to a file with the full .env contents
 
-ARCHIVE="next-deploy.tar.gz"
+# ARCHIVE="next-deploy.tar.gz"
+ARCHIVE="${APP_NAME}-next-deploy.tar.gz"
 NGINX_CONF="/etc/nginx/conf.d/${DOMAIN}.conf"
 ENV_FILE="${APP_DIR}/.env.production"
 
