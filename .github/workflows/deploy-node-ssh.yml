@@ -100,7 +100,7 @@ jobs:
             package.json \
             package-lock.json \
             next.config.* \
-            ecosystem.config.js \
+            ecosystem.config.cjs \
             scripts \
             .htaccess
 
