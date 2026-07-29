@@ -52,8 +52,11 @@
   --card-foreground: oklch(0.147 0.004 49.3);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.147 0.004 49.3);
-  --primary: oklch(0.505 0.213 27.518);
-  --primary-foreground: oklch(0.971 0.013 17.38);
+
+  /* Primary Theme: #FF3D01 */
+  --primary: oklch(0.635 0.236 37.6);
+  --primary-foreground: oklch(1 0 0);
+
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.96 0.002 17.2);
@@ -63,8 +66,8 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0.005 34.3);
   --input: oklch(0.922 0.005 34.3);
-  --ring: oklch(0.714 0.014 41.2);
-  --chart-1: oklch(0.868 0.007 39.5);
+  --ring: oklch(0.635 0.236 37.6 / 40%);
+  --chart-1: oklch(0.635 0.236 37.6);
   --chart-2: oklch(0.547 0.021 43.1);
   --chart-3: oklch(0.438 0.017 39.3);
   --chart-4: oklch(0.367 0.016 35.7);
@@ -72,21 +75,20 @@
   --radius: 0.875rem;
   --sidebar: oklch(0.986 0.002 67.8);
   --sidebar-foreground: oklch(0.147 0.004 49.3);
-  --sidebar-primary: oklch(0.577 0.245 27.325);
-  --sidebar-primary-foreground: oklch(0.971 0.013 17.38);
+  --sidebar-primary: oklch(0.635 0.236 37.6);
+  --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.96 0.002 17.2);
   --sidebar-accent-foreground: oklch(0.214 0.009 43.1);
   --sidebar-border: oklch(0.922 0.005 34.3);
-  --sidebar-ring: oklch(0.714 0.014 41.2);
+  --sidebar-ring: oklch(0.635 0.236 37.6 / 40%);
 
   /* Nav / Info visual tokens for light mode */
   --nav-bg: rgba(255, 255, 255, 0.92);
   --info-bg: linear-gradient(
     90deg,
-    rgba(0, 96, 69, 0.04),
+    rgba(255, 61, 1, 0.04),
     rgba(255, 255, 255, 0.02)
   );
-  /* Prefer theme-aware border token where possible, fallback to subtle dark */
   --nav-border: rgba(0, 0, 0, 0.06);
   --nav-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
   --background: oklch(1 0 0);
@@ -100,8 +102,11 @@
   --card-foreground: oklch(0.986 0.002 67.8);
   --popover: oklch(0.214 0.009 43.1);
   --popover-foreground: oklch(0.986 0.002 67.8);
-  --primary: oklch(0.444 0.177 26.899);
-  --primary-foreground: oklch(0.971 0.013 17.38);
+
+  /* Primary Theme (Dark): #FF3D01 */
+  --primary: oklch(0.635 0.236 37.6);
+  --primary-foreground: oklch(1 0 0);
+
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.268 0.011 36.5);
@@ -111,25 +116,28 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.547 0.021 43.1);
-  --chart-1: oklch(0.868 0.007 39.5);
+  --ring: oklch(0.635 0.236 37.6 / 50%);
+  --chart-1: oklch(0.635 0.236 37.6);
   --chart-2: oklch(0.547 0.021 43.1);
   --chart-3: oklch(0.438 0.017 39.3);
   --chart-4: oklch(0.367 0.016 35.7);
   --chart-5: oklch(0.268 0.011 36.5);
   --sidebar: oklch(0.214 0.009 43.1);
   --sidebar-foreground: oklch(0.986 0.002 67.8);
-  --sidebar-primary: oklch(0.637 0.237 25.331);
-  --sidebar-primary-foreground: oklch(0.971 0.013 17.38);
+  --sidebar-primary: oklch(0.635 0.236 37.6);
+  --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.268 0.011 36.5);
   --sidebar-accent-foreground: oklch(0.986 0.002 67.8);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.547 0.021 43.1);
+  --sidebar-ring: oklch(0.635 0.236 37.6 / 50%);
 
   /* Nav / Info visual tokens for dark mode */
   --nav-bg: rgba(10, 10, 10, 0.72);
-  --info-bg: linear-gradient(90deg, rgba(0, 96, 69, 0.06), rgba(0, 0, 0, 0.08));
-  /* Use your theme border var (you already define --border) but fallback to this if needed */
+  --info-bg: linear-gradient(
+    90deg,
+    rgba(255, 61, 1, 0.06),
+    rgba(0, 0, 0, 0.08)
+  );
   --nav-border: rgba(255, 255, 255, 0.04);
   --nav-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
 }
@@ -148,7 +156,6 @@
   }
 }
 
-/* --- Add these component styles --- */
 @layer components {
   .info-bar {
     background: var(--info-bg);
@@ -175,11 +182,8 @@
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
   }
-}
 
-/* GLOWING BUTTON EFFECT */
-/* ...keep your existing file... */
-@layer components {
+  /* GLOWING BUTTON EFFECT */
   .btn-glow::before {
     content: "";
     position: absolute;
@@ -190,7 +194,7 @@
 
     background: radial-gradient(
       circle at 50% 50%,
-      color-mix(in oklab, oklch(var(--primary)) 55%, transparent) 0%,
+      color-mix(in oklab, var(--primary) 55%, transparent) 0%,
       transparent 70%
     );
 
@@ -208,7 +212,6 @@
     transform: scale(1.03);
   }
 
-  /* Optional pulse */
   .btn-glow {
     animation: btn-glow-pulse 1.8s ease-in-out infinite;
   }
@@ -221,7 +224,7 @@
 
     50% {
       filter: drop-shadow(
-        0 0 18px color-mix(in oklab, oklch(var(--primary)) 55%, transparent)
+        0 0 18px color-mix(in oklab, var(--primary) 55%, transparent)
       );
     }
   }
@@ -255,29 +258,30 @@ html {
 ::selection {
   background: var(--primary);
   color: var(--primary-foreground);
+}
 
-  .why-choose-swiper .swiper-pagination {
-    bottom: 18px !important;
-  }
+/* Swiper Pagination Styles */
+.why-choose-swiper {
+  --swiper-theme-color: rgb(255, 61, 1);
+  --swiper-pagination-color: rgb(255, 61, 1);
+  --swiper-pagination-bullet-inactive-color: rgba(255, 61, 1, 0.5);
+  --swiper-pagination-bullet-inactive-opacity: 0.5;
+}
 
-  .why-choose-swiper {
-    --swiper-theme-color: rgb(5, 150, 105);
-    --swiper-pagination-color: rgb(5, 150, 105);
-    --swiper-pagination-bullet-inactive-color: rgb(16, 185, 129);
-    --swiper-pagination-bullet-inactive-opacity: 0.5;
-  }
+.why-choose-swiper .swiper-pagination {
+  bottom: 18px !important;
+}
 
-  .why-choose-swiper .swiper-pagination-bullet {
-    width: 10px;
-    height: 10px;
-    background: rgba(16, 185, 129, 0.5) !important;
-    opacity: 1;
-    transition: all 240ms ease;
-  }
+.why-choose-swiper .swiper-pagination-bullet {
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 61, 1, 0.5) !important;
+  opacity: 1;
+  transition: all 240ms ease;
+}
 
-  .why-choose-swiper .swiper-pagination-bullet-active {
-    width: 28px;
-    border-radius: 999px;
-    background: rgb(5, 150, 105) !important;
-  }
+.why-choose-swiper .swiper-pagination-bullet-active {
+  width: 28px;
+  border-radius: 999px;
+  background: rgb(255, 61, 1) !important;
 }
