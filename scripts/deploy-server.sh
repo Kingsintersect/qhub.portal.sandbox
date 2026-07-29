@@ -494,11 +494,11 @@ fi
 
 # ── Install production dependencies ──────────────────────────────────────────
 echo "Installing production dependencies..."
-npm ci --omit=dev || {
+npm ci --omit=dev --ignore-scripts || {
     echo "npm ci failed — cleaning node_modules and retrying..."
     sudo rm -rf node_modules
     npm cache clean --force
-    npm ci --omit=dev
+    npm ci --omit=dev --ignore-scripts
 }
 echo "✅ Dependencies installed"
 
