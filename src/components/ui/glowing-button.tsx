@@ -40,7 +40,7 @@ export const GlowingButton = React.forwardRef<
         {!disabled && (
           <div
             className={cn(
-              "absolute -inset-0.5 rounded-[inherit] bg-gradient-to-r opacity-50 blur-md transition-all duration-500 group-hover:scale-105 group-hover:opacity-100 group-hover:blur-lg",
+              "absolute -inset-0.5 rounded-[inherit] bg-linear-to-r opacity-50 blur-md transition-all duration-500 group-hover:scale-105 group-hover:opacity-100 group-hover:blur-lg",
               glowColor
             )}
           />
