@@ -511,16 +511,16 @@ if pm2 list 2>/dev/null | grep -q "${APP_NAME}"; then
     echo "Deleting old ${APP_NAME} process to reset cwd..."
     pm2 delete "${APP_NAME}"
 fi
-if [[ ! -f "${APP_DIR}/ecosystem.config.js" ]]; then
-    echo "❌ ecosystem.config.js not found in ${APP_DIR}"
+if [[ ! -f "${APP_DIR}/ecosystem.config.cjs" ]]; then
+    echo "❌ ecosystem.config.cjs not found in ${APP_DIR}"
     echo "   The deploy archive did not contain this file — check that it exists"
     echo "   at the repo root and is included in the 'Create deployment archive'"
     echo "   step of the GitHub Actions workflow."
     exit 1
 fi
 
-echo "Starting ${APP_NAME} via ecosystem.config.js..."
-APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" pm2 start ecosystem.config.js
+echo "Starting ${APP_NAME} via ecosystem.config.cjs..."
+APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" pm2 start ecosystem.config.cjs
 
 # Persist the current PM2 process list (saves all running apps, not just this one)
 pm2 save
