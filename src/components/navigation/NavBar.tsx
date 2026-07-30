@@ -1,96 +1,230 @@
-'use client'
-import React, { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useSession, signOut } from 'next-auth/react'
-import ThemeToggle from '../ThemeToggle'
-import Logo from '@/components/branding/Logo'
-import { roleDashboardPath, UserRole } from '@/config/nav.config'
-import Link from 'next/link'
+"use client"
+import React, { useEffect, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { useSession, signOut } from "next-auth/react"
+import { usePathname } from "next/navigation"
+import Link from "next/link"
+import { ArrowRight, LogOut, Menu, X } from "lucide-react"
+import ThemeToggle from "../ThemeToggle"
+import Logo from "@/components/branding/Logo"
+import { roleDashboardPath, UserRole } from "@/config/nav.config"
+import { cn } from "@/lib/utils"
+
+const PUBLIC_LINKS = [
+  { href: "/about", label: "About" },
+  { href: "/admissions", label: "Admissions" },
+  { href: "/academics", label: "Academics" },
+  { href: "/research", label: "Research" },
+  { href: "/contact", label: "Contact" },
+]
+
+const isActive = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`)
 
 export default function NavBar() {
-   const [scrolled, setScrolled] = useState(false)
-   const { data: session, status } = useSession()
+  const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const { data: session, status } = useSession()
+  const pathname = usePathname()
 
-   const isAuthenticated = status === 'authenticated'
-   const role = session?.user?.role as UserRole | undefined
-   const dashboardHref = (role && roleDashboardPath[role]) ?? '/auth/signin'
+  const isAuthenticated = status === "authenticated"
+  const role = session?.user?.role as UserRole | undefined
+  const dashboardHref = (role && roleDashboardPath[role]) ?? "/auth/signin"
 
-   useEffect(() => {
-      const onScroll = () => {
-         setScrolled(window.scrollY > 40)
-      }
-      onScroll()
-      window.addEventListener('scroll', onScroll, { passive: true })
-      return () => window.removeEventListener('scroll', onScroll)
-   }, [])
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40)
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
-   return (
-      <AnimatePresence>
-         <motion.nav
-            role="navigation"
-            initial={false}
-            animate={{
-               y: 0,
-               boxShadow: scrolled ? '0 6px 30px rgba(0,0,0,0.6)' : '0 0px 0px rgba(0,0,0,0)',
-               background: scrolled ? 'linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4))' : 'transparent',
-               borderBottom: scrolled ? '1px solid rgba(255,255,255,0.04)' : 'none'
-            }}
-            transition={{ duration: 0.28, ease: 'easeOut' }}
-            className="sticky top-0 z-40 backdrop-blur-smooth sticky-nav"
-         >
-            <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-               <div className="h-16 flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                     <Logo
-                        href="/"
-                        subtitle="Knowledge - Innovation - Service"
-                        imageWidth={40}
-                        imageHeight={40}
-                        className="items-center"
-                        imageClassName="h-10 w-10"
-                        titleClassName="text-sm"
-                        subtitleClassName="text-theme/70"
-                     />
-                  </div>
+  const closeMenu = () => setMenuOpen(false)
 
-                  <div className="hidden md:flex items-center gap-6">
-                     <Link className="text-sm hover:text-primary transition-colors" href="/about">About</Link>
-                     <Link className="text-sm hover:text-primary transition-colors" href="/admissions">Admissions</Link>
-                     <Link className="text-sm hover:text-primary transition-colors" href="/academics">Academics</Link>
-                     <Link className="text-sm hover:text-primary transition-colors" href="/research">Research</Link>
-                     <Link className="text-sm hover:text-primary transition-colors" href="/contact">Contact</Link>
-                  </div>
+  return (
+    <nav
+      role="navigation"
+      className={cn(
+        "sticky top-0 z-40 transition-[background-color,border-color,box-shadow] duration-300 ease-out",
+        scrolled
+          ? "border-b border-border bg-background/85 shadow-sm backdrop-blur-md supports-backdrop-filter:bg-background/70"
+          : "border-b border-transparent bg-background"
+      )}
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-4">
+          <Logo
+            href="/"
+            src="/logo/logo-mark.png"
+            subtitle="Knowledge · Innovation · Service"
+            imageWidth={40}
+            imageHeight={40}
+            priority
+            className="items-center"
+            imageClassName="h-10 w-10"
+            titleClassName="text-sm"
+            subtitleClassName="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground opacity-100 sm:block"
+          />
 
-                  <div className="flex items-center gap-3">
-                     <Link className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition" href="/dev-login">Visit Portal</Link>
-                     {/* Theme toggle shown here again for larger screens */}
-                     <Link
-                        className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-95 transition"
-                        href={isAuthenticated ? dashboardHref : '/admissions'}
-                     >
-                        {isAuthenticated ? 'Visit Dashboard' : 'Apply For Admission'}
-                     </Link>
-                     {isAuthenticated && (
-                        <button
-                           onClick={() => signOut({ callbackUrl: '/' })}
-                           className="inline-flex items-center px-3 py-2 rounded-md bg-destructive text-white text-sm hover:opacity-90 transition"
-                        >
-                           Logout
-                        </button>
-                     )}
-                     <div className="hidden sm:block">
-                        <ThemeToggle />
-                     </div>
-                     {/* Mobile menu trigger (simple) */}
-                     <div className="md:hidden">
-                        <button aria-label="Open menu" className="p-2 rounded-md hover:bg-[rgba(255,255,255,0.04)]">
-                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </button>
-                     </div>
-                  </div>
-               </div>
+          {/* Desktop links — the active one carries a sliding primary rule */}
+          <div className="hidden items-center gap-7 md:flex">
+            {PUBLIC_LINKS.map((link) => {
+              const active = isActive(pathname, link.href)
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative py-1 text-[13px] font-semibold tracking-[0.08em] uppercase transition-colors outline-none",
+                    active
+                      ? "text-primary"
+                      : "text-foreground/70 hover:text-foreground focus-visible:text-foreground"
+                  )}
+                >
+                  {link.label}
+                  {active && (
+                    <motion.span
+                      layoutId="nav-active-rule"
+                      aria-hidden
+                      className="absolute -bottom-1.5 left-0 h-0.5 w-full rounded-full bg-primary"
+                      transition={{
+                        type: "spring",
+                        stiffness: 380,
+                        damping: 32,
+                      }}
+                    />
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Quiet secondary action */}
+            <Link
+              className="hidden items-center rounded-md border border-border px-3 py-2 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground lg:inline-flex"
+              href="/dev-login"
+            >
+              Visit Portal
+            </Link>
+
+            {/* The one loud action */}
+            <Link
+              className={cn(
+                "group hidden items-center gap-1.5 rounded-md bg-primary px-4 py-2 sm:inline-flex",
+                "text-xs font-bold tracking-[0.08em] text-primary-foreground uppercase",
+                "shadow-sm shadow-primary/25 transition-all duration-200",
+                "hover:-translate-y-px hover:shadow-md hover:shadow-primary/35"
+              )}
+              href={isAuthenticated ? dashboardHref : "/admissions"}
+            >
+              {isAuthenticated ? "Dashboard" : "Apply Now"}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
+
+            {isAuthenticated && (
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                title="Log out"
+                aria-label="Log out"
+                className="hidden rounded-md p-2 text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive sm:inline-flex"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
+
+            <ThemeToggle className="hidden text-foreground/80 hover:bg-accent hover:text-foreground sm:inline-flex" />
+
+            <button
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-panel"
+              className="rounded-md p-2 text-foreground transition-colors hover:bg-accent md:hidden"
+            >
+              {menuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile panel */}
+      <AnimatePresence initial={false}>
+        {menuOpen && (
+          <motion.div
+            id="mobile-nav-panel"
+            key="mobile-nav-panel"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            className="overflow-hidden border-t border-border bg-background md:hidden"
+          >
+            <div className="space-y-1 px-4 py-4 sm:px-6">
+              {PUBLIC_LINKS.map((link) => {
+                const active = isActive(pathname, link.href)
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={closeMenu}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-semibold tracking-[0.08em] uppercase transition-colors",
+                      active
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground/80 hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    {link.label}
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-1.5 rounded-full bg-primary"
+                      />
+                    )}
+                  </Link>
+                )
+              })}
+
+              <div className="mt-3 flex items-center gap-2 border-t border-border pt-4">
+                <Link
+                  href={isAuthenticated ? dashboardHref : "/admissions"}
+                  onClick={closeMenu}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-xs font-bold tracking-[0.08em] text-primary-foreground uppercase"
+                >
+                  {isAuthenticated ? "Dashboard" : "Apply Now"}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/dev-login"
+                  onClick={closeMenu}
+                  className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase"
+                >
+                  Portal
+                </Link>
+                <ThemeToggle className="border border-border text-foreground/80" />
+              </div>
+
+              {isAuthenticated && (
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-destructive uppercase transition-colors hover:bg-destructive/10"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </button>
+              )}
             </div>
-         </motion.nav>
+          </motion.div>
+        )}
       </AnimatePresence>
-   )
+    </nav>
+  )
 }
