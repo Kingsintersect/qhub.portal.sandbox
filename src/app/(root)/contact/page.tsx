@@ -273,7 +273,7 @@ export default function ContactPage() {
                 </section>
 
                 {/* FAQs */}
-                <section className="py-10 mb-8">
+                <section className="py-10 mb-8" id="faqs">
                     <motion.h2 {...fadeUp()} className="text-2xl font-bold mb-8">Frequently Asked Questions</motion.h2>
                     <div className="space-y-3">
                         {faqs.map((faq, i) => (
