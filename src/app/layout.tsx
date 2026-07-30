@@ -1,10 +1,10 @@
-import { Geist_Mono, IBM_Plex_Sans, Inter } from "next/font/google"
+import { Geist_Mono, Outfit } from "next/font/google"
 
 import "./globals.css"
 import { cn } from "@/lib/utils"
 import Providers from "@/providers/Providers"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -27,8 +27,8 @@ export default function RootLayout({
       className={cn(
         "antialiased",
         fontMono.variable,
-        "font-sans",
-        inter.variable
+        outfit.variable,
+        "font-sans"
       )}
     >
       <body>

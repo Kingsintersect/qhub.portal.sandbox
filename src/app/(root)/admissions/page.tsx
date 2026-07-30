@@ -19,7 +19,7 @@ import {
 import Footer from "@/components/navigation/Footer"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { OUR_PROGRAMS } from "@/config/global.config"
+import { OUR_PROGRAMS, UNIVERSITY_NAME } from "@/config/global.config"
 import {
   Drawer,
   DrawerClose,
@@ -237,36 +237,35 @@ export default function AdmissionsPage() {
       <section
         className="relative overflow-hidden px-4 py-20"
         style={{
-          backgroundImage:
-            "url( https://images.unsplash.com/photo-1590012314607-cda9d9b699ae?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fHVuaXZlcnNpdHl8ZW58MHx8MHx8fDA%3D?w=1600&q=80&fit=crop)",
+          backgroundImage: "url(/community.jpg)",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.45) 100%)",
-          }}
-        />
-        <div className="relative z-10 mx-auto px-4 text-justify">
-          <div className="flex space-x-3">
-            <div
-              className="flex items-center justify-center rounded-md border-2 border-white/30 bg-green-900 leading-25"
-              style={{ color: "var(--primary)" }}
-            ></div>
-            {/* <motion.h1 {...fadeUp(0.08)} className="text-3xl sm:text-3xl font-bold leading-tight mb-6 text-white/70">
-                         Admissions
-                    </motion.h1> */}
-
-            <motion.p
-              {...fadeUp(0)}
-              className="mb-3 text-sm font-semibold tracking-widest text-white/70 uppercase"
-            >
+        <div className="absolute inset-0 bg-black/70" />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div {...fadeUp(0)} className="flex items-center gap-3">
+            <span aria-hidden className="h-0.5 w-10 rounded-full bg-primary" />
+            <p className="text-[11px] font-bold tracking-[0.18em] text-white/80 uppercase">
               Admissions
-            </motion.p>
-          </div>
+            </p>
+          </motion.div>
+
+          <motion.h1
+            {...fadeUp(0.08)}
+            className="mt-6 max-w-3xl text-4xl leading-[1.05] font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+          >
+            Your place here
+            <br />
+            <span className="text-primary">starts with one form.</span>
+          </motion.h1>
+
+          <motion.p
+            {...fadeUp(0.16)}
+            className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg"
+          >
+            {`Joining ${UNIVERSITY_NAME} is the first step towards a world-class education. We welcome applications from talented students of all backgrounds — here is everything you need to know.`}
+          </motion.p>
 
           {/* <motion.p {...fadeUp(0.16)} className="text-base sm:text-lg leading-relaxed max-w-2xl mx-auto text-white/80">
                         Joining the University of Example is the first step towards a world-class education. We welcome applications from talented students of all backgrounds. Here is everything you need to know.
@@ -308,10 +307,7 @@ export default function AdmissionsPage() {
             </div>
 
             <Link className="inline-flex items-center" href="/auth/signup">
-              <GlowingButton
-                glowColor="from-red-600 via-rose-500 to-amber-500"
-                size="lg"
-              >
+              <GlowingButton size="lg">
                 <Sparkles className="h-5 w-5" />
                 Get Started
                 <ArrowRight className="h-4 w-4" />
@@ -593,12 +589,7 @@ export default function AdmissionsPage() {
                         </a> */}
             <Link className="inline-flex items-center" href="/auth/signup">
               {/* Cyan/Violet Variant */}
-              <GlowingButton
-                variant="outline"
-                glowColor="from-cyan-500 via-indigo-500 to-purple-500"
-              >
-                Explore Portal
-              </GlowingButton>
+              <GlowingButton variant="outline">Explore Portal</GlowingButton>
 
               {/* Glassmorphism */}
               {/* <GlowingButton
