@@ -86,7 +86,7 @@ const studentNav: NavGroup[] = [
             icon: ClipboardList,
          },
          { title: "Grades", href: "/student/results/grades", matchExactOnly: true, icon: CalendarDays },
-         { title: "Registration", href: "/student/registration", matchExactOnly: true, icon: FileText },
+         { title: "Profile", href: "/student/profile", matchExactOnly: true, icon: UserCog },
       ],
    },
    {

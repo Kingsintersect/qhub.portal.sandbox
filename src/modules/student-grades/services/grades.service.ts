@@ -26,6 +26,19 @@ import type {
    PublishSummary,
 } from "../types/grades.types";
 
+function getCurrentAcademicYearLabel(date = new Date()): string {
+   const year = date.getFullYear();
+   const month = date.getMonth();
+   return month >= 8 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+}
+
+function toAcademicYearId(label: string) {
+   return `ay-${label.replace("/", "-")}`;
+}
+
+const CURRENT_ACADEMIC_YEAR = getCurrentAcademicYearLabel();
+const CURRENT_ACADEMIC_YEAR_ID = toAcademicYearId(CURRENT_ACADEMIC_YEAR);
+
 // ─── Reference Data ───────────────────────────────────────────────────────────
 
 export const GRADE_SCALES: GradeScale[] = [
@@ -40,18 +53,27 @@ export const GRADE_SCALES: GradeScale[] = [
 ];
 
 export const ACADEMIC_YEARS: AcademicYear[] = [
-   { id: "ay-2022-2023", label: "2022/2023" },
+   // { id: "ay-2022-2023", label: "2022/2023" },
    { id: "ay-2023-2024", label: "2023/2024" },
    { id: "ay-2024-2025", label: "2024/2025" },
+   ...(CURRENT_ACADEMIC_YEAR !== "2024/2025"
+      ? [{ id: CURRENT_ACADEMIC_YEAR_ID, label: CURRENT_ACADEMIC_YEAR }]
+      : []),
 ];
 
 export const SEMESTERS: GradeSemester[] = [
-   { id: "sem-1", label: "First Semester", academicYearId: "ay-2022-2023", academicYear: "2022/2023" },
-   { id: "sem-2", label: "Second Semester", academicYearId: "ay-2022-2023", academicYear: "2022/2023" },
+   // { id: "sem-1", label: "First Semester", academicYearId: "ay-2022-2023", academicYear: "2022/2023" },
+   // { id: "sem-2", label: "Second Semester", academicYearId: "ay-2022-2023", academicYear: "2022/2023" },
    { id: "sem-3", label: "First Semester", academicYearId: "ay-2023-2024", academicYear: "2023/2024" },
    { id: "sem-4", label: "Second Semester", academicYearId: "ay-2023-2024", academicYear: "2023/2024" },
    { id: "sem-5", label: "First Semester", academicYearId: "ay-2024-2025", academicYear: "2024/2025" },
    { id: "sem-6", label: "Second Semester", academicYearId: "ay-2024-2025", academicYear: "2024/2025" },
+   ...(CURRENT_ACADEMIC_YEAR !== "2024/2025"
+      ? [
+           { id: "sem-7", label: "First Semester", academicYearId: CURRENT_ACADEMIC_YEAR_ID, academicYear: CURRENT_ACADEMIC_YEAR },
+           { id: "sem-8", label: "Second Semester", academicYearId: CURRENT_ACADEMIC_YEAR_ID, academicYear: CURRENT_ACADEMIC_YEAR },
+        ]
+      : []),
 ];
 
 export const PROGRAMS: GradeProgram[] = [
