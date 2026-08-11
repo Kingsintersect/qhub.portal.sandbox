@@ -105,7 +105,7 @@ export default function NavBar() {
             {/* Quiet secondary action */}
             <Link
               className="hidden items-center rounded-md border border-border px-3 py-2 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground lg:inline-flex"
-              href="/dev-login"
+              href="/auth/signin"
             >
               Visit Portal
             </Link>
@@ -203,7 +203,7 @@ export default function NavBar() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
                 <Link
-                  href="/dev-login"
+                  href="/auth/signin"
                   onClick={closeMenu}
                   className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase"
                 >

@@ -1,41 +1,75 @@
-"use client";
+"use client"
 
-import { useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { UserRole } from "@/config/nav.config";
-import { useAppStore } from "@/store";
+import { useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { UserRole } from "@/config/nav.config"
+import { useAppStore } from "@/store"
+import { resolvePermissionsByKeys } from "@/store/appStore"
+import apiClient from "@/lib/clients/apiClient"
+import {
+  clearStoredAuthTokens,
+  storeAccessToken,
+  storeRefreshToken,
+} from "@/lib/auth/backendAuth"
 
 export default function AuthSessionBridge({
-   children,
+  children,
 }: {
-   children: React.ReactNode;
+  children: React.ReactNode
 }) {
-   const { data: session, status } = useSession();
-   const { isAuthenticated, logout, setUser } = useAppStore();
+  const { data: session, status } = useSession()
+  const { isAuthenticated, logout, setUser } = useAppStore()
 
-   useEffect(() => {
-      if (status === "authenticated" && session?.user?.role) {
-         const role = session.user.role as UserRole;
-         const availableRoles =
-            session.user.availableRoles?.length
-               ? session.user.availableRoles
-               : [role];
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role) {
+      const role = session.user.role as UserRole
+      const availableRoles = session.user.availableRoles?.length
+        ? session.user.availableRoles
+        : [role]
+      const storedAccessToken =
+        typeof window === "undefined"
+          ? null
+          : localStorage.getItem("access_token")
+      const storedRefreshToken =
+        typeof window === "undefined"
+          ? null
+          : localStorage.getItem("refresh_token")
 
-         setUser({
-            id: session.user.id || `session-${session.user.email ?? "user"}`,
-            name: session.user.name ?? "Portal User",
-            email: session.user.email ?? "",
-            role,
-            availableRoles,
-            permissions: [],
-         });
-         return;
+      if (storedAccessToken) {
+        apiClient.setAccessToken(storedAccessToken, "local")
+      } else if (session.user.accessToken) {
+        storeAccessToken(session.user.accessToken)
       }
 
-      if (status === "unauthenticated" && isAuthenticated) {
-         logout();
+      if (!storedRefreshToken && session.user.refreshToken) {
+        storeRefreshToken(session.user.refreshToken)
       }
-   }, [isAuthenticated, logout, session, setUser, status]);
 
-   return <>{children}</>;
+      setUser({
+        id: session.user.id || `session-${session.user.email ?? "user"}`,
+        name:
+          session.user.name ||
+          [session.user.firstName, session.user.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          "Portal User",
+        email: session.user.email ?? "",
+        role,
+        availableRoles,
+        permissions: resolvePermissionsByKeys(session.user.permissions),
+        avatar: session.user.avatar ?? undefined,
+        firstName: session.user.firstName ?? undefined,
+        lastName: session.user.lastName ?? undefined,
+      })
+      return
+    }
+
+    if (status === "unauthenticated" && isAuthenticated) {
+      clearStoredAuthTokens()
+      logout()
+    }
+  }, [isAuthenticated, logout, session, setUser, status])
+
+  return <>{children}</>
 }
