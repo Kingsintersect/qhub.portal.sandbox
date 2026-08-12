@@ -514,19 +514,19 @@ const superAdminNav: NavGroup[] = [
         children: [
           {
             title: "Installation",
-            href: "/admin/Installation/config",
+            href: "/admin/installation/config",
             matchExactOnly: true,
             icon: InspectionPanelIcon,
           },
           {
-            title: "Portal Settings",
-            href: "/admin/Installation/portal-features",
+            title: "Features Registry",
+            href: "/admin/installation/feature-registry",
             matchExactOnly: true,
             icon: Globe,
           },
           {
-            title: "Feature Management",
-            href: "/admin/system/features",
+            title: "Features Access",
+            href: "/admin/installation/feature-access",
             matchExactOnly: true,
             icon: Settings,
           },

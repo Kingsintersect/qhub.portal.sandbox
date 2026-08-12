@@ -112,7 +112,7 @@ export default function RoleGuard({
             access this page.
           </p>
           <Link
-            href="/dev-login"
+            href="/auth/signin"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <LogIn className="size-4" />
