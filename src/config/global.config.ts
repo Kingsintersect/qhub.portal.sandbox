@@ -3,7 +3,8 @@ export const SUPPORT_PHONE = "+2347044914032"
 export const UNIVERSITY_NAME = "University of Lagos"
 export const UNIVERSITY_LOGO_URL = "/logo/logo.jpg"
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3030/api"
+  process.env.NEXT_PUBLIC_API_BASE_URL + "/api/v1" ||
+  "http://localhost:3030/api/v1"
 
 export const ADMISSION_PORTAL_URL = "https://admission.unilag.edu.ng"
 export const PAYMENT_GATEWAY_URL = "https://payments.unilag.edu.ng"
@@ -42,5 +43,5 @@ export const SITE_DESCRIPTION =
   "Your gateway to academic excellence and seamless university services at QHUB University."
 export const SITE_KEYWORDS =
   "QHUB University, student portal, academic services, financial services, course registration, results, admission, fees payment"
-export const SITE_URL = "https://qhub.portal.edu.ng"
+export const SITE_URL = "https://qhub.portal.sandbox.qverselearning.org"
 export const SITE_LOGO_URL = "/logo/logo.jpg"

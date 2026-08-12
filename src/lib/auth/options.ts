@@ -1,93 +1,109 @@
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { UserRole } from "@/config/nav.config";
-import {
-   DUMMY_PASSWORD,
-   findDummyUserByIdentifier,
-   findDummyUserByRole,
-} from "@/lib/auth/dummyUsers";
-import { getRegisteredMockUserByIdentifier } from "@/lib/auth/mockRegistry";
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { UserRole } from "@/config/nav.config"
+import { loginWithBackend } from "@/lib/auth/backendAuth"
+
+const normalizeRoles = (roles: string[] | undefined): UserRole[] => {
+  if (!roles?.length) return []
+
+  return roles
+    .map((role) => role.trim().toUpperCase())
+    .filter((role): role is UserRole =>
+      (Object.values(UserRole) as string[]).includes(role)
+    )
+}
 
 export const authOptions: NextAuthOptions = {
-   session: {
-      strategy: "jwt",
-   },
-   pages: {
-      signIn: "/auth/signin",
-   },
-   providers: [
-      CredentialsProvider({
-         name: "Credentials",
-         credentials: {
-            identifier: { label: "Email or Username", type: "text" },
-            password: { label: "Password", type: "password" },
-            role: { label: "Role", type: "text" },
-         },
-         async authorize(credentials) {
-            const password = String(credentials?.password ?? "");
-            const identifier = String(credentials?.identifier ?? "").trim();
-            const roleValue = String(credentials?.role ?? "").trim().toUpperCase();
-            const role = (Object.values(UserRole) as string[]).includes(roleValue)
-               ? (roleValue as UserRole)
-               : null;
-
-            const seededUser = role
-               ? findDummyUserByRole(role)
-               : findDummyUserByIdentifier(identifier);
-
-            if (seededUser) {
-               if (password !== DUMMY_PASSWORD) {
-                  return null;
-               }
-
-               return {
-                  id: seededUser.id,
-                  name: seededUser.name,
-                  email: seededUser.email,
-                  role: seededUser.role,
-                  availableRoles: seededUser.availableRoles,
-               };
-            }
-
-            if (!identifier) {
-               return null;
-            }
-
-            const registeredUser = getRegisteredMockUserByIdentifier(identifier);
-            if (!registeredUser || registeredUser.password !== password) {
-               return null;
-            }
-
-            return {
-               id: registeredUser.id,
-               name: registeredUser.name,
-               email: registeredUser.email,
-               role: registeredUser.role,
-               availableRoles: registeredUser.availableRoles,
-            };
-         },
-      }),
-   ],
-   callbacks: {
-      async jwt({ token, user }) {
-         if (user) {
-            token.id = user.id;
-            token.role = user.role;
-            token.availableRoles = user.availableRoles;
-         }
-
-         return token;
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/auth/signin",
+  },
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        identifier: { label: "Email or Username", type: "text" },
+        password: { label: "Password", type: "password" },
       },
-      async session({ session, token }) {
-         if (session.user) {
-            session.user.id = (token.id as string | undefined) ?? "";
-            session.user.role = (token.role as UserRole | undefined) ?? UserRole.STUDENT;
-            session.user.availableRoles =
-               (token.availableRoles as UserRole[] | undefined) ?? [session.user.role];
-         }
+      async authorize(credentials) {
+        const password = String(credentials?.password ?? "")
+        const identifier = String(credentials?.identifier ?? "").trim()
+        if (!identifier || !password) {
+          return null
+        }
 
-         return session;
+        try {
+          const user = await loginWithBackend({ identifier, password })
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            availableRoles: user.availableRoles,
+            roles: user.roles,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+            permissions: user.permissions,
+          }
+        } catch {
+          return null
+        }
       },
-   },
-   secret: process.env.NEXTAUTH_SECRET ?? "qhub-portal-dev-secret-change-me",
-};
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.role = user.role
+        token.availableRoles = user.availableRoles
+        token.username = user.username
+        token.accessToken = user.accessToken
+        token.refreshToken = user.refreshToken
+        token.roles = normalizeRoles(user.roles ?? [user.role])
+        token.firstName = user.firstName
+        token.lastName = user.lastName
+        token.avatar = user.avatar
+        token.permissions = user.permissions
+      }
+
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.id as string | undefined) ?? ""
+        session.user.role =
+          (token.role as UserRole | undefined) ?? UserRole.STUDENT
+        session.user.availableRoles = (token.availableRoles as
+          | UserRole[]
+          | undefined) ?? [session.user.role]
+        session.user.username = (token.username as string | undefined) ?? ""
+        session.user.accessToken =
+          (token.accessToken as string | undefined) ?? ""
+        session.user.refreshToken =
+          (token.refreshToken as string | undefined) ?? ""
+        session.user.roles = (token.roles as UserRole[] | undefined)?.length
+          ? (token.roles as UserRole[])
+          : [session.user.role]
+        session.user.firstName =
+          (token.firstName as string | null | undefined) ?? null
+        session.user.lastName =
+          (token.lastName as string | null | undefined) ?? null
+        session.user.avatar =
+          (token.avatar as string | null | undefined) ?? null
+        session.user.permissions =
+          (token.permissions as string[] | undefined) ?? []
+      }
+
+      return session
+    },
+  },
+  secret: process.env.NEXTAUTH_SECRET ?? "qhub-portal-dev-secret-change-me",
+}

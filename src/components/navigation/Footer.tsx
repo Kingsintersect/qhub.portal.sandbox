@@ -19,7 +19,7 @@ const portalLinks = [
   { label: "Apply for Admission", href: "/admissions" },
   { label: "Student Sign In", href: "/auth/signin" },
   { label: "Create Account", href: "/auth/signup" },
-  { label: "Visit Portal", href: "/dev-login" },
+  { label: "Visit Portal", href: "/auth/signin" },
 ]
 
 /*
