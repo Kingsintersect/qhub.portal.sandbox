@@ -16,6 +16,7 @@ declare module "next-auth" {
       avatar?: string | null
       permissions: string[]
     }
+    error?: string
   }
 
   interface User {

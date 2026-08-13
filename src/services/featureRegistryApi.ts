@@ -27,7 +27,7 @@ export type DeleteFeatureRegistryResponse = {
 export const featureRegistryApi = {
   list: async (): Promise<FeatureRegistryListResponse> => {
     return apiClient.get<FeatureRegistryListResponse>(
-      "/api/portal-settings/registry",
+      "/portal-settings/registry",
       AUTH
     )
   },
@@ -38,12 +38,12 @@ export const featureRegistryApi = {
     return apiClient.post<
       UpsertFeatureRegistryResponse,
       UpsertFeatureRegistryPayload
-    >("/api/portal-settings/registry", payload, AUTH)
+    >("/portal-settings/registry", payload, AUTH)
   },
 
   remove: async (key: string): Promise<DeleteFeatureRegistryResponse> => {
     return apiClient.delete<DeleteFeatureRegistryResponse>(
-      `/api/portal-settings/registry/${encodeURIComponent(key)}`,
+      `/portal-settings/registry/${encodeURIComponent(key)}`,
       AUTH
     )
   },
