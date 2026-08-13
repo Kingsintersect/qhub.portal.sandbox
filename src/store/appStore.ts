@@ -346,6 +346,25 @@ const APP_ROLE_ORDER: UserRole[] = [
 
 const APP_ROLE_CATALOG: Record<UserRole, AppRoleDefinition> = {
   // ========== STUDENT ==========
+  [UserRole.GUEST]: {
+    role: UserRole.GUEST,
+    label: "Student",
+    description: "Random user trying to demo the system",
+    dashboardPath: roleDashboardPath[UserRole.GUEST],
+    permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41, 44, 45), // + notifications
+    profile: {
+      id: "std-001",
+      name: "Guest User",
+      email: "guest@user.qhub.edu.ng",
+      role: UserRole.GUEST,
+      availableRoles: [UserRole.GUEST],
+      permissions: pickPermissions(1, 7, 18, 19, 31, 37, 41, 44, 45),
+      department: "Agric Science",
+      faculty: "Science",
+      matricNo: "260404001",
+      level: "100 Level",
+    },
+  },
   [UserRole.STUDENT]: {
     role: UserRole.STUDENT,
     label: "Student",

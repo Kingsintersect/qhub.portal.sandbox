@@ -31,7 +31,7 @@ This gives you:
 ### Default Client
 
 ```ts
-import apiClient from '@/lib/clients/apiClient'
+import apiClient from "@/lib/clients/apiClient"
 ```
 
 This is the shared singleton instance configured with:
@@ -42,7 +42,7 @@ This is the shared singleton instance configured with:
 ### Client Class
 
 ```ts
-import { ApiClient } from '@/lib/clients/apiClient'
+import { ApiClient } from "@/lib/clients/apiClient"
 ```
 
 Use this when you need a separate isolated client instance.
@@ -50,7 +50,7 @@ Use this when you need a separate isolated client instance.
 ### Error Class
 
 ```ts
-import { ApiClientError } from '@/lib/clients/apiClient'
+import { ApiClientError } from "@/lib/clients/apiClient"
 ```
 
 All normalized request failures are thrown as `ApiClientError`.
@@ -61,7 +61,7 @@ All normalized request failures are thrown as `ApiClientError`.
 import {
   createApiQueryOptions,
   createApiMutationOptions,
-} from '@/lib/clients/apiClient'
+} from "@/lib/clients/apiClient"
 ```
 
 The client instance also exposes:
@@ -96,7 +96,7 @@ Meaning:
 ### `TokenPersistence`
 
 ```ts
-type TokenPersistence = 'memory' | 'local' | 'session'
+type TokenPersistence = "memory" | "local" | "session"
 ```
 
 Use this when storing access tokens.
@@ -122,7 +122,7 @@ This controls the behavior of a client instance.
 ### GET
 
 ```ts
-const users = await apiClient.get<UserListResponse>('/api/v1/users', {
+const users = await apiClient.get<UserListResponse>("/api/v1/users", {
   access_token: true,
 })
 ```
@@ -144,10 +144,10 @@ type CreateRoleResponse = {
 }
 
 const result = await apiClient.post<CreateRoleResponse, CreateRoleBody>(
-  '/api/v1/roles',
+  "/api/v1/roles",
   {
-    name: 'Dean',
-    slug: 'dean',
+    name: "Dean",
+    slug: "dean",
   },
   { access_token: true }
 )
@@ -157,8 +157,8 @@ const result = await apiClient.post<CreateRoleResponse, CreateRoleBody>(
 
 ```ts
 await apiClient.put<RoleResponse, UpdateRoleBody>(
-  '/api/v1/roles/4',
-  { name: 'Updated Dean' },
+  "/api/v1/roles/4",
+  { name: "Updated Dean" },
   { access_token: true }
 )
 ```
@@ -167,8 +167,8 @@ await apiClient.put<RoleResponse, UpdateRoleBody>(
 
 ```ts
 await apiClient.patch<RoleResponse, Partial<UpdateRoleBody>>(
-  '/api/v1/roles/4',
-  { name: 'Acting Dean' },
+  "/api/v1/roles/4",
+  { name: "Acting Dean" },
   { access_token: true }
 )
 ```
@@ -176,7 +176,7 @@ await apiClient.patch<RoleResponse, Partial<UpdateRoleBody>>(
 ### DELETE
 
 ```ts
-await apiClient.delete<{ message: string }>('/api/v1/roles/4', {
+await apiClient.delete<{ message: string }>("/api/v1/roles/4", {
   access_token: true,
 })
 ```
@@ -186,12 +186,12 @@ await apiClient.delete<{ message: string }>('/api/v1/roles/4', {
 ### Query Params
 
 ```ts
-await apiClient.get<AuditLogResponse>('/api/v1/audit-logs', {
+await apiClient.get<AuditLogResponse>("/api/v1/audit-logs", {
   access_token: true,
   params: {
     page: 1,
     per_page: 20,
-    module: 'admin',
+    module: "admin",
   },
 })
 ```
@@ -199,7 +199,7 @@ await apiClient.get<AuditLogResponse>('/api/v1/audit-logs', {
 ### Per-request Timeout
 
 ```ts
-await apiClient.get<LargeExportResponse>('/api/v1/reports/export', {
+await apiClient.get<LargeExportResponse>("/api/v1/reports/export", {
   access_token: true,
   timeout: 30000,
 })
@@ -208,10 +208,10 @@ await apiClient.get<LargeExportResponse>('/api/v1/reports/export', {
 ### Custom Headers
 
 ```ts
-await apiClient.get<ProfileResponse>('/api/v1/profile', {
+await apiClient.get<ProfileResponse>("/api/v1/profile", {
   access_token: true,
   headers: {
-    'X-Tenant-ID': 'qhub-main',
+    "X-Tenant-ID": "qhub-main",
   },
 })
 ```
@@ -219,11 +219,11 @@ await apiClient.get<ProfileResponse>('/api/v1/profile', {
 ### Meta For Diagnostics
 
 ```ts
-await apiClient.get<DashboardStatsResponse>('/api/v1/dashboard/stats', {
+await apiClient.get<DashboardStatsResponse>("/api/v1/dashboard/stats", {
   access_token: true,
   meta: {
-    feature: 'super-admin-dashboard',
-    source: 'overview-card',
+    feature: "super-admin-dashboard",
+    source: "overview-card",
   },
 })
 ```
@@ -235,7 +235,7 @@ If logging is enabled, `meta` is available inside the logger event payload.
 ### Store Access Token
 
 ```ts
-apiClient.setAccessToken(token, 'local')
+apiClient.setAccessToken(token, "local")
 ```
 
 Storage modes:
@@ -264,14 +264,14 @@ If a request passes `access_token: true`, the client will:
 ### Change Base URL
 
 ```ts
-apiClient.setBaseURL('https://api.example.com')
+apiClient.setBaseURL("https://api.example.com")
 ```
 
 ### Set Default Header
 
 ```ts
-apiClient.setDefaultHeader('X-Tenant-ID', 'qhub-main')
-apiClient.setDefaultHeader('X-Tenant-ID', null)
+apiClient.setDefaultHeader("X-Tenant-ID", "qhub-main")
+apiClient.setDefaultHeader("X-Tenant-ID", null)
 ```
 
 ### Replace Config At Runtime
@@ -281,7 +281,7 @@ apiClient.setConfig({
   timeout: 15000,
   enableLogging: true,
   defaultHeaders: {
-    'X-App-Version': '1.0.0',
+    "X-App-Version": "1.0.0",
   },
 })
 ```
@@ -319,13 +319,13 @@ type ApiClientHooks = {
 apiClient.setHooks({
   onUnauthorized: async () => {
     apiClient.clearAccessToken()
-    window.location.href = '/auth/login'
+    window.location.href = "/auth/login"
   },
   onForbidden: async (error) => {
-    console.error('Forbidden:', error.message)
+    console.error("Forbidden:", error.message)
   },
   onResponseError: async (error) => {
-    console.error('API error:', error.status, error.message, error.data)
+    console.error("API error:", error.status, error.message, error.data)
   },
 })
 ```
@@ -335,10 +335,10 @@ apiClient.setHooks({
 ```ts
 apiClient.setHooks({
   onRequest: async (config) => {
-    console.log('Starting request:', config.method, config.url)
+    console.log("Starting request:", config.method, config.url)
   },
   onResponse: async (response) => {
-    console.log('Response:', response.status, response.config.url)
+    console.log("Response:", response.status, response.config.url)
   },
 })
 ```
@@ -359,16 +359,16 @@ then the client will try to refresh the token and replay the request once.
 
 ```ts
 apiClient.setRefreshHandler(async ({ error, client }) => {
-  const refreshToken = localStorage.getItem('refresh_token')
+  const refreshToken = localStorage.getItem("refresh_token")
 
   if (!refreshToken) {
     client.clearAccessToken()
     return null
   }
 
-  const response = await fetch('/auth/refresh', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
 
@@ -378,7 +378,7 @@ apiClient.setRefreshHandler(async ({ error, client }) => {
   }
 
   const data = await response.json()
-  client.setAccessToken(data.access_token, 'local')
+  client.setAccessToken(data.access_token, "local")
   return data.access_token
 })
 ```
@@ -386,9 +386,10 @@ apiClient.setRefreshHandler(async ({ error, client }) => {
 ### Skip Refresh For A Specific Request
 
 ```ts
-await apiClient.get('/api/v1/auth/validate', {
+await apiClient.get("/api/v1/auth/validate", {
   access_token: true,
-  skipAuthRefresh: true,
+  //   skipAuthRefresh: true,
+  skipAuthRefresh: false,
 })
 ```
 
@@ -400,7 +401,7 @@ Logging is opt-in.
 
 ```ts
 apiClient.setLogger((event) => {
-  console.log('[api]', event)
+  console.log("[api]", event)
 })
 ```
 
@@ -408,7 +409,7 @@ apiClient.setLogger((event) => {
 
 ```ts
 type ApiLoggerEvent = {
-  phase: 'request' | 'response' | 'error' | 'refresh'
+  phase: "request" | "response" | "error" | "refresh"
   method?: string
   url?: string
   status?: number
@@ -422,7 +423,7 @@ type ApiLoggerEvent = {
 
 ```ts
 apiClient.setLogger((event) => {
-  myTelemetry.track('api-client', event)
+  myTelemetry.track("api-client", event)
 }, true)
 ```
 
@@ -444,7 +445,7 @@ class ApiClientError extends Error {
 
 ```ts
 try {
-  await apiClient.get<UserProfile>('/api/v1/profile', { access_token: true })
+  await apiClient.get<UserProfile>("/api/v1/profile", { access_token: true })
 } catch (error) {
   if (error instanceof ApiClientError) {
     console.error(error.status, error.message, error.data)
@@ -462,14 +463,15 @@ The client supports React Query in two ways:
 ### Query Options Helper
 
 ```ts
-import { useQuery } from '@tanstack/react-query'
-import apiClient from '@/lib/clients/apiClient'
+import { useQuery } from "@tanstack/react-query"
+import apiClient from "@/lib/clients/apiClient"
 
 const usersQueryOptions = apiClient.buildQueryOptions({
-  queryKey: ['users'],
-  queryFn: () => apiClient.get<UserListResponse>('/api/v1/users', {
-    access_token: true,
-  }),
+  queryKey: ["users"],
+  queryFn: () =>
+    apiClient.get<UserListResponse>("/api/v1/users", {
+      access_token: true,
+    }),
   staleTime: 1000 * 60 * 5,
 })
 
@@ -481,8 +483,8 @@ export function useUsers() {
 ### Mutation Options Helper
 
 ```ts
-import { useMutation } from '@tanstack/react-query'
-import apiClient from '@/lib/clients/apiClient'
+import { useMutation } from "@tanstack/react-query"
+import apiClient from "@/lib/clients/apiClient"
 
 type CreateRoleBody = {
   name: string
@@ -493,9 +495,9 @@ const createRoleMutationOptions = apiClient.buildMutationOptions<
   RoleResponse,
   CreateRoleBody
 >({
-  mutationKey: ['roles', 'create'],
+  mutationKey: ["roles", "create"],
   mutationFn: (body) =>
-    apiClient.post<RoleResponse, CreateRoleBody>('/api/v1/roles', body, {
+    apiClient.post<RoleResponse, CreateRoleBody>("/api/v1/roles", body, {
       access_token: true,
     }),
 })
@@ -508,13 +510,14 @@ export function useCreateRole() {
 ### Top-level Helper Variant
 
 ```ts
-import { createApiQueryOptions } from '@/lib/clients/apiClient'
+import { createApiQueryOptions } from "@/lib/clients/apiClient"
 
 export const roleListQuery = createApiQueryOptions({
-  queryKey: ['roles'],
-  queryFn: () => apiClient.get<RoleListResponse>('/api/v1/roles', {
-    access_token: true,
-  }),
+  queryKey: ["roles"],
+  queryFn: () =>
+    apiClient.get<RoleListResponse>("/api/v1/roles", {
+      access_token: true,
+    }),
   staleTime: 1000 * 60 * 2,
 })
 ```
@@ -526,11 +529,11 @@ Keep feature-specific endpoints in service files and let them use the shared cli
 ### Example Service
 
 ```ts
-import apiClient from '@/lib/clients/apiClient'
+import apiClient from "@/lib/clients/apiClient"
 
 export const usersApi = {
   list: () =>
-    apiClient.get<UserListResponse>('/api/v1/users', {
+    apiClient.get<UserListResponse>("/api/v1/users", {
       access_token: true,
     }),
 
@@ -540,7 +543,7 @@ export const usersApi = {
     }),
 
   create: (payload: CreateUserBody) =>
-    apiClient.post<UserResponse, CreateUserBody>('/api/v1/users', payload, {
+    apiClient.post<UserResponse, CreateUserBody>("/api/v1/users", payload, {
       access_token: true,
     }),
 }
@@ -549,13 +552,13 @@ export const usersApi = {
 ### Example Query Hook Layer
 
 ```ts
-import { useQuery, useMutation } from '@tanstack/react-query'
-import apiClient from '@/lib/clients/apiClient'
-import { usersApi } from '@/services/usersApi'
+import { useQuery, useMutation } from "@tanstack/react-query"
+import apiClient from "@/lib/clients/apiClient"
+import { usersApi } from "@/services/usersApi"
 
 const userKeys = {
-  all: ['users'] as const,
-  detail: (id: string) => ['users', id] as const,
+  all: ["users"] as const,
+  detail: (id: string) => ["users", id] as const,
 }
 
 export function useUsers() {
@@ -571,7 +574,7 @@ export function useUsers() {
 export function useCreateUser() {
   return useMutation(
     apiClient.buildMutationOptions<UserResponse, CreateUserBody>({
-      mutationKey: ['users', 'create'],
+      mutationKey: ["users", "create"],
       mutationFn: usersApi.create,
     })
   )
@@ -583,17 +586,17 @@ export function useCreateUser() {
 If one module talks to a completely different backend or needs isolated hooks, create another client.
 
 ```ts
-import { ApiClient } from '@/lib/clients/apiClient'
+import { ApiClient } from "@/lib/clients/apiClient"
 
 export const paymentClient = new ApiClient({
-  baseURL: 'https://payments.example.com',
+  baseURL: "https://payments.example.com",
   timeout: 20000,
   enableLogging: true,
 })
 
 paymentClient.setHooks({
   onResponseError: async (error) => {
-    console.error('Payment API error:', error.message)
+    console.error("Payment API error:", error.message)
   },
 })
 ```
@@ -605,7 +608,7 @@ A good place to centralize runtime client setup is app startup or an auth bootst
 Example:
 
 ```ts
-import apiClient from '@/lib/clients/apiClient'
+import apiClient from "@/lib/clients/apiClient"
 
 apiClient.setHooks({
   onUnauthorized: async () => {
@@ -614,10 +617,10 @@ apiClient.setHooks({
 })
 
 apiClient.setLogger((event) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[api]', event)
+  if (process.env.NODE_ENV === "development") {
+    console.log("[api]", event)
   }
-}, process.env.NODE_ENV === 'development')
+}, process.env.NODE_ENV === "development")
 ```
 
 ## Best Practices

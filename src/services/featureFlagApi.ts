@@ -19,7 +19,7 @@ export type SaveFeatureFlagPayload = {
 
 export const featureFlagApi = {
   get: async (instanceId: string): Promise<FeatureFlagResponse> => {
-    return apiClient.get<FeatureFlagResponse>("/api/portal-settings/features", {
+    return apiClient.get<FeatureFlagResponse>("/portal-settings/features", {
       ...AUTH,
       params: { instanceId },
     })
@@ -29,7 +29,7 @@ export const featureFlagApi = {
     payload: SaveFeatureFlagPayload
   ): Promise<FeatureFlagResponse> => {
     return apiClient.post<FeatureFlagResponse, SaveFeatureFlagPayload>(
-      "/api/portal-settings/features",
+      "/portal-settings/features",
       payload,
       AUTH
     )

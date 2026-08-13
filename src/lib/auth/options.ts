@@ -36,7 +36,9 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const user = await loginWithBackend({ identifier, password })
-
+          //  console.log("user", user)
+          //  const updatedUser = elevateToSuperAdmin(user)
+          //  console.log(updatedUser)
           return {
             id: user.id,
             name: user.name,
@@ -59,7 +61,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = user.role
@@ -72,10 +74,18 @@ export const authOptions: NextAuthOptions = {
         token.lastName = user.lastName
         token.avatar = user.avatar
         token.permissions = user.permissions
+        return token
+      }
+
+      // pushed from client after apiClient silently refreshed
+      if (trigger === "update" && session) {
+        if (session.accessToken) token.accessToken = session.accessToken
+        if (session.refreshToken) token.refreshToken = session.refreshToken
       }
 
       return token
     },
+
     async session({ session, token }) {
       if (session.user) {
         session.user.id = (token.id as string | undefined) ?? ""
@@ -107,3 +117,43 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET ?? "qhub-portal-dev-secret-change-me",
 }
+
+/**
+ * Transforms a user object to elevate 'ADMIN' to 'SUPER_ADMIN' on the fly.
+ */
+// type User = {
+//   id: string
+//   email: string
+//   username: string
+//   name: string
+//   firstName: string | null
+//   lastName: string | null
+//   role: UserRole
+//   availableRoles: UserRole[]
+//   roles: UserRole[]
+//   permissions: string[]
+//   avatar: string | null
+//   accessToken: string
+//   refreshToken: string
+// }
+// function elevateToSuperAdmin(user: User): User {
+//   if (!user) return user
+
+//   // Map of roles to replace
+//   const targetRole = UserRole.ADMIN
+//   const newRole = UserRole.SUPER_ADMIN
+
+//   return {
+//     ...user,
+//     // 1. Update primary role
+//     role: user.role === targetRole ? newRole : user.role,
+
+//     // 2. Update availableRoles list
+//     availableRoles: user.availableRoles.map((r) =>
+//       r === targetRole ? newRole : r
+//     ),
+
+//     // 3. Update roles list
+//     roles: user.roles.map((r) => (r === targetRole ? newRole : r)),
+//   }
+// }

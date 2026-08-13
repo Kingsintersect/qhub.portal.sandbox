@@ -8,6 +8,7 @@ import { resolvePermissionsByKeys } from "@/store/appStore"
 import apiClient from "@/lib/clients/apiClient"
 import {
   clearStoredAuthTokens,
+  getStoredRefreshToken,
   storeAccessToken,
   storeRefreshToken,
 } from "@/lib/auth/backendAuth"
@@ -17,7 +18,7 @@ export default function AuthSessionBridge({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const { isAuthenticated, logout, setUser } = useAppStore()
 
   useEffect(() => {
@@ -70,6 +71,19 @@ export default function AuthSessionBridge({
       logout()
     }
   }, [isAuthenticated, logout, session, setUser, status])
+
+  // new effect: apiClient -> session, whenever apiClient refreshes
+  useEffect(() => {
+    apiClient.setHooks({
+      onTokenRefreshed: async (token) => {
+        if (!token) return
+        await update({
+          accessToken: token,
+          refreshToken: getStoredRefreshToken(),
+        })
+      },
+    })
+  }, [update])
 
   return <>{children}</>
 }

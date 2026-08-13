@@ -40,6 +40,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 export enum UserRole {
+  GUEST = "GUEST",
   STUDENT = "STUDENT",
   TUTOR = "TUTOR",
   STAFF = "STAFF",
@@ -857,11 +858,36 @@ const staffNav: NavGroup[] = [
   },
 ]
 
+const guestNav: NavGroup[] = [
+  {
+    items: [
+      {
+        title: "Dashboard",
+        href: "/guest/dashboard",
+        matchExactOnly: true,
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      {
+        title: "Settings",
+        href: "/guest/settings",
+        matchExactOnly: true,
+        icon: Settings,
+      },
+    ],
+  },
+]
+
 /* ------------------------------------------------------------------ */
 /*  Combined config keyed by role                                      */
 /* ------------------------------------------------------------------ */
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
+  GUEST: guestNav,
   STUDENT: studentNav,
   TUTOR: tutorNav,
   STAFF: staffNav,
@@ -876,6 +902,7 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
   [UserRole.STUDENT]: "/student/dashboard",
+  [UserRole.GUEST]: "/guest/dashboard",
   [UserRole.TUTOR]: "/tutor/dashboard",
   [UserRole.STAFF]: "/manager/dashboard",
   [UserRole.HOD]: "/tutor/dashboard",
