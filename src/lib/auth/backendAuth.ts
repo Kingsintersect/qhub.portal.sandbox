@@ -2,6 +2,7 @@ import { UserRole } from "@/config/nav.config"
 import apiClient from "@/lib/clients/apiClient"
 
 const REFRESH_TOKEN_KEY = "refresh_token"
+let refreshInFlight: Promise<string | null> | null = null
 
 type BackendRoleValue = string | null | undefined
 
@@ -209,32 +210,41 @@ export const registerWithBackend = async (
 }
 
 const refreshWithBackend = async (): Promise<string | null> => {
-  const refreshToken = getStoredRefreshToken()
-  if (!refreshToken) return null
+  if (refreshInFlight) return refreshInFlight
 
-  try {
-    const response = await apiClient.post<BackendRefreshResponse>(
-      "/auth/refresh",
-      { refreshToken },
-      // { skipAuthRefresh: true }
-      { skipAuthRefresh: false }
-    )
+  refreshInFlight = (async () => {
+    const refreshToken = getStoredRefreshToken()
+    if (!refreshToken) return null
 
-    const nextAccessToken = pickToken(response)
-    const nextRefreshToken = pickRefreshToken(response) ?? refreshToken
+    try {
+      const response = await apiClient.post<BackendRefreshResponse>(
+        "/auth/refresh",
+        { refreshToken },
+        { skipAuthRefresh: true }
+      )
 
-    if (!nextAccessToken) {
+      const nextAccessToken = pickToken(response)
+      const nextRefreshToken = pickRefreshToken(response) ?? refreshToken
+
+      if (!nextAccessToken) {
+        clearStoredAuthTokens()
+        return null
+      }
+
+      storeAccessToken(nextAccessToken)
+      storeRefreshToken(nextRefreshToken)
+
+      return nextAccessToken
+    } catch {
       clearStoredAuthTokens()
       return null
     }
+  })()
 
-    storeAccessToken(nextAccessToken)
-    storeRefreshToken(nextRefreshToken)
-
-    return nextAccessToken
-  } catch {
-    clearStoredAuthTokens()
-    return null
+  try {
+    return await refreshInFlight
+  } finally {
+    refreshInFlight = null
   }
 }
 
