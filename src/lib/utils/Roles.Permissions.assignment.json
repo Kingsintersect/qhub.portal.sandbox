@@ -755,11 +755,11 @@
       "action": "view"
     },
     {
-      "resource": "installation-config",
+      "resource": "app-config",
       "action": "manage"
     },
     {
-      "resource": "installation-config",
+      "resource": "app-config",
       "action": "view"
     },
     {

@@ -1,8 +1,10 @@
 import {
+  AppWindowIcon,
   Banknote,
   BarChart,
   CalendarCheck2,
   ChartNetwork,
+  ColumnsSettingsIcon,
   InspectionPanelIcon,
   LandmarkIcon,
   ListChecks,
@@ -510,24 +512,24 @@ const superAdminNav: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "Installation",
-        icon: InspectionPanelIcon,
+        title: "Configurations",
+        icon: AppWindowIcon,
         children: [
           {
-            title: "Installation",
-            href: "/admin/installation/config",
+            title: "Application Config",
+            href: "/admin/configurations/app-config",
             matchExactOnly: true,
-            icon: InspectionPanelIcon,
+            icon: ColumnsSettingsIcon,
           },
           {
             title: "Features Registry",
-            href: "/admin/installation/feature-registry",
+            href: "/admin/configurations/feature-registry",
             matchExactOnly: true,
             icon: Globe,
           },
           {
             title: "Features Access",
-            href: "/admin/installation/feature-access",
+            href: "/admin/configurations/feature-access",
             matchExactOnly: true,
             icon: Settings,
           },

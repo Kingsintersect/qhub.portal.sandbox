@@ -10,17 +10,17 @@
     ]
   },
   {
-    "module": "Installation",
+    "module": "Configurations",
     "permissions": [
       {
-        "resource": "installation-config",
+        "resource": "app-config",
         "action": "view",
-        "description": "View system installation/setup configuration"
+        "description": "View system app/setup configuration"
       },
       {
-        "resource": "installation-config",
+        "resource": "app-config",
         "action": "manage",
-        "description": "Edit system installation/setup configuration"
+        "description": "Edit system app/setup configuration"
       },
       {
         "resource": "feature-registry",

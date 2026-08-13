@@ -8,11 +8,11 @@ type RouteFeatureRule = {
 
 const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
   {
-    prefix: "/admin/installation/feature-registry",
+    prefix: "/admin/configurations/feature-registry",
     feature: "portal_settings",
   },
   {
-    prefix: "/admin/installation/feature-access",
+    prefix: "/admin/configurations/feature-access",
     feature: "portal_settings",
   },
   { prefix: "/admin/system/portal", feature: "portal_settings" },
