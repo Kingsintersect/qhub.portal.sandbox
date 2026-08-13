@@ -3,6 +3,16 @@ import apiClient from "@/lib/clients/apiClient"
 
 const REFRESH_TOKEN_KEY = "refresh_token"
 let refreshInFlight: Promise<string | null> | null = null
+const isDev = process.env.NODE_ENV === "development"
+
+const logRefreshDebug = (event: string, details?: Record<string, unknown>) => {
+  if (!isDev) return
+  if (details) {
+    console.debug("[auth:refresh]", event, details)
+    return
+  }
+  console.debug("[auth:refresh]", event)
+}
 
 type BackendRoleValue = string | null | undefined
 
@@ -210,11 +220,18 @@ export const registerWithBackend = async (
 }
 
 const refreshWithBackend = async (): Promise<string | null> => {
-  if (refreshInFlight) return refreshInFlight
+  if (refreshInFlight) {
+    logRefreshDebug("join-in-flight")
+    return refreshInFlight
+  }
 
+  logRefreshDebug("start")
   refreshInFlight = (async () => {
     const refreshToken = getStoredRefreshToken()
-    if (!refreshToken) return null
+    if (!refreshToken) {
+      logRefreshDebug("missing-refresh-token")
+      return null
+    }
 
     try {
       const response = await apiClient.post<BackendRefreshResponse>(
@@ -227,15 +244,23 @@ const refreshWithBackend = async (): Promise<string | null> => {
       const nextRefreshToken = pickRefreshToken(response) ?? refreshToken
 
       if (!nextAccessToken) {
+        logRefreshDebug("empty-access-token-in-response")
         clearStoredAuthTokens()
         return null
       }
 
       storeAccessToken(nextAccessToken)
       storeRefreshToken(nextRefreshToken)
+      logRefreshDebug("success", {
+        accessTokenLength: nextAccessToken.length,
+        rotatedRefreshToken: nextRefreshToken !== refreshToken,
+      })
 
       return nextAccessToken
-    } catch {
+    } catch (error) {
+      logRefreshDebug("failed", {
+        error: error instanceof Error ? error.message : "unknown",
+      })
       clearStoredAuthTokens()
       return null
     }
@@ -244,6 +269,7 @@ const refreshWithBackend = async (): Promise<string | null> => {
   try {
     return await refreshInFlight
   } finally {
+    logRefreshDebug("settled-clear-in-flight")
     refreshInFlight = null
   }
 }
