@@ -216,7 +216,8 @@ const refreshWithBackend = async (): Promise<string | null> => {
     const response = await apiClient.post<BackendRefreshResponse>(
       "/auth/refresh",
       { refreshToken },
-      { skipAuthRefresh: true }
+      // { skipAuthRefresh: true }
+      { skipAuthRefresh: false }
     )
 
     const nextAccessToken = pickToken(response)
