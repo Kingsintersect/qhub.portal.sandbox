@@ -1,125 +1,121 @@
-"use client";
+"use client"
 
-import { useState } from "react";
+import { useState } from "react"
 import {
   useAdmissionCycles,
   useCreateAdmissionCycle,
   useUpdateAdmissionCycle,
   useDeleteAdmissionCycle,
   useUpdateAdmissionStatus,
-} from "./hooks/useAdmissionCycles";
-import { useQuery } from "@tanstack/react-query";
-import { feeManagementQueryOptions } from "@/services/feeManagementApi";
+} from "./hooks/useAdmissionCycles"
+import { useQuery } from "@tanstack/react-query"
+import { feeManagementQueryOptions } from "@/services/feeManagementApi"
 
-import type { AdmissionCycle, AdmissionStatus } from "@/types/school";
-import type { AdmissionCycleFormValues } from "@/schemas/school.schema";
+import type { AdmissionCycle, AdmissionStatus } from "@/types/school"
+import type { AdmissionCycleFormValues } from "@/schemas/school.schema"
 
-import { AdmissionCycleForm } from "./components/AdmissionCycleForm";
-import { AdmissionCycleCard } from "./components/AdmissionCycleCard";
-import { RequirementsManager } from "./components/RequirementsManager";
-import { EmptyState } from "./components/EmptyState";
+import { AdmissionCycleForm } from "./components/AdmissionCycleForm"
+import { AdmissionCycleCard } from "./components/AdmissionCycleCard"
+import { RequirementsManager } from "./components/RequirementsManager"
+import { EmptyState } from "./components/EmptyState"
 
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   CalendarDays,
   Plus,
   Loader2,
   ArrowLeft,
   ClipboardList,
-} from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { useAcademicSessions } from "@/hooks/useAcademicSessions";
+} from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
+import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 
 interface AdmissionsPageProps {
-  canManage?: boolean;
+  canManage?: boolean
 }
 
-export default function AdmissionsPage({ canManage = false }: AdmissionsPageProps) {
+export default function AdmissionsPage({
+  canManage = false,
+}: AdmissionsPageProps) {
   // ── Shared data ──────────────────────────
-  const { data: sessions, isLoading: isLoadingSessions } = useAcademicSessions();
+  const { data: sessions, isLoading: isLoadingSessions } = useAcademicSessions()
   const { data: programs } = useQuery({
     ...feeManagementQueryOptions.programs(),
     staleTime: 1000 * 60 * 30,
-  });
+  })
 
   // ── Local state ──────────────────────────
-  const [selectedSessionId, setSelectedSessionId] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingCycle, setEditingCycle] = useState<AdmissionCycle | null>(null);
-  const [managingCycleId, setManagingCycleId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState("")
+  const [showForm, setShowForm] = useState(false)
+  const [editingCycle, setEditingCycle] = useState<AdmissionCycle | null>(null)
+  const [managingCycleId, setManagingCycleId] = useState<string | null>(null)
 
   // ── Data hooks ───────────────────────────
   const { data: cycles, isLoading: isLoadingCycles } = useAdmissionCycles(
     selectedSessionId || null
-  );
-  const createCycle = useCreateAdmissionCycle();
-  const updateCycle = useUpdateAdmissionCycle(selectedSessionId);
-  const deleteCycle = useDeleteAdmissionCycle(selectedSessionId);
-  const updateStatus = useUpdateAdmissionStatus(selectedSessionId);
+  )
+  const createCycle = useCreateAdmissionCycle()
+  const updateCycle = useUpdateAdmissionCycle(selectedSessionId)
+  const deleteCycle = useDeleteAdmissionCycle(selectedSessionId)
+  const updateStatus = useUpdateAdmissionStatus(selectedSessionId)
 
   // If user doesn't have permission, show nothing
-  if (!canManage) return null;
+  if (!canManage) return null
 
   // ── Handlers ─────────────────────────────
   const handleCreate = () => {
-    setEditingCycle(null);
-    setShowForm(true);
-  };
+    setEditingCycle(null)
+    setShowForm(true)
+  }
 
   const handleEdit = (cycle: AdmissionCycle) => {
-    setEditingCycle(cycle);
-    setShowForm(true);
-  };
+    setEditingCycle(cycle)
+    setShowForm(true)
+  }
 
   const handleDelete = async (id: string) => {
-    await deleteCycle.mutateAsync(id);
-    toast.success("Admission cycle deleted");
-  };
+    await deleteCycle.mutateAsync(id)
+    toast.success("Admission cycle deleted")
+  }
 
   const handleToggleStatus = async (id: string, status: AdmissionStatus) => {
-    await updateStatus.mutateAsync({ id, status });
-    toast.success(
-      status === "open" ? "Admissions opened" : "Admissions closed"
-    );
-  };
+    await updateStatus.mutateAsync({ id, status })
+    toast.success(status === "open" ? "Admissions opened" : "Admissions closed")
+  }
 
   const handleFormSubmit = async (data: AdmissionCycleFormValues) => {
     if (editingCycle) {
       await updateCycle.mutateAsync({
         id: editingCycle.id,
         payload: { ...data, status: editingCycle.status },
-      });
-      toast.success("Admission cycle updated");
+      })
+      toast.success("Admission cycle updated")
     } else {
       await createCycle.mutateAsync({
         ...data,
         status: "draft",
-      });
-      toast.success("Admission cycle created");
+      })
+      toast.success("Admission cycle created")
     }
-    setShowForm(false);
-    setEditingCycle(null);
-  };
+    setShowForm(false)
+    setEditingCycle(null)
+  }
 
   const handleCancelForm = () => {
-    setShowForm(false);
-    setEditingCycle(null);
-  };
+    setShowForm(false)
+    setEditingCycle(null)
+  }
 
   const getSessionName = (sessionId: string) =>
-    sessions?.find((s) => s.id === sessionId)?.name ?? sessionId;
+    sessions?.find((s) => s.id === sessionId)?.name ?? sessionId
 
-  const isPending =
-    createCycle.isPending || updateCycle.isPending;
+  const isPending = createCycle.isPending || updateCycle.isPending
 
   // ── Drilled-in: Requirements view ────────
   if (managingCycleId) {
-    const cycle = cycles?.find((c) => c.id === managingCycleId);
+    const cycle = cycles?.find((c) => c.id === managingCycleId)
     return (
       <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <Button
@@ -147,7 +143,7 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
           canManage={canManage}
         />
       </div>
-    );
+    )
   }
 
   // ── Main view ────────────────────────────
@@ -159,8 +155,8 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
           Admissions Management
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Open and close admission windows, configure application settings,
-          and manage entry requirements.
+          Open and close admission windows, configure application settings, and
+          manage entry requirements.
         </p>
       </div>
 
@@ -177,22 +173,22 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
                 id="adm-session"
                 value={selectedSessionId}
                 onChange={(e) => {
-                  setSelectedSessionId(e.target.value);
-                  setShowForm(false);
-                  setEditingCycle(null);
+                  setSelectedSessionId(e.target.value)
+                  setShowForm(false)
+                  setEditingCycle(null)
                 }}
-                className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <option value="">Select a session</option>
                 {sessions
                   ?.sort(
                     (a, b) =>
-                      new Date(b.start_date).getTime() -
-                      new Date(a.start_date).getTime()
+                      new Date(b.startDate).getTime() -
+                      new Date(a.startDate).getTime()
                   )
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} {s.is_active ? "(Active)" : ""}
+                      {s.name} {s.isActive ? "(Active)" : ""}
                     </option>
                   ))}
               </select>
@@ -249,9 +245,7 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
                   <div key={cycle.id} className="space-y-2">
                     <AdmissionCycleCard
                       cycle={cycle}
-                      sessionName={getSessionName(
-                        cycle.academic_session_id
-                      )}
+                      sessionName={getSessionName(cycle.academic_session_id)}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onToggleStatus={handleToggleStatus}
@@ -264,7 +258,10 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
                         className="w-full"
                         onClick={() => setManagingCycleId(cycle.id)}
                       >
-                        <ClipboardList className="size-3.5" data-icon="inline-start" />
+                        <ClipboardList
+                          className="size-3.5"
+                          data-icon="inline-start"
+                        />
                         Manage Requirements
                       </Button>
                     )}
@@ -290,5 +287,5 @@ export default function AdmissionsPage({ canManage = false }: AdmissionsPageProp
         )}
       </div>
     </div>
-  );
+  )
 }

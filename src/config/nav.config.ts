@@ -4,6 +4,7 @@ import {
   BarChart,
   CalendarCheck2,
   ChartNetwork,
+  ClapperboardIcon,
   ColumnsSettingsIcon,
   InspectionPanelIcon,
   LandmarkIcon,
@@ -520,6 +521,12 @@ const superAdminNav: NavGroup[] = [
             href: "/admin/configurations/app-config",
             matchExactOnly: true,
             icon: ColumnsSettingsIcon,
+          },
+          {
+            title: "Admission Config",
+            href: "/admin/configurations/admission-config",
+            matchExactOnly: true,
+            icon: ClapperboardIcon,
           },
           {
             title: "Features Registry",
