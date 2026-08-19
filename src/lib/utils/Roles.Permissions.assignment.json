@@ -367,6 +367,10 @@
       "action": "manage"
     },
     {
+      "resource": "fee-management",
+      "action": "waive"
+    },
+    {
       "resource": "profile",
       "action": "view"
     },
@@ -768,6 +772,22 @@
     },
     {
       "resource": "messages",
+      "action": "view"
+    },
+    {
+      "resource": "moodle-sync",
+      "action": "manage"
+    },
+    {
+      "resource": "moodle-sync",
+      "action": "pull"
+    },
+    {
+      "resource": "moodle-sync",
+      "action": "push"
+    },
+    {
+      "resource": "moodle-sync",
       "action": "view"
     },
     {

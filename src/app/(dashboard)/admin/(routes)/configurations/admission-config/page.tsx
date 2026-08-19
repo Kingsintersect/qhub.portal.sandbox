@@ -6,109 +6,149 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Sparkles,
   Loader2,
-  RotateCcw,
-  Save,
-  CheckCircle2,
-  CreditCard,
-  FileText,
-  Search,
-  BadgeCheck,
   GraduationCap,
-  PartyPopper,
-  User,
-  Heart,
-  Users,
-  BookOpen,
-  FolderOpen,
-  Settings as SettingsIcon,
+  FileText,
   ListChecks,
 } from "lucide-react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import EmptyState from "@/components/custom/EmptyState"
+import Modal from "@/components/custom/Modal"
+import { Button } from "@/components/ui/button"
 import {
-  admissionConfigQueryOptions,
-  admissionConfigMutationOptions,
-} from "@/services/admissionConfigApi"
-import { DEFAULT_ADMISSION_CONFIG } from "@/lib/admissionConfig"
-import type { AdmissionConfig } from "@/types/admissionConfig"
+  admissionStepsKeys,
+  admissionStepsQueryOptions,
+  admissionStepsMutationOptions,
+} from "@/services/admissionStepsApi"
+import {
+  KNOWN_PROCESS_STEP_KEYS,
+  KNOWN_FORM_STEP_KEYS,
+} from "@/lib/admissionConfig"
+import type {
+  AdmissionStepDefinition,
+  AdmissionStepGroup,
+} from "@/types/admissionConfig"
 import StepConfigPanel from "./components/StepConfigPanel"
+import StepFormModal, { type StepFormValues } from "./components/StepFormModal"
 
-const PROCESS_ICONS: Record<string, typeof CreditCard> = {
-  APPLICATION_PAYMENT: CreditCard,
-  APPLICATION_FORM: FileText,
-  ADMISSION_STATUS: Search,
-  ACCEPTANCE_FEE: BadgeCheck,
-  TUITION_PAYMENT: GraduationCap,
-  COMPLETED: PartyPopper,
-}
-
-const FORM_ICONS: Record<string, typeof User> = {
-  PERSONAL_INFO: User,
-  SPONSOR_INFO: Heart,
-  NEXT_OF_KIN: Users,
-  DOCUMENTS: FileText,
-  QUALIFICATION_FIELDS: GraduationCap,
-  EXAM_SITTING: BookOpen,
-  QUALIFICATION_DOCUMENTS: FolderOpen,
-  PROGRAM_SELECTION: SettingsIcon,
-  REVIEW: CheckCircle2,
+function slugifyKey(label: string, existingKeys: string[]): string {
+  const base =
+    label
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "STEP"
+  let key = base
+  let i = 2
+  while (existingKeys.includes(key)) key = `${base}_${i++}`
+  return key
 }
 
 export default function AdmissionConfigPage() {
   const queryClient = useQueryClient()
-  const { data, isLoading, isError, error } = useQuery(
-    admissionConfigQueryOptions.get()
-  )
-  const saveMutation = useMutation(admissionConfigMutationOptions.save())
+  const processQuery = useQuery(admissionStepsQueryOptions.list("PROCESS"))
+  const formQuery = useQuery(admissionStepsQueryOptions.list("FORM"))
 
-  const [draft, setDraft] = useState<AdmissionConfig | null>(null)
-  // Reset the editable draft whenever the server config (re)loads — computed
-  // during render (React's recommended pattern) rather than in a useEffect.
-  const [syncedFrom, setSyncedFrom] = useState<AdmissionConfig | undefined>(
-    undefined
-  )
-  if (data && data !== syncedFrom) {
-    setSyncedFrom(data)
-    setDraft(data)
-  }
+  const createMutation = useMutation(admissionStepsMutationOptions.create())
+  const updateMutation = useMutation(admissionStepsMutationOptions.update())
+  const removeMutation = useMutation(admissionStepsMutationOptions.remove())
+  const reorderMutation = useMutation(admissionStepsMutationOptions.reorder())
 
-  const isDirty =
-    !!data && !!draft && JSON.stringify(data) !== JSON.stringify(draft)
+  const [formModal, setFormModal] = useState<{
+    group: AdmissionStepGroup
+    editing: AdmissionStepDefinition | null
+  } | null>(null)
+  const [deleting, setDeleting] = useState<AdmissionStepDefinition | null>(null)
 
-  const toggleStep = (
-    group: "processSteps" | "formSteps",
-    key: string,
-    next: boolean
-  ) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        [group]: prev[group].map((s) =>
-          s.key === key ? { ...s, enabled: next } : s
-        ),
-      }
-    })
-  }
+  const isLoading = processQuery.isLoading || formQuery.isLoading
+  const isError = processQuery.isError || formQuery.isError
+  const isMutating =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    removeMutation.isPending ||
+    reorderMutation.isPending
 
-  const handleReset = () => setDraft(data ?? DEFAULT_ADMISSION_CONFIG)
+  const invalidateAll = () =>
+    queryClient.invalidateQueries({ queryKey: admissionStepsKeys.all })
 
-  const handleSave = async () => {
-    if (!draft) return
+  const handleToggle = async (step: AdmissionStepDefinition, next: boolean) => {
     try {
-      const saved = await saveMutation.mutateAsync(draft)
-      queryClient.setQueryData(
-        admissionConfigQueryOptions.get().queryKey,
-        saved
-      )
-      toast.success("Admission configuration saved", {
-        description: "Students will see the updated steps immediately.",
+      await updateMutation.mutateAsync({
+        id: step.id,
+        payload: { enabled: next },
       })
+      invalidateAll()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update step")
+    }
+  }
+
+  const handleReorder = async (
+    group: AdmissionStepGroup,
+    step: AdmissionStepDefinition,
+    direction: "up" | "down"
+  ) => {
+    const items =
+      group === "PROCESS" ? (processQuery.data ?? []) : (formQuery.data ?? [])
+    const idx = items.findIndex((s) => s.id === step.id)
+    const swapWith = direction === "up" ? idx - 1 : idx + 1
+    if (swapWith < 0 || swapWith >= items.length) return
+
+    const orderedIds = items.map((s) => s.id)
+    ;[orderedIds[idx], orderedIds[swapWith]] = [
+      orderedIds[swapWith],
+      orderedIds[idx],
+    ]
+
+    try {
+      await reorderMutation.mutateAsync({ group, orderedIds })
+      invalidateAll()
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to save configuration"
+        err instanceof Error ? err.message : "Failed to reorder steps"
       )
+    }
+  }
+
+  const handleFormSubmit = async (values: StepFormValues) => {
+    if (!formModal) return
+    try {
+      if (formModal.editing) {
+        await updateMutation.mutateAsync({
+          id: formModal.editing.id,
+          payload: values,
+        })
+        toast.success("Step updated")
+      } else {
+        const existingKeys =
+          (formModal.group === "PROCESS"
+            ? processQuery.data
+            : formQuery.data
+          )?.map((s) => s.key) ?? []
+        const key = slugifyKey(values.label, existingKeys)
+        await createMutation.mutateAsync({
+          ...values,
+          description: values.description ?? "",
+          group: formModal.group,
+          key,
+        })
+        toast.success("Step created")
+      }
+      invalidateAll()
+      setFormModal(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save step")
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleting) return
+    try {
+      await removeMutation.mutateAsync(deleting.id)
+      toast.success(`"${deleting.label}" deleted`)
+      invalidateAll()
+      setDeleting(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete step")
     }
   }
 
@@ -122,24 +162,22 @@ export default function AdmissionConfigPage() {
     )
   }
 
-  if (isError || !draft) {
+  if (isError) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-10">
         <EmptyState
           icon={Sparkles}
           title="Couldn't load admission configuration"
-          description={
-            error?.message ?? "Something went wrong. Please try again."
-          }
+          description="Something went wrong. Please try again."
         />
       </div>
     )
   }
 
-  const enabledProcess = draft.processSteps.filter(
-    (s) => s.enabled || s.required
-  )
-  const enabledForm = draft.formSteps.filter((s) => s.enabled || s.required)
+  const processSteps = processQuery.data ?? []
+  const formSteps = formQuery.data ?? []
+  const enabledProcess = processSteps.filter((s) => s.enabled || s.required)
+  const enabledForm = formSteps.filter((s) => s.enabled || s.required)
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -147,60 +185,19 @@ export default function AdmissionConfigPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8 flex flex-wrap items-start justify-between gap-4"
+        className="mb-8 flex items-center gap-3"
       >
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10">
-            <Sparkles className="size-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Admission Configuration
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Turn admission process stages and application form steps on or off
-              for every applicant.
-            </p>
-          </div>
+        <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10">
+          <Sparkles className="size-5 text-primary" />
         </div>
-
-        <div className="flex items-center gap-2">
-          <AnimatePresence>
-            {isDirty && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="text-xs font-medium text-amber-600 dark:text-amber-400"
-              >
-                Unsaved changes
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReset}
-            disabled={!isDirty || saveMutation.isPending}
-          >
-            <RotateCcw className="size-3.5" data-icon="inline-start" />
-            Reset
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!isDirty || saveMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <Loader2
-                className="size-3.5 animate-spin"
-                data-icon="inline-start"
-              />
-            ) : (
-              <Save className="size-3.5" data-icon="inline-start" />
-            )}
-            Save Changes
-          </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Admission Configuration
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Create, edit, reorder, and toggle the admission process stages and
+            application form steps every applicant sees.
+          </p>
         </div>
       </motion.div>
 
@@ -209,7 +206,7 @@ export default function AdmissionConfigPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mb-8 rounded-2xl border border-primary/20 bg-primary/[0.04] p-4"
+        className="mb-8 rounded-2xl border border-primary/20 bg-primary/4 p-4"
       >
         <div className="mb-3 flex items-center gap-2">
           <ListChecks className="size-4 text-primary" />
@@ -221,7 +218,7 @@ export default function AdmissionConfigPage() {
           <AnimatePresence mode="popLayout">
             {enabledProcess.map((step, idx) => (
               <motion.div
-                key={step.key}
+                key={step.id}
                 layout
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -238,8 +235,8 @@ export default function AdmissionConfigPage() {
           </AnimatePresence>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          {enabledForm.length} of {draft.formSteps.length} application form
-          steps enabled.
+          {enabledForm.length} of {formSteps.length} application form steps
+          enabled.
         </p>
       </motion.div>
 
@@ -254,10 +251,13 @@ export default function AdmissionConfigPage() {
             title="Admission Process Steps"
             description="The end-to-end journey shown on the student's admission dashboard."
             icon={GraduationCap}
-            items={draft.processSteps}
-            icons={PROCESS_ICONS}
-            onToggle={(key, next) => toggleStep("processSteps", key, next)}
-            disabled={saveMutation.isPending}
+            items={processSteps}
+            knownKeys={KNOWN_PROCESS_STEP_KEYS}
+            onToggle={handleToggle}
+            onEdit={(step) => setFormModal({ group: "PROCESS", editing: step })}
+            onDelete={setDeleting}
+            onAdd={() => setFormModal({ group: "PROCESS", editing: null })}
+            disabled={isMutating}
           />
         </motion.div>
 
@@ -268,15 +268,75 @@ export default function AdmissionConfigPage() {
         >
           <StepConfigPanel
             title="Application Form Steps"
-            description="Steps inside the 8-step admission application form."
+            description="Steps inside the multi-step admission application form. Reorderable."
             icon={FileText}
-            items={draft.formSteps}
-            icons={FORM_ICONS}
-            onToggle={(key, next) => toggleStep("formSteps", key, next)}
-            disabled={saveMutation.isPending}
+            items={formSteps}
+            knownKeys={KNOWN_FORM_STEP_KEYS}
+            reorderable
+            onToggle={handleToggle}
+            onEdit={(step) => setFormModal({ group: "FORM", editing: step })}
+            onDelete={setDeleting}
+            onAdd={() => setFormModal({ group: "FORM", editing: null })}
+            onReorder={(step, direction) =>
+              handleReorder("FORM", step, direction)
+            }
+            disabled={isMutating}
           />
         </motion.div>
       </div>
+
+      <StepFormModal
+        open={!!formModal}
+        onClose={() => setFormModal(null)}
+        groupLabel={
+          formModal?.group === "PROCESS"
+            ? "Admission Process"
+            : "Application Form"
+        }
+        editing={formModal?.editing ?? null}
+        onSubmit={handleFormSubmit}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <Modal
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete step"
+        subtitle={
+          deleting
+            ? `Remove "${deleting.label}" from this deployment?`
+            : undefined
+        }
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setDeleting(null)}
+              disabled={removeMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={removeMutation.isPending}
+            >
+              {removeMutation.isPending && (
+                <Loader2
+                  className="size-4 animate-spin"
+                  data-icon="inline-start"
+                />
+              )}
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          This can&apos;t be undone. Applicants will no longer see this step.
+        </p>
+      </Modal>
     </div>
   )
 }

@@ -11,7 +11,7 @@ import type {
 } from "../types/admission"
 import {
   getEnabledStepKeys,
-  DEFAULT_ADMISSION_CONFIG,
+  DEFAULT_ADMISSION_STEPS,
 } from "@/lib/admissionConfig"
 
 interface AdmissionState {
@@ -80,7 +80,7 @@ export const useAdmissionStore = create<AdmissionState>()(
       fees: null,
       currentStep: 0,
       enabledStepKeys: getEnabledStepKeys(
-        DEFAULT_ADMISSION_CONFIG.processSteps
+        DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
       ),
 
       setStudent: (student) => {

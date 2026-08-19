@@ -301,24 +301,35 @@ const allPermissions: Permission[] = [
 const pickPermissions = (...ids: number[]) =>
   allPermissions.filter((entry) => ids.includes(entry.id))
 
+// Builds Permission objects straight from the backend's flattened "resource.action"
+// keys (returned by /auth/login and /auth/me — see bruno/auth/Me.bru). This used to
+// look each key up against the local `allPermissions` catalog below and silently drop
+// anything not already registered there — meaning a permission the backend genuinely
+// granted (e.g. via the "Assign Permissions" flow in admin/configurations/roles) could
+// vanish before it ever reached usePermissions().can(). Parsing the key directly makes
+// the real backend the single source of truth; `allPermissions`/APP_ROLE_CATALOG below
+// remain only for the local dev/demo role switcher, which has no backend session to
+// source permissions from.
 export const resolvePermissionsByKeys = (
   permissionKeys: string[]
 ): Permission[] => {
   if (!permissionKeys.length) return []
 
   return permissionKeys
-    .map((key) => {
+    .map((key, index): Permission | null => {
       const [resource, ...actionParts] = key.split(".")
       const action = actionParts.join(".")
 
       if (!resource || !action) return null
 
-      return (
-        allPermissions.find(
-          (permission) =>
-            permission.resource === resource && permission.action === action
-        ) ?? null
-      )
+      return {
+        id: index + 1,
+        resource,
+        action,
+        module: resource,
+        description: null,
+        created_at: ts,
+      }
     })
     .filter((permission): permission is Permission => Boolean(permission))
 }

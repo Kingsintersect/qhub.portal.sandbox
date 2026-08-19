@@ -2,19 +2,34 @@
 
 import { motion } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
-import { Lock } from "lucide-react"
+import {
+  Lock,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Plus,
+  Sparkles,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import type { AdmissionStepToggle } from "@/types/admissionConfig"
+import { getStepIcon } from "@/lib/admissionStepIcons"
+import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 
 interface StepConfigPanelProps {
   title: string
   description: string
   icon: LucideIcon
-  items: AdmissionStepToggle[]
-  icons: Record<string, LucideIcon>
-  onToggle: (key: string, next: boolean) => void
+  items: AdmissionStepDefinition[]
+  knownKeys: Set<string>
+  reorderable?: boolean
+  onToggle: (step: AdmissionStepDefinition, next: boolean) => void
+  onEdit: (step: AdmissionStepDefinition) => void
+  onDelete: (step: AdmissionStepDefinition) => void
+  onAdd: () => void
+  onReorder?: (step: AdmissionStepDefinition, direction: "up" | "down") => void
   disabled?: boolean
 }
 
@@ -35,8 +50,13 @@ export default function StepConfigPanel({
   description,
   icon: HeaderIcon,
   items,
-  icons,
+  knownKeys,
+  reorderable,
   onToggle,
+  onEdit,
+  onDelete,
+  onAdd,
+  onReorder,
   disabled,
 }: StepConfigPanelProps) {
   const enabledCount = items.filter((s) => s.enabled || s.required).length
@@ -53,9 +73,20 @@ export default function StepConfigPanel({
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
         </div>
-        <Badge variant="outline" className="border-success/30 text-success">
-          {enabledCount}/{items.length} on
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="border-success/30 text-success">
+            {enabledCount}/{items.length} on
+          </Badge>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={onAdd}
+            disabled={disabled}
+            title="Add step"
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
       <motion.ul
@@ -64,17 +95,19 @@ export default function StepConfigPanel({
         animate="show"
         className="divide-y divide-border"
       >
-        {items.map((step) => {
-          const Icon = icons[step.key]
+        {items.map((step, idx) => {
+          const Icon = getStepIcon(step.icon)
           const isOn = step.enabled || step.required
+          const isCustom = !knownKeys.has(step.key)
 
           return (
             <motion.li
-              key={step.key}
+              key={step.id}
+              layout
               variants={rowVariants}
               className={cn(
                 "flex items-start gap-3 px-5 py-4 transition-colors",
-                isOn ? "bg-success/[0.03]" : "bg-transparent"
+                isOn ? "bg-success/3" : "bg-transparent"
               )}
             >
               <div
@@ -85,7 +118,7 @@ export default function StepConfigPanel({
                     : "bg-muted text-muted-foreground"
                 )}
               >
-                {Icon && <Icon size={15} />}
+                <Icon size={15} />
               </div>
 
               <div className="min-w-0 flex-1">
@@ -99,19 +132,74 @@ export default function StepConfigPanel({
                       Required
                     </Badge>
                   )}
+                  {isCustom && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 text-[10px]"
+                      title="No matching UI on the student pages yet"
+                    >
+                      <Sparkles size={10} data-icon="inline-start" />
+                      Custom
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {step.description}
                 </p>
               </div>
 
-              <Switch
-                checked={isOn}
-                disabled={step.required || disabled}
-                onCheckedChange={(checked) => onToggle(step.key, checked)}
-                className="mt-1 shrink-0 data-checked:bg-success"
-                aria-label={`Toggle ${step.label}`}
-              />
+              <div className="flex shrink-0 items-center gap-1">
+                {reorderable && (
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => onReorder?.(step, "up")}
+                      disabled={disabled || idx === 0}
+                      className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronUp size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReorder?.(step, "down")}
+                      disabled={disabled || idx === items.length - 1}
+                      className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronDown size={13} />
+                    </button>
+                  </div>
+                )}
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => onEdit(step)}
+                  disabled={disabled}
+                  title="Edit step"
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => onDelete(step)}
+                  disabled={disabled || step.required}
+                  title={
+                    step.required
+                      ? "Required steps can't be deleted"
+                      : "Delete step"
+                  }
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+                <Switch
+                  checked={isOn}
+                  disabled={step.required || disabled}
+                  onCheckedChange={(checked) => onToggle(step, checked)}
+                  className="ml-1 data-checked:bg-success"
+                  aria-label={`Toggle ${step.label}`}
+                />
+              </div>
             </motion.li>
           )
         })}

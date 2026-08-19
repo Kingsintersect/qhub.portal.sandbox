@@ -2,65 +2,38 @@
 
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import {
-  CreditCard,
-  FileText,
-  Search,
-  BadgeCheck,
-  GraduationCap,
-  PartyPopper,
-} from "lucide-react"
+import { getStepIcon } from "@/lib/admissionStepIcons"
+import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 import { AdmissionStep } from "../types/admission"
 
-const STEPS = [
-  {
-    step: AdmissionStep.APPLICATION_PAYMENT,
-    key: "APPLICATION_PAYMENT",
-    label: "Application Fee",
-    icon: CreditCard,
-  },
-  {
-    step: AdmissionStep.APPLICATION_FORM,
-    key: "APPLICATION_FORM",
-    label: "Application Form",
-    icon: FileText,
-  },
-  {
-    step: AdmissionStep.ADMISSION_STATUS,
-    key: "ADMISSION_STATUS",
-    label: "Admission Status",
-    icon: Search,
-  },
-  {
-    step: AdmissionStep.ACCEPTANCE_FEE,
-    key: "ACCEPTANCE_FEE",
-    label: "Acceptance Fee",
-    icon: BadgeCheck,
-  },
-  {
-    step: AdmissionStep.TUITION_PAYMENT,
-    key: "TUITION_PAYMENT",
-    label: "Tuition Fee",
-    icon: GraduationCap,
-  },
-  {
-    step: AdmissionStep.COMPLETED,
-    key: "COMPLETED",
-    label: "Completed",
-    icon: PartyPopper,
-  },
+// Fixed order + AdmissionStep enum mapping — process-step order encodes real
+// payment-gate dependencies (see admissionStore.ts's deriveStep) and isn't
+// admin-reorderable, unlike application form steps. Label/icon are still
+// pulled live from the registry so admin edits show up here.
+const STEP_SLOTS = [
+  { step: AdmissionStep.APPLICATION_PAYMENT, key: "APPLICATION_PAYMENT" },
+  { step: AdmissionStep.APPLICATION_FORM, key: "APPLICATION_FORM" },
+  { step: AdmissionStep.ADMISSION_STATUS, key: "ADMISSION_STATUS" },
+  { step: AdmissionStep.ACCEPTANCE_FEE, key: "ACCEPTANCE_FEE" },
+  { step: AdmissionStep.TUITION_PAYMENT, key: "TUITION_PAYMENT" },
+  { step: AdmissionStep.COMPLETED, key: "COMPLETED" },
 ] as const
 
 interface AdmissionStepIndicatorProps {
   currentStep: AdmissionStep
-  enabledStepKeys: Set<string>
+  /** Registry rows for the PROCESS group — custom/unknown keys are ignored (no gating logic exists for them yet). */
+  stepDefinitions: AdmissionStepDefinition[]
 }
 
 export function AdmissionStepIndicator({
   currentStep,
-  enabledStepKeys,
+  stepDefinitions,
 }: AdmissionStepIndicatorProps) {
-  const steps = STEPS.filter((s) => enabledStepKeys.has(s.key))
+  const byKey = new Map(stepDefinitions.map((s) => [s.key, s]))
+  const steps = STEP_SLOTS.map((slot) => ({
+    ...slot,
+    def: byKey.get(slot.key),
+  })).filter(({ def }) => def && (def.enabled || def.required))
 
   return (
     <div className="w-full overflow-x-auto py-2">
@@ -68,7 +41,7 @@ export function AdmissionStepIndicator({
         {steps.map((step, idx) => {
           const isCompleted = step.step < currentStep
           const isActive = step.step === currentStep
-          const Icon = step.icon
+          const Icon = getStepIcon(step.def?.icon)
 
           return (
             <div key={step.key} className="flex flex-1 items-center">
@@ -126,7 +99,7 @@ export function AdmissionStepIndicator({
                         : "text-muted-foreground"
                   )}
                 >
-                  {step.label}
+                  {step.def?.label}
                 </span>
               </div>
 

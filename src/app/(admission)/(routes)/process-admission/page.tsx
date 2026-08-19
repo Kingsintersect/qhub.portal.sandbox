@@ -11,8 +11,8 @@ import {
   useDevSimulate,
 } from "../../hooks/useAdmissionQueries"
 import { admissionKeys } from "../../services/admissionService"
-import { admissionConfigQueryOptions } from "@/services/admissionConfigApi"
-import { mergeAdmissionConfig, getEnabledStepKeys } from "@/lib/admissionConfig"
+import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
+import { getEnabledStepKeys } from "@/lib/admissionConfig"
 import {
   AdmissionStepIndicator,
   ApplicationPaymentSection,
@@ -34,9 +34,10 @@ export default function ProcessAdmissionPage() {
     isLoading: studentLoading,
     refetch,
   } = useStudentAdmission()
-  const { data: admissionConfig } = useQuery(admissionConfigQueryOptions.get())
+  const { data: admissionConfig } = useQuery(
+    admissionStepsQueryOptions.config()
+  )
   const currentStep = useAdmissionStore((s) => s.currentStep)
-  const enabledStepKeys = useAdmissionStore((s) => s.enabledStepKeys)
   const setStepConfig = useAdmissionStore((s) => s.setStepConfig)
   const {
     resetAll,
@@ -52,9 +53,7 @@ export default function ProcessAdmissionPage() {
   /* Apply the admin-configured step toggles as soon as they load */
   useEffect(() => {
     if (admissionConfig) {
-      setStepConfig(
-        getEnabledStepKeys(mergeAdmissionConfig(admissionConfig).processSteps)
-      )
+      setStepConfig(getEnabledStepKeys(admissionConfig.processSteps))
     }
   }, [admissionConfig, setStepConfig])
 
@@ -105,7 +104,7 @@ export default function ProcessAdmissionPage() {
       >
         <AdmissionStepIndicator
           currentStep={currentStep}
-          enabledStepKeys={enabledStepKeys}
+          stepDefinitions={admissionConfig?.processSteps ?? []}
         />
       </motion.div>
 

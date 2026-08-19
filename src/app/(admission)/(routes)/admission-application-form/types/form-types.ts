@@ -120,12 +120,43 @@ export const FORM_STEP_KEYS: Record<FormStep, string> = {
   [FormStep.REVIEW]: "REVIEW",
 }
 
-/** Ordered list of form steps that are actually enabled, given the admin-configured set of enabled keys. REVIEW is always last and always included. */
-export function getActiveFormSteps(enabledKeys: Set<string>): FormStep[] {
-  return FORM_STEPS.filter(
-    (step) =>
-      step.id === FormStep.REVIEW || enabledKeys.has(FORM_STEP_KEYS[step.id])
-  ).map((step) => step.id)
+/**
+ * Ordered list of form steps that are actually enabled, given the admin's
+ * step registry rows (src/services/admissionStepsApi.ts). Steps are sorted
+ * by the registry's `order` field, so admin-driven reordering is reflected
+ * here. REVIEW is always last and always included regardless of its stored
+ * order — it's the terminal step. Custom/unknown keys (steps the admin
+ * created that don't match one of the 9 built-in FormStep values) have no
+ * matching UI component yet and are silently excluded — see
+ * sandbox/admission/admission_features_workflow.md.
+ */
+export function getActiveFormSteps(
+  stepDefinitions: {
+    key: string
+    enabled: boolean
+    required: boolean
+    order: number
+  }[]
+): FormStep[] {
+  const byKey = new Map(stepDefinitions.map((s) => [s.key, s]))
+
+  const ordered = FORM_STEPS.filter((step) => step.id !== FormStep.REVIEW)
+    .map((step) => ({
+      step: step.id,
+      isOptional: step.isOptional,
+      def: byKey.get(FORM_STEP_KEYS[step.id]),
+    }))
+    // If the registry row is missing entirely (e.g. deleted), fall back to
+    // whether this step is optional by design — a deleted optional step
+    // stays excluded, a deleted non-optional one defensively stays included
+    // rather than silently breaking the form.
+    .filter(({ def, isOptional }) =>
+      def ? def.enabled || def.required : !isOptional
+    )
+    .sort((a, b) => (a.def?.order ?? 0) - (b.def?.order ?? 0))
+    .map(({ step }) => step)
+
+  return [...ordered, FormStep.REVIEW]
 }
 
 // ─── Storage Key ─────────────────────────────────────────────────────────────

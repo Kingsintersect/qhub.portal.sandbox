@@ -5,8 +5,7 @@ import { useForm, type UseFormReturn } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { formStorage } from "@/lib/storage"
-import { admissionConfigQueryOptions } from "@/services/admissionConfigApi"
-import { mergeAdmissionConfig, getEnabledStepKeys } from "@/lib/admissionConfig"
+import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
 import {
   personalInfoSchema,
   sponsorInfoSchema,
@@ -72,11 +71,12 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const hasLoadedRef = useRef(false)
   const skipNextAutoSaveRef = useRef(true)
 
-  // ─── Admin-configured active steps — admins can disable optional steps ───
-  const { data: admissionConfig } = useQuery(admissionConfigQueryOptions.get())
+  // ─── Admin-configured active steps — admins can disable/reorder steps ───
+  const { data: admissionConfig } = useQuery(
+    admissionStepsQueryOptions.config()
+  )
   const activeSteps = useMemo(() => {
-    const config = mergeAdmissionConfig(admissionConfig)
-    return getActiveFormSteps(getEnabledStepKeys(config.formSteps))
+    return getActiveFormSteps(admissionConfig?.formSteps ?? [])
   }, [admissionConfig])
   const totalSteps = activeSteps.length
 

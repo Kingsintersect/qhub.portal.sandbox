@@ -14,6 +14,7 @@ import {
   OctagonMinus,
   SchoolIcon,
   TestTubeDiagonalIcon,
+  WifiSyncIcon,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -36,6 +37,8 @@ import {
   FolderOpen,
   UserCog,
   Globe,
+  Link2,
+  Award,
 } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +147,29 @@ const studentNav: NavGroup[] = [
         href: "/student/profile",
         matchExactOnly: true,
         icon: UserCog,
+      },
+    ],
+  },
+  {
+    label: "Moodle LMS",
+    items: [
+      {
+        title: "Moodle Grades",
+        href: "/student/moodle/grades",
+        matchExactOnly: true,
+        icon: Award,
+      },
+      {
+        title: "Moodle Calendar",
+        href: "/student/moodle/calendar",
+        matchExactOnly: true,
+        icon: CalendarDays,
+      },
+      {
+        title: "Upcoming (Moodle)",
+        href: "/student/moodle/assessments/upcoming",
+        matchExactOnly: true,
+        icon: ClipboardList,
       },
     ],
   },
@@ -523,6 +549,12 @@ const superAdminNav: NavGroup[] = [
             icon: ColumnsSettingsIcon,
           },
           {
+            title: "Roles & Permissions",
+            href: "/admin/configurations/roles",
+            matchExactOnly: true,
+            icon: ShieldCheck,
+          },
+          {
             title: "Admission Config",
             href: "/admin/configurations/admission-config",
             matchExactOnly: true,
@@ -539,6 +571,65 @@ const superAdminNav: NavGroup[] = [
             href: "/admin/configurations/feature-access",
             matchExactOnly: true,
             icon: Settings,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Synchronize LMS",
+    items: [
+      {
+        title: "Moodle Syncronizer",
+        icon: WifiSyncIcon,
+        children: [
+          {
+            title: "Overview",
+            href: "/admin/moodle-sync",
+            matchExactOnly: true,
+            icon: WifiSyncIcon,
+          },
+          {
+            title: "Categories",
+            href: "/admin/moodle-sync/categories",
+            matchExactOnly: true,
+            icon: Building2,
+          },
+          {
+            title: "Users",
+            href: "/admin/moodle-sync/users",
+            matchExactOnly: true,
+            icon: Users,
+          },
+          {
+            title: "Courses",
+            href: "/admin/moodle-sync/courses",
+            matchExactOnly: true,
+            icon: BookOpen,
+          },
+          {
+            title: "Enrollments",
+            href: "/admin/moodle-sync/enrollments",
+            matchExactOnly: true,
+            icon: Link2,
+          },
+          {
+            title: "Assessments",
+            href: "/admin/moodle-sync/assessments",
+            matchExactOnly: true,
+            icon: ClipboardList,
+          },
+          {
+            title: "Grades",
+            href: "/admin/moodle-sync/grades",
+            matchExactOnly: true,
+            icon: Award,
+          },
+          {
+            title: "Calendar & Zoom",
+            href: "/admin/moodle-sync/calendar",
+            matchExactOnly: true,
+            icon: CalendarDays,
           },
         ],
       },
@@ -612,12 +703,6 @@ const superAdminNav: NavGroup[] = [
   {
     label: "User Management",
     items: [
-      {
-        title: "Roles & Permissions",
-        href: "/admin/users/roles",
-        matchExactOnly: true,
-        icon: ShieldCheck,
-      },
       {
         title: "User Management",
         icon: UserCog,
@@ -716,6 +801,12 @@ const superAdminNav: NavGroup[] = [
   {
     label: "Communications",
     items: [
+      {
+        title: "Announcements",
+        href: "/manager/announcements",
+        matchExactOnly: true,
+        icon: Bell,
+      },
       {
         title: "Notifications",
         href: "/admin/notification",

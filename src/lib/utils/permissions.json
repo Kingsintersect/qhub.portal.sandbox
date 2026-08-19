@@ -238,6 +238,11 @@
         "description": "Create or edit fee types, invoices, and fee structures"
       },
       {
+        "resource": "fee-management",
+        "action": "waive",
+        "description": "Waive or forgive a student invoice balance (scholarship, billing correction) — BURSARY only"
+      },
+      {
         "resource": "payments",
         "action": "view",
         "description": "View payment records across all students"
@@ -371,6 +376,31 @@
         "resource": "system-config",
         "action": "manage",
         "description": "Edit system configuration values"
+      }
+    ]
+  },
+  {
+    "module": "Moodle Sync",
+    "permissions": [
+      {
+        "resource": "moodle-sync",
+        "action": "view",
+        "description": "View Moodle sync mappings, status, and read-only synced data (categories, users, courses, enrollments, assessments, grades, calendar)"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "push",
+        "description": "Push portal entities (categories, users, courses, enrollments) to Moodle"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "pull",
+        "description": "Pull data from Moodle into the portal"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "manage",
+        "description": "Full control over Moodle sync configuration, including deleting sync mappings"
       }
     ]
   },

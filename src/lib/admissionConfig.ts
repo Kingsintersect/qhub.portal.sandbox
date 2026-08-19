@@ -1,170 +1,206 @@
-import type {
-  AdmissionConfig,
-  AdmissionStepToggle,
-} from "@/types/admissionConfig"
+import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 
 /* ------------------------------------------------------------------ */
-/*  Defaults — mirrors the current hardcoded step lists:               */
-/*  AdmissionStep enum (process) + FormStep enum (application form)    */
+/*  Seed data for the dummy step registry (src/services/admissionStepsApi.ts). */
+/*  Mirrors the original hardcoded step lists: AdmissionStep enum      */
+/*  (process) + FormStep enum (application form).                     */
 /* ------------------------------------------------------------------ */
 
-export const DEFAULT_ADMISSION_CONFIG: AdmissionConfig = {
-  processSteps: [
-    {
-      key: "APPLICATION_PAYMENT",
-      label: "Application Fee",
-      description:
-        "Applicant pays the non-refundable application processing fee before the form unlocks.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "APPLICATION_FORM",
-      label: "Application Form",
-      description:
-        "Applicant completes the multi-step admission application form.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "ADMISSION_STATUS",
-      label: "Admission Status",
-      description:
-        "Applicant waits for and views the admission office's review decision.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "ACCEPTANCE_FEE",
-      label: "Acceptance Fee",
-      description:
-        "Admitted applicant pays the acceptance fee to confirm their offer.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "TUITION_PAYMENT",
-      label: "Tuition Payment",
-      description:
-        "Applicant pays tuition (installments supported) to complete enrollment.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "COMPLETED",
-      label: "Completed",
-      description:
-        "Enrollment is complete and the student record has been created.",
-      enabled: true,
-      required: true,
-    },
-  ],
-  formSteps: [
-    {
-      key: "PERSONAL_INFO",
-      label: "Personal Information",
-      description: "Basic details about the applicant.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "SPONSOR_INFO",
-      label: "Sponsor Information",
-      description: "Details about the applicant's sponsor, if any.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "NEXT_OF_KIN",
-      label: "Next of Kin",
-      description: "Emergency contact details.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "DOCUMENTS",
-      label: "Documents",
-      description:
-        "Upload passport, first school leaving certificate, O-Level certificate.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "QUALIFICATION_FIELDS",
-      label: "Qualification Information",
-      description: "The applicant's academic qualification details.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "EXAM_SITTING",
-      label: "Exam Sitting",
-      description: "O-Level examination sitting details.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "QUALIFICATION_DOCUMENTS",
-      label: "Qualification Documents",
-      description: "Upload academic qualification / exam result documents.",
-      enabled: true,
-      required: false,
-    },
-    {
-      key: "PROGRAM_SELECTION",
-      label: "Program Selection",
-      description:
-        "Applicant chooses their desired program, start term, and study mode.",
-      enabled: true,
-      required: true,
-    },
-    {
-      key: "REVIEW",
-      label: "Review & Submit",
-      description:
-        "Applicant reviews all entered information before submitting.",
-      enabled: true,
-      required: true,
-    },
-  ],
-}
+export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
+  // ─── Process steps ────────────────────────────────────────────────
+  {
+    id: "process-1",
+    group: "PROCESS",
+    key: "APPLICATION_PAYMENT",
+    label: "Application Fee",
+    description:
+      "Applicant pays the non-refundable application processing fee before the form unlocks.",
+    icon: "CreditCard",
+    enabled: true,
+    required: false,
+    order: 1,
+  },
+  {
+    id: "process-2",
+    group: "PROCESS",
+    key: "APPLICATION_FORM",
+    label: "Application Form",
+    description:
+      "Applicant completes the multi-step admission application form.",
+    icon: "FileText",
+    enabled: true,
+    required: true,
+    order: 2,
+  },
+  {
+    id: "process-3",
+    group: "PROCESS",
+    key: "ADMISSION_STATUS",
+    label: "Admission Status",
+    description:
+      "Applicant waits for and views the admission office's review decision.",
+    icon: "Search",
+    enabled: true,
+    required: true,
+    order: 3,
+  },
+  {
+    id: "process-4",
+    group: "PROCESS",
+    key: "ACCEPTANCE_FEE",
+    label: "Acceptance Fee",
+    description:
+      "Admitted applicant pays the acceptance fee to confirm their offer.",
+    icon: "BadgeCheck",
+    enabled: true,
+    required: false,
+    order: 4,
+  },
+  {
+    id: "process-5",
+    group: "PROCESS",
+    key: "TUITION_PAYMENT",
+    label: "Tuition Payment",
+    description:
+      "Applicant pays tuition (installments supported) to complete enrollment.",
+    icon: "GraduationCap",
+    enabled: true,
+    required: false,
+    order: 5,
+  },
+  {
+    id: "process-6",
+    group: "PROCESS",
+    key: "COMPLETED",
+    label: "Completed",
+    description:
+      "Enrollment is complete and the student record has been created.",
+    icon: "PartyPopper",
+    enabled: true,
+    required: true,
+    order: 6,
+  },
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                             */
-/* ------------------------------------------------------------------ */
+  // ─── Application form steps ───────────────────────────────────────
+  {
+    id: "form-1",
+    group: "FORM",
+    key: "PERSONAL_INFO",
+    label: "Personal Information",
+    description: "Basic details about the applicant.",
+    icon: "User",
+    enabled: true,
+    required: true,
+    order: 1,
+  },
+  {
+    id: "form-2",
+    group: "FORM",
+    key: "SPONSOR_INFO",
+    label: "Sponsor Information",
+    description: "Details about the applicant's sponsor, if any.",
+    icon: "Heart",
+    enabled: true,
+    required: false,
+    order: 2,
+  },
+  {
+    id: "form-3",
+    group: "FORM",
+    key: "NEXT_OF_KIN",
+    label: "Next of Kin",
+    description: "Emergency contact details.",
+    icon: "Users",
+    enabled: true,
+    required: true,
+    order: 3,
+  },
+  {
+    id: "form-4",
+    group: "FORM",
+    key: "DOCUMENTS",
+    label: "Documents",
+    description:
+      "Upload passport, first school leaving certificate, O-Level certificate.",
+    icon: "FileText",
+    enabled: true,
+    required: true,
+    order: 4,
+  },
+  {
+    id: "form-5",
+    group: "FORM",
+    key: "QUALIFICATION_FIELDS",
+    label: "Qualification Information",
+    description: "The applicant's academic qualification details.",
+    icon: "GraduationCap",
+    enabled: true,
+    required: true,
+    order: 5,
+  },
+  {
+    id: "form-6",
+    group: "FORM",
+    key: "EXAM_SITTING",
+    label: "Exam Sitting",
+    description: "O-Level examination sitting details.",
+    icon: "BookOpen",
+    enabled: true,
+    required: false,
+    order: 6,
+  },
+  {
+    id: "form-7",
+    group: "FORM",
+    key: "QUALIFICATION_DOCUMENTS",
+    label: "Qualification Documents",
+    description: "Upload academic qualification / exam result documents.",
+    icon: "FolderOpen",
+    enabled: true,
+    required: false,
+    order: 7,
+  },
+  {
+    id: "form-8",
+    group: "FORM",
+    key: "PROGRAM_SELECTION",
+    label: "Program Selection",
+    description:
+      "Applicant chooses their desired program, start term, and study mode.",
+    icon: "Settings",
+    enabled: true,
+    required: true,
+    order: 8,
+  },
+  {
+    id: "form-9",
+    group: "FORM",
+    key: "REVIEW",
+    label: "Review & Submit",
+    description: "Applicant reviews all entered information before submitting.",
+    icon: "CheckCircle",
+    enabled: true,
+    required: true,
+    order: 9,
+  },
+]
 
-function mergeToggleList(
-  defaults: AdmissionStepToggle[],
-  saved: AdmissionStepToggle[] | undefined
-): AdmissionStepToggle[] {
-  if (!saved || saved.length === 0) return defaults
-  const savedByKey = new Map(saved.map((s) => [s.key, s]))
-  // Preserve default order/labels/required flags (source of truth), only carry over `enabled`.
-  return defaults.map((def) => {
-    const match = savedByKey.get(def.key)
-    return match
-      ? { ...def, enabled: def.required ? true : match.enabled }
-      : def
-  })
-}
+/** Keys of steps whose group's rendering is a fixed, hand-built component keyed by this exact string — see admission_features_workflow.md's "known step keys" note. Anything else is a custom, admin-created step and falls back to a generic placeholder. */
+export const KNOWN_PROCESS_STEP_KEYS = new Set(
+  DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS").map((s) => s.key)
+)
+export const KNOWN_FORM_STEP_KEYS = new Set(
+  DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "FORM").map((s) => s.key)
+)
 
-/** Merges a saved config (possibly stale/partial — e.g. missing a newly added step) onto the current defaults. */
-export function mergeAdmissionConfig(
-  saved: Partial<AdmissionConfig> | null | undefined
-): AdmissionConfig {
-  if (!saved) return DEFAULT_ADMISSION_CONFIG
-  return {
-    processSteps: mergeToggleList(
-      DEFAULT_ADMISSION_CONFIG.processSteps,
-      saved.processSteps
-    ),
-    formSteps: mergeToggleList(
-      DEFAULT_ADMISSION_CONFIG.formSteps,
-      saved.formSteps
-    ),
-  }
-}
-
-export function getEnabledStepKeys(steps: AdmissionStepToggle[]): Set<string> {
+export function getEnabledStepKeys(
+  steps: AdmissionStepDefinition[]
+): Set<string> {
   return new Set(steps.filter((s) => s.enabled || s.required).map((s) => s.key))
+}
+
+export function sortByOrder(
+  steps: AdmissionStepDefinition[]
+): AdmissionStepDefinition[] {
+  return [...steps].sort((a, b) => a.order - b.order)
 }
