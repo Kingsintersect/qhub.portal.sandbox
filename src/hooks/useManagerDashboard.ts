@@ -24,7 +24,7 @@ export function usePlatformDashboardData() {
   return {
     ...ops,
     roleCount: roles.data?.length ?? null,
-    facultyCount: faculties.data?.data.length ?? null,
+    facultyCount: faculties.data?.data?.length ?? null,
     isLoading: ops.isLoading || roles.isLoading || faculties.isLoading,
   }
 }
