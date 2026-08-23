@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Loader2 } from "lucide-react"
@@ -70,7 +70,12 @@ export function PaymentModal() {
     setValue,
     formState: { errors },
   } = useForm<InitiatePaymentDto>({
-    resolver: zodResolver(schema),
+    // `amount` is `z.coerce.number()` (its raw form input is a string; the
+    // resolved output is a number) — the ternary above yields a
+    // ZodEffects/ZodObject union whose input/output split TS can't reconcile
+    // against useForm<InitiatePaymentDto>'s (output-typed) generic on its
+    // own, hence the explicit Resolver<InitiatePaymentDto> annotation here.
+    resolver: zodResolver(schema) as Resolver<InitiatePaymentDto>,
     defaultValues: {
       method: "GATEWAY",
     },
