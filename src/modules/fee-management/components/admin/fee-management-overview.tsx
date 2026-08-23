@@ -22,39 +22,52 @@ import { useCollectionsSummary } from "../../hooks/use-fee-reports"
 import { useOverdueInvoices } from "../../hooks/use-invoices"
 import { useFeeTypes } from "../../hooks/use-fee-types"
 
-const NAV_TILES = [
-  {
-    href: "/admin/finance/fees/types",
-    icon: Tags,
-    title: "Fee Types",
-    description: "Define, activate, and monitor fee structures",
-    accent: "bg-primary/10 text-primary",
-  },
-  {
-    href: "/admin/finance/fees/invoices",
-    icon: FileText,
-    title: "Invoices",
-    description: "View, waive, or cancel student invoices",
-    accent: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-  },
-  {
-    href: "/admin/finance/fees/reports/collections",
-    icon: BarChart3,
-    title: "Collections Report",
-    description: "Revenue collected vs. invoiced by fee type",
-    accent:
-      "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-  },
-  {
-    href: "/admin/finance/fees/reports/overdue",
-    icon: AlertTriangle,
-    title: "Overdue Report",
-    description: "Students past their payment deadline",
-    accent: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-  },
-] as const
+function navTiles(basePath: string) {
+  return [
+    {
+      href: `${basePath}/types`,
+      icon: Tags,
+      title: "Fee Types",
+      description: "Define, activate, and monitor fee structures",
+      accent: "bg-primary/10 text-primary",
+    },
+    {
+      href: `${basePath}/invoices`,
+      icon: FileText,
+      title: "Invoices",
+      description: "View, waive, or cancel student invoices",
+      accent:
+        "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+    },
+    {
+      href: `${basePath}/reports/collections`,
+      icon: BarChart3,
+      title: "Collections Report",
+      description: "Revenue collected vs. invoiced by fee type",
+      accent:
+        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+    },
+    {
+      href: `${basePath}/reports/overdue`,
+      icon: AlertTriangle,
+      title: "Overdue Report",
+      description: "Students past their payment deadline",
+      accent: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    },
+  ] as const
+}
 
-export function FeeManagementOverview() {
+interface FeeManagementOverviewProps {
+  // Lets this same component be mounted under both /admin/finance/fees and
+  // /manager/finance/fees without its internal links pointing at the wrong
+  // role's route tree.
+  basePath?: string
+}
+
+export function FeeManagementOverview({
+  basePath = "/admin/finance/fees",
+}: FeeManagementOverviewProps = {}) {
+  const NAV_TILES = navTiles(basePath)
   const { data: summary, isLoading: loadingSummary } = useCollectionsSummary()
   const { data: overdueData, isLoading: loadingOverdue } = useOverdueInvoices()
   const { data: activeFeeTypes, isLoading: loadingFeeTypes } = useFeeTypes({
@@ -154,7 +167,7 @@ export function FeeManagementOverview() {
           <PermissionGate
             require={{ resource: "fee-management", action: "manage" }}
           >
-            <Link href="/admin/finance/fees/types/new">
+            <Link href={`${basePath}/types/new`}>
               <Button size="sm" className="gap-1.5">
                 <Tags size={13} />
                 New Fee Type
@@ -246,7 +259,7 @@ export function FeeManagementOverview() {
                 </span>
               )}
             </p>
-            <Link href="/admin/finance/fees/types">
+            <Link href={`${basePath}/types`}>
               <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
                 View all
                 <ArrowRight size={11} />
@@ -268,7 +281,7 @@ export function FeeManagementOverview() {
                 require={{ resource: "fee-management", action: "manage" }}
               >
                 <Link
-                  href="/admin/finance/fees/types/new"
+                  href={`${basePath}/types/new`}
                   className="text-primary hover:underline"
                 >
                   Create one
@@ -280,7 +293,7 @@ export function FeeManagementOverview() {
               {activeFeeTypes!.slice(0, 5).map((ft, idx) => (
                 <Link
                   key={ft.id}
-                  href={`/admin/finance/fees/types/${ft.id}`}
+                  href={`${basePath}/types/${ft.id}`}
                   className="group"
                 >
                   <div
@@ -306,7 +319,7 @@ export function FeeManagementOverview() {
               ))}
               {activeFeeTypeCount > 5 && (
                 <div className="border-t border-border/60 px-4 py-2 text-center">
-                  <Link href="/admin/finance/fees/types">
+                  <Link href={`${basePath}/types`}>
                     <Button
                       variant="ghost"
                       size="sm"

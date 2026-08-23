@@ -1,90 +1,86 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useCallback } from "react";
-import type { CourseOption, PublishSelectionFilters } from "../types/grades.types";
+import { useMutation, useQuery } from "@tanstack/react-query"
+import type { PublishSelectionFilters } from "../types/grades.types"
 import {
-   ACADEMIC_YEARS,
-   SEMESTERS,
-   PROGRAMS,
-   gradesService,
-} from "../services/grades.service";
-import { usePublishStore } from "../store/publishStore";
+  ACADEMIC_YEARS,
+  SEMESTERS,
+  PROGRAMS,
+  gradesService,
+} from "../services/grades.service"
+import { usePublishStore } from "../store/publishStore"
+import { gradesKeys } from "./query-keys"
 
 // ─── Re-export reference data for use in wizard ───────────────────────────────
 
-export { ACADEMIC_YEARS, SEMESTERS, PROGRAMS };
+export { ACADEMIC_YEARS, SEMESTERS, PROGRAMS }
 
 // ─── Courses filtered by program ─────────────────────────────────────────────
 
 export function useCourseOptions(programId: string | null) {
-   const [courses, setCourses] = useState<CourseOption[]>([]);
-   const [loading, setLoading] = useState(false);
+  const query = useQuery({
+    queryKey: gradesKeys.coursesByProgram(programId),
+    queryFn: () => gradesService.getCoursesByProgram(programId as string),
+    enabled: programId !== null,
+  })
 
-   useEffect(() => {
-      if (!programId) { setCourses([]); return; }
-      const id = programId;
-      async function load() {
-         setLoading(true);
-         try {
-            const data = await gradesService.getCoursesByProgram(id);
-            setCourses(data);
-         } catch {
-            setCourses([]);
-         } finally {
-            setLoading(false);
-         }
-      }
-      void load();
-   }, [programId]);
-
-   return { courses, loading };
+  return { courses: query.data ?? [], loading: query.isLoading }
 }
 
 // ─── Load grades for publish preview ─────────────────────────────────────────
+// User-triggered (the wizard's "Load" step), not tied to automatic refetch on
+// filter change — modeled as a mutation whose result is written into the
+// publish store rather than a query.
 
 export function usePublishPreview() {
-   const { filters, setLoadedGrades, clearLoadedGrades } = usePublishStore();
-   const [loading, setLoading] = useState(false);
-   const [error, setError] = useState<string | null>(null);
+  const { filters, setLoadedGrades, clearLoadedGrades } = usePublishStore()
 
-   const isComplete =
-      filters.academicYearId !== null &&
-      filters.semesterId !== null &&
-      filters.programId !== null &&
-      filters.courseId !== null;
+  const isComplete =
+    filters.academicYearId !== null &&
+    filters.semesterId !== null &&
+    filters.programId !== null &&
+    filters.courseId !== null
 
-   const load = useCallback(async (f: PublishSelectionFilters) => {
-      setLoading(true);
-      setError(null);
-      try {
-         const grades = await gradesService.getGradesForPublish(f);
-         setLoadedGrades(grades);
-      } catch {
-         setError("Failed to load results. Try again.");
-         clearLoadedGrades();
-      } finally {
-         setLoading(false);
-      }
-   }, [setLoadedGrades, clearLoadedGrades]);
+  const mutation = useMutation({
+    mutationFn: (f: PublishSelectionFilters) =>
+      gradesService.getGradesForPublish(f),
+    onSuccess: (grades) => setLoadedGrades(grades),
+    onError: () => clearLoadedGrades(),
+  })
 
-   return { isComplete, loading, error, load };
+  return {
+    isComplete,
+    loading: mutation.isPending,
+    error: mutation.isError ? "Failed to load results. Try again." : null,
+    load: (f: PublishSelectionFilters) => mutation.mutate(f),
+  }
 }
 
 // ─── Publish action ───────────────────────────────────────────────────────────
+// The real endpoint (POST /results/grades/publish/:semesterId) publishes every
+// APPROVED grade in the semester in one shot — there is no per-grade-id
+// publish. `semesterId` is a real numeric AcademicSession/Semester id; the
+// row-selection UI upstream is now purely a preview aid, not a publish scope.
 
 export function usePublishAction() {
-   const { selectedIds, setPublishing, applyPublished, publishing } = usePublishStore();
+  const { setPublishing, applyPublished, publishing } = usePublishStore()
 
-   const publish = useCallback(async () => {
-      if (!selectedIds.length) return;
-      setPublishing(true);
-      try {
-         const updated = await gradesService.publishGrades(selectedIds);
-         applyPublished(updated);
-      } catch {
-         setPublishing(false);
-      }
-   }, [selectedIds, setPublishing, applyPublished]);
+  const mutation = useMutation({
+    mutationFn: (semesterId: number) => {
+      setPublishing(true)
+      return gradesService.publishSemester(semesterId)
+    },
+    onSuccess: () => applyPublished(),
+    onError: () => setPublishing(false),
+  })
 
-   return { publish, publishing };
+  return {
+    publish: (semesterId: number) => mutation.mutateAsync(semesterId),
+    publishing,
+  }
 }
+
+// Manual CGPA recalculation (POST /results/cgpa/calculate/:studentId/:semesterId,
+// never auto-triggered by the backend) lives in use-grades-mutations.ts as
+// `useCalculateCgpa` — re-exported from there, not duplicated here.
+export { useCalculateCgpa as useRecalculateCgpa } from "./use-grades-mutations"

@@ -290,28 +290,24 @@ export default function RoleDetailView({ roleId }: RoleDetailViewProps) {
                     >
                       {/* Avatar */}
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {user.first_name[0]}
-                        {user.last_name[0]}
+                        {(
+                          user.first_name?.[0] ??
+                          user.username[0] ??
+                          "?"
+                        ).toUpperCase()}
+                        {user.last_name?.[0]?.toUpperCase() ?? ""}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">
-                          {user.first_name} {user.last_name}
+                          {user.first_name || user.last_name
+                            ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
+                            : user.username}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {user.email}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {user.matric_no && (
-                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                            {user.matric_no}
-                          </code>
-                        )}
-                        {user.staff_id && (
-                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                            {user.staff_id}
-                          </code>
-                        )}
                         <StatusBadge
                           label={user.is_active ? "Active" : "Inactive"}
                           variant={user.is_active ? "success" : "destructive"}

@@ -19,3 +19,11 @@ export function useSyncCategory(id: number) {
     enabled: !!id,
   })
 }
+
+export function useCategoriesNeedingMapping() {
+  return useQuery({
+    queryKey: moodleSyncKeys.categoriesNeedingMapping(),
+    queryFn: moodleSyncService.getCategoriesNeedingMapping,
+    staleTime: 60 * 1000,
+  })
+}

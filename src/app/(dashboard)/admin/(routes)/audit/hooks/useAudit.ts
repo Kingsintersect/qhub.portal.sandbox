@@ -63,7 +63,7 @@ export function useAuditUserLogs(
   return useQuery({
     queryKey: auditKeys.userLogs(userId, params),
     queryFn: async () => {
-      await simulateDelay(300)
+      // await simulateDelay(300)
       // return getDummyAuditLogs(params.page ?? 1, params.limit ?? 10, {
       //     userId,
       //     action: params.action ?? "",

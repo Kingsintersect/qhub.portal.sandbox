@@ -1,10 +1,12 @@
-import type { UserSyncQueryFilters } from "../types"
+import type { UserSyncQueryFilters, AssessmentFilter } from "../types"
 
 export const moodleSyncKeys = {
   all: ["moodle-sync"] as const,
 
   categories: () => [...moodleSyncKeys.all, "categories"] as const,
   category: (id: number) => [...moodleSyncKeys.categories(), id] as const,
+  categoriesNeedingMapping: () =>
+    [...moodleSyncKeys.categories(), "needs-mapping"] as const,
 
   users: (filters?: UserSyncQueryFilters) =>
     [...moodleSyncKeys.all, "users", filters] as const,
@@ -24,6 +26,14 @@ export const moodleSyncKeys = {
     [...moodleSyncKeys.all, "assessments", "course", courseOfferingId] as const,
   assessmentsUpcoming: () =>
     [...moodleSyncKeys.all, "assessments", "upcoming"] as const,
+  assessmentsList: (filters?: Partial<AssessmentFilter>) =>
+    [...moodleSyncKeys.all, "assessments", "list", filters] as const,
+  assessment: (id: number) =>
+    [...moodleSyncKeys.all, "assessments", "detail", id] as const,
+  assessmentsMy: (filters?: object) =>
+    [...moodleSyncKeys.all, "assessments", "my", filters] as const,
+  assessmentSyncStatus: () =>
+    [...moodleSyncKeys.all, "assessments", "sync-status"] as const,
 
   grades: (filters?: { courseId?: number; userId?: number }) =>
     [...moodleSyncKeys.all, "grades", filters] as const,

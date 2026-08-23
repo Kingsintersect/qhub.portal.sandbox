@@ -16,7 +16,11 @@ import {
   useCreateFeeType,
   useUpdateFeeType,
 } from "../../hooks/use-fee-mutations"
-import type { CreateFeeTypeDto, FeeTypeResponse } from "../../types"
+import type {
+  CreateFeeTypeDto,
+  CreateFeeTypeInputValues,
+  FeeTypeResponse,
+} from "../../types"
 
 interface FeeTypeFormProps {
   /** Provide to pre-fill form for edit mode */
@@ -34,7 +38,7 @@ export function FeeTypeForm({
   const createMutation = useCreateFeeType()
   const updateMutation = useUpdateFeeType()
 
-  const form = useForm<CreateFeeTypeDto>({
+  const form = useForm<CreateFeeTypeInputValues, unknown, CreateFeeTypeDto>({
     resolver: zodResolver(CreateFeeTypeDtoSchema),
     defaultValues: defaultValues?.id
       ? {

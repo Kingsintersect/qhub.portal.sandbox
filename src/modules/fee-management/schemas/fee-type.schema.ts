@@ -35,6 +35,12 @@ export const CreateFeeTypeDtoSchema = FeeTypeDtoBaseSchema.superRefine(
 
 export const UpdateFeeTypeDtoSchema = FeeTypeDtoBaseSchema.partial()
 
+// z.input (pre-.default()) vs z.infer (post-.default()) differ for
+// studentType/isMandatory/allowInstallments — react-hook-form's useForm
+// needs the input type as its form-values generic, with zodResolver
+// producing the (required) output type. See fee-type-form.tsx.
+export type CreateFeeTypeInputValues = z.input<typeof CreateFeeTypeDtoSchema>
+
 export const FeeTypeResponseSchema = z.object({
   id: z.number(),
   name: z.string(),

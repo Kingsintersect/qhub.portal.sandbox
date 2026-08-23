@@ -17,31 +17,59 @@ import type {
   PaymentHistoryResponse,
 } from "../types"
 
+// Real backend contract per bruno/fee/*.bru (the sole source of truth for
+// this module — see CLAUDE.md §13). Every route lives under /fees; response
+// envelopes match what each .bru file documents, unwrapped here so callers
+// keep receiving the plain shape they already expect.
 const BASE = "/fees"
 const AUTH = { access_token: true } as const
 
 export const feeManagementService = {
   // ── Fee Types ────────────────────────────────────────────────────────────────
 
-  listFeeTypes: (filters?: {
+  listFeeTypes: async (filters?: {
     sessionId?: number
     category?: string
     isActive?: boolean
-  }) =>
-    apiClient.get<FeeTypeResponse[]>(`${BASE}/types`, {
-      ...AUTH,
-      params: filters as Record<string, unknown>,
-    }),
+  }) => {
+    const res = await apiClient.get<{ data: FeeTypeResponse[] }>(
+      `${BASE}/types`,
+      {
+        ...AUTH,
+        params: filters as Record<string, unknown>,
+      }
+    )
+    return res.data
+  },
 
-  getFeeType: (id: number) =>
-    apiClient.get<FeeTypeResponse>(`${BASE}/types/${id}`, AUTH),
+  getFeeType: async (id: number) => {
+    const res = await apiClient.get<{ data: FeeTypeResponse }>(
+      `${BASE}/types/${id}`,
+      AUTH
+    )
+    return res.data
+  },
 
-  createFeeType: (dto: CreateFeeTypeDto) =>
-    apiClient.post<FeeTypeResponse>(`${BASE}/types`, dto, AUTH),
+  createFeeType: async (dto: CreateFeeTypeDto) => {
+    const res = await apiClient.post<{ data: FeeTypeResponse }>(
+      `${BASE}/types`,
+      dto,
+      AUTH
+    )
+    return res.data
+  },
 
-  updateFeeType: (id: number, dto: Partial<CreateFeeTypeDto>) =>
-    apiClient.patch<FeeTypeResponse>(`${BASE}/types/${id}`, dto, AUTH),
+  updateFeeType: async (id: number, dto: Partial<CreateFeeTypeDto>) => {
+    const res = await apiClient.patch<{ data: FeeTypeResponse }>(
+      `${BASE}/types/${id}`,
+      dto,
+      AUTH
+    )
+    return res.data
+  },
 
+  // Runs synchronously in this environment (no queue worker) — the response
+  // already reflects finished generation by the time it arrives.
   activateFeeType: (id: number) =>
     apiClient.post<ActivateFeeTypeResponse>(
       `${BASE}/types/${id}/activate`,
@@ -62,8 +90,9 @@ export const feeManagementService = {
     ),
 
   // Preview: estimated eligible student count for a given scope configuration.
-  // Endpoint: GET /fees/types/eligible-count — pending backend implementation.
-  // Returns gracefully if unavailable (retry: false in useEligibleCount hook).
+  // No bruno/fee file confirms this endpoint — left path-corrected and
+  // best-effort (retry:false in useEligibleCount) so it degrades gracefully
+  // either way.
   getEligibleCount: (filters: {
     category: FeeCategory
     sessionId?: number
@@ -121,6 +150,9 @@ export const feeManagementService = {
     apiClient.post<void>(`${BASE}/invoices/${id}/cancel`, undefined, AUTH),
 
   // ── Payments ─────────────────────────────────────────────────────────────────
+  // The three purpose-built wrapper endpoints (/fees/payments/{application,
+  // acceptance,tuition}/initiate) belong to the admission module's own
+  // service (src/app/(admission)/services/admissionService.ts), not here.
 
   initiatePayment: (dto: InitiatePaymentDto) =>
     apiClient.post<InitiatePaymentResponse>(
@@ -129,6 +161,10 @@ export const feeManagementService = {
       AUTH
     ),
 
+  // Body is only consulted for a manual (non-GATEWAY) verification; this
+  // module's only caller (payment-status-panel.tsx) is a post-redirect
+  // GATEWAY callback, which the backend re-checks server-to-server
+  // regardless of what's sent — so no body is needed here.
   verifyPayment: (reference: string) =>
     apiClient.post<VerifyPaymentResponse>(
       `${BASE}/payments/verify/${reference}`,

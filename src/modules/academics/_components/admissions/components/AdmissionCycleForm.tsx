@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { useForm, Controller } from "react-hook-form"
+import { useEffect, useState } from "react"
+import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   admissionCycleSchema,
@@ -44,14 +44,13 @@ export function AdmissionCycleForm({
     register,
     handleSubmit,
     control,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<AdmissionCycleFormValues>({
     resolver: zodResolver(admissionCycleSchema),
     defaultValues: editingCycle
       ? {
-          academic_session_id: editingCycle.academic_session_id,
+          academic_session_id: String(editingCycle.academic_session_id),
           application_start_date: editingCycle.application_start_date,
           application_end_date: editingCycle.application_end_date,
           late_application_allowed: editingCycle.late_application_allowed,
@@ -80,15 +79,9 @@ export function AdmissionCycleForm({
     editingCycle ? !editingCycle.application_end_date : false
   )
   const [newDoc, setNewDoc] = useState("")
-  const lateAllowed = useCallback(
-    () => watch("late_application_allowed"),
-    [watch]
-  )()
-  const requireDocs = useCallback(() => watch("require_documents"), [watch])()
-  const requiredDocuments = useCallback(
-    () => watch("required_documents"),
-    [watch]
-  )()
+  const lateAllowed = useWatch({ control, name: "late_application_allowed" })
+  const requireDocs = useWatch({ control, name: "require_documents" })
+  const requiredDocuments = useWatch({ control, name: "required_documents" })
 
   useEffect(() => {
     if (noDeadline) {

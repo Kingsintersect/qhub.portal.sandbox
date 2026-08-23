@@ -5,7 +5,7 @@ name: Deploy to VPS - Production
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
-    branches: [main]
+    branches: [develop]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURE THESE for each application — everything else is generic.

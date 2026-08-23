@@ -125,6 +125,51 @@
     ]
   },
   {
+    "module": "Enrollment",
+    "permissions": [
+      {
+        "resource": "enrollment",
+        "action": "view.own",
+        "description": "View own course enrollment records (student)"
+      },
+      {
+        "resource": "enrollment",
+        "action": "create.own",
+        "description": "Register (self-enroll) for open course offerings"
+      },
+      {
+        "resource": "enrollment",
+        "action": "drop.own",
+        "description": "Drop own course enrollment"
+      },
+      {
+        "resource": "enrollment",
+        "action": "view",
+        "description": "View enrollment roster for assigned course offerings (tutor/HOD)"
+      },
+      {
+        "resource": "enrollment",
+        "action": "view.all",
+        "description": "View all student enrollment records"
+      },
+      {
+        "resource": "enrollment",
+        "action": "manage",
+        "description": "Enroll, bulk-enroll and drop students on their behalf"
+      },
+      {
+        "resource": "attendance",
+        "action": "record",
+        "description": "Record and update attendance for assigned class schedules"
+      },
+      {
+        "resource": "attendance",
+        "action": "view.own",
+        "description": "View own attendance summary (student)"
+      }
+    ]
+  },
+  {
     "module": "User Management",
     "permissions": [
       {
@@ -476,6 +521,21 @@
         "resource": "my-payments",
         "action": "make",
         "description": "Make a payment against own invoice"
+      },
+      {
+        "resource": "my-documents",
+        "action": "view",
+        "description": "View own uploaded documents and their verification status"
+      },
+      {
+        "resource": "my-documents",
+        "action": "upload",
+        "description": "Upload own documents (birth certificate, results, transcript, etc.) for verification"
+      },
+      {
+        "resource": "my-hostel",
+        "action": "view",
+        "description": "View own hostel room allocation and allocation history"
       }
     ]
   },
@@ -496,6 +556,71 @@
         "resource": "teaching-resources",
         "action": "manage",
         "description": "Upload or edit teaching resources"
+      }
+    ]
+  },
+  {
+    "module": "Documents",
+    "permissions": [
+      {
+        "resource": "documents",
+        "action": "view",
+        "description": "View student documents — list, detail, by student, and download"
+      },
+      {
+        "resource": "documents",
+        "action": "verify",
+        "description": "Verify or reject a student's uploaded document"
+      },
+      {
+        "resource": "documents",
+        "action": "manage",
+        "description": "Update document metadata, or delete any document record"
+      }
+    ]
+  },
+  {
+    "module": "Hostel",
+    "permissions": [
+      {
+        "resource": "hostels",
+        "action": "view",
+        "description": "View hostels, blocks, rooms, vacancies, and room allocations"
+      },
+      {
+        "resource": "hostels",
+        "action": "manage",
+        "description": "Create, edit, or deactivate hostels, blocks, and rooms"
+      },
+      {
+        "resource": "hostels",
+        "action": "allocate",
+        "description": "Allocate or vacate a student's room assignment"
+      }
+    ]
+  },
+  {
+    "module": "Clearance",
+    "permissions": [
+      {
+        "resource": "clearance",
+        "action": "view",
+        "description": "View clearance types and clearance requests"
+      },
+      {
+        "resource": "clearance",
+        "action": "request",
+        "description": "Request clearance for yourself"
+      },
+      {
+        "resource": "clearance",
+        "action": "approve",
+        "description": "Approve or reject clearance requests"
+      },
+      {
+        "resource": "clearance",
+        "action": "manage",
+        "description": "Create, edit, or deactivate clearance types"
       }
     ]
   }

@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   useSemesters,
   useCreateSemester,
-  useDeleteSemester,
   useActivateSemester,
 } from "@/hooks/useSemesters"
 import type { CreateSemesterPayload } from "@/types/school"
@@ -21,7 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { EmptyState } from "./EmptyState"
-import { Layers, Plus, Trash2, Power, ArrowLeft, Loader2 } from "lucide-react"
+import { Layers, Plus, Power, ArrowLeft, Loader2 } from "lucide-react"
 import { useAcademicSessionSetupStore } from "@/store/dashboard/academicSessionSetupStore"
 import { SemesterFormValues, semesterSchema } from "@/schemas/school.schema"
 
@@ -35,7 +34,6 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
 
   const { data: semesters, isLoading } = useSemesters(selectedSessionId)
   const createSemester = useCreateSemester()
-  const deleteSemester = useDeleteSemester(selectedSessionId!)
   const activateSemester = useActivateSemester(selectedSessionId!)
 
   const [showForm, setShowForm] = useState(false)
@@ -48,9 +46,10 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
     resolver: zodResolver(semesterSchema),
     defaultValues: {
       name: "",
-      sequence_no: 1,
       startDate: new Date().toISOString(),
       endDate: new Date().toISOString(),
+      registrationStart: "",
+      registrationEnd: "",
     },
   })
 
@@ -59,17 +58,19 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
     const payload: CreateSemesterPayload = {
       academicSessionId: selectedSessionId,
       name: data.name,
-      sequence_no: data.sequence_no,
       isActive: false,
       startDate: data.startDate,
       endDate: data.endDate,
+      registrationStart: data.registrationStart || undefined,
+      registrationEnd: data.registrationEnd || undefined,
     }
     await createSemester.mutateAsync(payload)
     reset({
       name: "",
-      sequence_no: (semesters?.length ?? 0) + 2,
       startDate: new Date().toISOString(),
       endDate: new Date().toISOString(),
+      registrationStart: "",
+      registrationEnd: "",
     })
     setShowForm(false)
   }
@@ -86,7 +87,7 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
   }
 
   const sorted = [...(semesters ?? [])].sort(
-    (a, b) => a.sequence_no - b.sequence_no
+    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
   )
 
   return (
@@ -128,42 +129,25 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
           <CardHeader>
             <CardTitle>Add Semester</CardTitle>
             <CardDescription>
-              Define a semester period and its chronological order.
+              Define a semester period, and optionally its registration window.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Semester Name</Label>
-                <Input
-                  id="name"
-                  placeholder="1st Semester"
-                  aria-invalid={!!errors.name}
-                  {...register("name")}
-                />
-                {errors.name && (
-                  <p className="text-sm text-destructive">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="sequence_no">Sequence Order</Label>
-                <Input
-                  id="sequence_no"
-                  type="number"
-                  min={1}
-                  aria-invalid={!!errors.sequence_no}
-                  {...register("sequence_no", { valueAsNumber: true })}
-                />
-                {errors.sequence_no && (
-                  <p className="text-sm text-destructive">
-                    {errors.sequence_no.message}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Semester Name</Label>
+              <Input
+                id="name"
+                placeholder="First Semester"
+                aria-invalid={!!errors.name}
+                {...register("name")}
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="startDate">Start Date</Label>
                 <Input
@@ -191,6 +175,30 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
                     {errors.endDate.message}
                   </p>
                 )}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="registrationStart">
+                  Registration Opens{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="registrationStart"
+                  type="date"
+                  {...register("registrationStart")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="registrationEnd">
+                  Registration Closes{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="registrationEnd"
+                  type="date"
+                  {...register("registrationEnd")}
+                />
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -235,13 +243,23 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
             <Card key={semester.id}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                    {semester.sequence_no}
+                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Layers className="size-3.5" />
                   </span>
                   {semester.name}
                 </CardTitle>
                 <CardDescription>
-                  Sequence: {semester.sequence_no} —{" "}
+                  {new Date(semester.startDate).toLocaleDateString("en-NG", {
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  –{" "}
+                  {new Date(semester.endDate).toLocaleDateString("en-NG", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}{" "}
+                  —{" "}
                   {semester.isActive ? (
                     <span className="font-medium text-primary">Active</span>
                   ) : (
@@ -266,15 +284,6 @@ export function SemesterManager({ canManage = false }: SemesterManagerProps) {
                     <span className="flex-1 text-center text-xs font-medium text-primary">
                       ● Currently Active
                     </span>
-                  )}
-                  {canManage && (
-                    <Button
-                      variant="destructive"
-                      size="icon-sm"
-                      onClick={() => deleteSemester.mutate(semester.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
                   )}
                 </div>
               </CardContent>

@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/select"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 import { useLevels } from "@/hooks/useCourseStructure"
-import { feeManagementQueryOptions } from "@/services/feeManagementApi"
+import { courseStructureQueryOptions } from "@/services/courseStructureApi"
 import { useEligibleCount } from "../../hooks/use-fee-types"
-import type { CreateFeeTypeDto, FeeCategory } from "../../types"
+import type { CreateFeeTypeInputValues, FeeCategory } from "../../types"
 
 // Categories that require a session and support cohort scoping
 const COHORT_CATEGORIES: FeeCategory[] = ["TUITION", "HOSTEL", "CLEARANCE"]
@@ -31,7 +31,7 @@ export function FeeTypeScopeSelector() {
     control,
     setValue,
     formState: { errors },
-  } = useFormContext<CreateFeeTypeDto>()
+  } = useFormContext<CreateFeeTypeInputValues>()
 
   const category = useWatch({ control, name: "category" }) as
     | FeeCategory
@@ -58,11 +58,11 @@ export function FeeTypeScopeSelector() {
 
   const { data: sessions, isLoading: loadingSessions } = useAcademicSessions()
   const { data: programsData, isLoading: loadingPrograms } = useQuery(
-    feeManagementQueryOptions.programs()
+    courseStructureQueryOptions.programs.list()
   )
   const { data: levelsData, isLoading: loadingLevels } = useLevels()
 
-  const programs = programsData ?? []
+  const programs = programsData?.data ?? []
   const levels = levelsData?.data ?? []
 
   // Eligible count preview — only fires when scope fields are configured
@@ -264,7 +264,7 @@ export function FeeTypeScopeSelector() {
                     </SelectItem>
                     {levels
                       .slice()
-                      .sort((a, b) => a.numeric_value - b.numeric_value)
+                      .sort((a, b) => a.numericValue - b.numericValue)
                       .map((l) => (
                         <SelectItem key={l.id} value={l.id.toString()}>
                           {l.name}

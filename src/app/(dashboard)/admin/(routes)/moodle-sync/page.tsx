@@ -109,20 +109,6 @@ export default function MoodleSyncOverviewPage() {
         </div>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="mb-6 rounded-xl border border-primary/20 bg-primary/4 px-4 py-2.5 text-xs text-muted-foreground"
-      >
-        Running on dummy data — no Bruno endpoints exist for this module yet.
-        See{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-          sandbox/moodle_sync/moodle_sync_UI_README.md
-        </code>{" "}
-        for the proposed backend contract.
-      </motion.div>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           href="/admin/moodle-sync/categories"

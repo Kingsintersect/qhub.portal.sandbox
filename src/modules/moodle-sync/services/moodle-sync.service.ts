@@ -1,1029 +1,545 @@
+import apiClient from "@/lib/clients/apiClient"
+import { academicUnitsApi } from "@/services/academicStructureApi"
 import type {
   CategorySyncResponse,
   CoursesBulkPushPayload,
   CourseSyncResponse,
   EnrollmentSyncResponse,
   PushCategoryDto,
+  ResolveCategoryMappingDto,
   UserSyncQueryFilters,
   UserSyncResponse,
   UsersBulkPushPayload,
   AssessmentResponse,
+  AssessmentFilter,
+  PaginatedAssessments,
+  UpdateVisibilityPayload,
+  VisibilityResponse,
+  AssessmentSyncResult,
+  AssessmentSyncStatusResult,
+  CaPreviewResponse,
   GradeResponse,
   CalendarEventResponse,
 } from "../types"
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-// Status: this entire service runs on an in-memory dummy store — there are no
-// Bruno docs for moodle-sync yet. Every method carries a `// TODO: replace with →`
-// comment naming the real endpoint from moodle_sync_README.md; flip those over
-// once the backend ships, the hooks/components calling this service don't change.
+// Real backend contract per bruno/moodle-sync/*.bru (the sole source of truth
+// for this module — see CLAUDE.md §13). List/detail GETs are wrapped in a
+// `{ data: ... }` envelope (confirmed by every List .bru's
+// `res.body.data[0].id` post-response script); push/pull actions that return
+// a single sync record respond with the raw object (confirmed by the Push
+// .bru files reading `res.body.id` directly) — unwrapped here so callers
+// keep receiving the plain shapes they already expect.
+const BASE = "/moodle-sync"
+const AUTH = { access_token: true } as const
 
-const delay = (ms = 400) => new Promise<void>((r) => setTimeout(r, ms))
-let _idCounter = 1000
-const uid = () => ++_idCounter
-const now = () => new Date().toISOString()
-const hoursAgo = (h: number) =>
-  new Date(Date.now() - h * 60 * 60 * 1000).toISOString()
-const daysAhead = (d: number) =>
-  new Date(Date.now() + d * 24 * 60 * 60 * 1000).toISOString()
+// Raw wire shape for category-sync rows — the real backend only returns the
+// mapping row itself (academicUnitId + Moodle-side fields); `unitName`/
+// `unitTypeCode`/`parentId` on CategorySyncResponse are enriched client-side
+// by joining against the AcademicUnit tree (mapCategorySync below), the same
+// "Frontend Contract Additions" pattern the old entityType/entityId scheme
+// used. See sandbox/schema-moodel-sync-refactor/api-v2.md §"Moodle Category
+// Sync" and MISSING_BACKEND_APIS.md §2.16.
+interface RawCategorySync {
+  id: number
+  academicUnitId: number
+  moodleCategoryId: number | null
+  moodleCategoryName: string | null
+  parentMoodleCategoryId: number | null
+  syncStatus: CategorySyncResponse["syncStatus"]
+  syncDirection: CategorySyncResponse["syncDirection"]
+  needsMapping: boolean
+  syncError: string | null
+  lastSyncAt: string | null
+}
 
-// ── Categories ────────────────────────────────────────────────────────────────
-// The portal's academic hierarchy — some nodes already pushed to Moodle
-// (moodleCategoryId set), some not yet (moodleCategoryId null, status PENDING).
+function mapCategorySync(
+  raw: RawCategorySync,
+  unitsById: Map<
+    number,
+    { name: string; typeCode: string; parentId: number | null }
+  >
+): CategorySyncResponse {
+  const unit = unitsById.get(raw.academicUnitId)
+  return {
+    id: raw.id,
+    academicUnitId: raw.academicUnitId,
+    unitName: unit?.name ?? `Unit #${raw.academicUnitId}`,
+    unitTypeCode: unit?.typeCode ?? "UNKNOWN",
+    parentId: unit?.parentId ?? null,
+    moodleCategoryId: raw.moodleCategoryId,
+    moodleCategoryName: raw.moodleCategoryName,
+    parentMoodleCategoryId: raw.parentMoodleCategoryId,
+    syncStatus: raw.syncStatus,
+    syncDirection: raw.syncDirection,
+    needsMapping: raw.needsMapping,
+    syncError: raw.syncError,
+    lastSyncAt: raw.lastSyncAt,
+  }
+}
 
-let mockCategories: CategorySyncResponse[] = [
-  {
-    id: 1,
-    entityType: "faculty",
-    entityId: 1,
-    entityName: "Faculty of Social Sciences",
-    parentId: null,
-    moodleCategoryId: 500,
-    moodleCategoryName: "SOCIAL SCIENCES",
-    parentMoodleCategoryId: null,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(30),
-  },
-  {
-    id: 2,
-    entityType: "program",
-    entityId: 10,
-    entityName: "Economics",
-    parentId: 1,
-    moodleCategoryId: 501,
-    moodleCategoryName: "ECONOMICS",
-    parentMoodleCategoryId: 500,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(30),
-  },
-  {
-    id: 3,
-    entityType: "level",
-    entityId: 100,
-    entityName: "Level 100",
-    parentId: 10,
-    moodleCategoryId: 502,
-    moodleCategoryName: "LEVEL 100",
-    parentMoodleCategoryId: 501,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(30),
-  },
-  {
-    id: 4,
-    entityType: "semester",
-    entityId: 1000,
-    entityName: "1st Semester",
-    parentId: 100,
-    moodleCategoryId: 503,
-    moodleCategoryName: "1ST SEMESTER",
-    parentMoodleCategoryId: 502,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(30),
-  },
-  {
-    id: 5,
-    entityType: "faculty",
-    entityId: 2,
-    entityName: "Faculty of Science",
-    parentId: null,
-    moodleCategoryId: 510,
-    moodleCategoryName: "SCIENCE",
-    parentMoodleCategoryId: null,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(6),
-  },
-  {
-    id: 6,
-    entityType: "program",
-    entityId: 20,
-    entityName: "Computer Science",
-    parentId: 2,
-    moodleCategoryId: 511,
-    moodleCategoryName: "COMPUTER SCIENCE",
-    parentMoodleCategoryId: 510,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(6),
-  },
-  {
-    id: 7,
-    entityType: "level",
-    entityId: 200,
-    entityName: "Level 300",
-    parentId: 20,
-    moodleCategoryId: 512,
-    moodleCategoryName: "LEVEL 300",
-    parentMoodleCategoryId: 511,
-    syncStatus: "STALE",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(50),
-  },
-  {
-    id: 8,
-    entityType: "semester",
-    entityId: 2000,
-    entityName: "First Semester",
-    parentId: 200,
-    moodleCategoryId: null,
-    moodleCategoryName: null,
-    parentMoodleCategoryId: null,
-    syncStatus: "PENDING",
-    syncDirection: "PUSH",
-    lastSyncAt: null,
-  },
-]
-
-// ── Users ─────────────────────────────────────────────────────────────────────
-
-const mockUsers: UserSyncResponse[] = [
-  {
-    id: 1,
-    userId: 501,
-    name: "Chidera Okafor",
-    email: "chidera.okafor@students.qhub.edu",
-    portalRole: "STUDENT",
-    moodleUserId: 9001,
-    moodleUsername: "chidera.okafor",
-    moodleRole: "student",
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(12),
-  },
-  {
-    id: 2,
-    userId: 502,
-    name: "Amaka Bello",
-    email: "amaka.bello@students.qhub.edu",
-    portalRole: "STUDENT",
-    moodleUserId: null,
-    moodleUsername: null,
-    moodleRole: "student",
-    syncStatus: "PENDING",
-    syncDirection: "PUSH",
-    lastSyncAt: null,
-  },
-  {
-    id: 3,
-    userId: 503,
-    name: "Tunde Afolabi",
-    email: "tunde.afolabi@students.qhub.edu",
-    portalRole: "STUDENT",
-    moodleUserId: 9002,
-    moodleUsername: "tunde.afolabi",
-    moodleRole: "student",
-    syncStatus: "FAILED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(3),
-  },
-  {
-    id: 4,
-    userId: 601,
-    name: "Dr. Ifeoma Nwosu",
-    email: "ifeoma.nwosu@qhub.edu",
-    portalRole: "TUTOR",
-    moodleUserId: 8001,
-    moodleUsername: "ifeoma.nwosu",
-    moodleRole: "editingteacher",
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(80),
-  },
-  {
-    id: 5,
-    userId: 602,
-    name: "Dr. Segun Adeyemi",
-    email: "segun.adeyemi@qhub.edu",
-    portalRole: "TUTOR",
-    moodleUserId: null,
-    moodleUsername: null,
-    moodleRole: "editingteacher",
-    syncStatus: "PENDING",
-    syncDirection: "PUSH",
-    lastSyncAt: null,
-  },
-  {
-    id: 6,
-    userId: 701,
-    name: "Grace Eze",
-    email: "grace.eze@qhub.edu",
-    portalRole: "STAFF",
-    moodleUserId: 7001,
-    moodleUsername: "grace.eze",
-    moodleRole: "manager",
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(100),
-  },
-]
-
-// ── Courses ───────────────────────────────────────────────────────────────────
-
-let mockCourses: CourseSyncResponse[] = [
-  {
-    id: 1,
-    courseOfferingId: 55,
-    courseCode: "CSC301",
-    courseTitle: "Data Structures & Algorithms",
-    moodleCourseId: 201,
-    moodleCategoryId: 512,
-    moodleShortName: "CSC301-2024",
-    moodleFullName: "Data Structures & Algorithms",
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(2),
-  },
-  {
-    id: 2,
-    courseOfferingId: 56,
-    courseCode: "CSC303",
-    courseTitle: "Operating Systems",
-    moodleCourseId: 202,
-    moodleCategoryId: 512,
-    moodleShortName: "CSC303-2024",
-    moodleFullName: "Operating Systems",
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(3),
-  },
-  {
-    id: 3,
-    courseOfferingId: 57,
-    courseCode: "MTH201",
-    courseTitle: "Mathematical Methods I",
-    moodleCourseId: 203,
-    moodleCategoryId: 503,
-    moodleShortName: "MTH201-2024",
-    moodleFullName: "Mathematical Methods I",
-    syncStatus: "STALE",
-    syncDirection: "PUSH",
-    lastSyncAt: hoursAgo(40),
-  },
-  {
-    id: 4,
-    courseOfferingId: 58,
-    courseCode: "ECO205",
-    courseTitle: "Microeconomics II",
-    moodleCourseId: null,
-    moodleCategoryId: null,
-    moodleShortName: null,
-    moodleFullName: null,
-    syncStatus: "PENDING",
-    syncDirection: "PUSH",
-    lastSyncAt: null,
-  },
-]
-
-// ── Enrollments ───────────────────────────────────────────────────────────────
-
-let mockEnrollments: EnrollmentSyncResponse[] = [
-  {
-    id: 1,
-    studentEnrollmentId: 9001,
-    studentName: "Chidera Okafor",
-    courseCode: "CSC301",
-    moodleCourseId: 201,
-    moodleUserId: 9001,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    syncError: null,
-    lastSyncAt: hoursAgo(12),
-  },
-  {
-    id: 2,
-    studentEnrollmentId: 9002,
-    studentName: "Chidera Okafor",
-    courseCode: "CSC303",
-    moodleCourseId: 202,
-    moodleUserId: 9001,
-    syncStatus: "SYNCED",
-    syncDirection: "PUSH",
-    syncError: null,
-    lastSyncAt: hoursAgo(12),
-  },
-  {
-    id: 3,
-    studentEnrollmentId: 9003,
-    studentName: "Tunde Afolabi",
-    courseCode: "CSC301",
-    moodleCourseId: 201,
-    moodleUserId: 9002,
-    syncStatus: "FAILED",
-    syncDirection: "PUSH",
-    syncError:
-      "Moodle user 9002 not found — user sync must complete before enrollment sync.",
-    lastSyncAt: hoursAgo(3),
-  },
-  {
-    id: 4,
-    studentEnrollmentId: 9004,
-    studentName: "Amaka Bello",
-    courseCode: "MTH201",
-    moodleCourseId: null,
-    moodleUserId: null,
-    syncStatus: "PENDING",
-    syncDirection: "PUSH",
-    syncError: null,
-    lastSyncAt: null,
-  },
-]
-
-// ── Assessments (read-only) ────────────────────────────────────────────────────
-
-const mockAssessments: AssessmentResponse[] = [
-  {
-    id: 1,
-    assessmentType: "assignment",
-    name: "Programming Assignment 1: Linked Lists",
-    description:
-      "Implement a singly-linked list with insert, delete, and search operations in C++.",
-    dueDate: daysAhead(3),
-    maxGrade: 100,
-    course: {
-      moodleShortName: "CSC301-2024",
-      moodleFullName: "Data Structures & Algorithms",
-      courseOffering: {
-        course: { code: "CSC301", title: "Data Structures & Algorithms" },
-      },
-    },
-  },
-  {
-    id: 2,
-    assessmentType: "quiz",
-    name: "Week 5 Quiz: Trees & Graphs",
-    description:
-      "Multiple choice quiz covering binary trees, BST operations, and graph representations.",
-    dueDate: daysAhead(1),
-    maxGrade: 20,
-    course: {
-      moodleShortName: "CSC301-2024",
-      moodleFullName: "Data Structures & Algorithms",
-      courseOffering: {
-        course: { code: "CSC301", title: "Data Structures & Algorithms" },
-      },
-    },
-  },
-  {
-    id: 3,
-    assessmentType: "forum",
-    name: "Discussion: Virtualisation vs Containerisation",
-    description:
-      "Participate in a structured debate comparing virtual machines to containers.",
-    dueDate: null,
-    maxGrade: null,
-    course: {
-      moodleShortName: "CSC303-2024",
-      moodleFullName: "Operating Systems",
-      courseOffering: {
-        course: { code: "CSC303", title: "Operating Systems" },
-      },
-    },
-  },
-  {
-    id: 4,
-    assessmentType: "assignment",
-    name: "Integration Techniques Assignment",
-    description:
-      "Solve 15 integration problems covering substitution, by-parts, and partial fractions.",
-    dueDate: daysAhead(14),
-    maxGrade: 100,
-    course: {
-      moodleShortName: "MTH201-2024",
-      moodleFullName: "Mathematical Methods I",
-      courseOffering: {
-        course: { code: "MTH201", title: "Mathematical Methods I" },
-      },
-    },
-  },
-]
-
-// ── Grades (read-only) ─────────────────────────────────────────────────────────
-
-const mockGrades: GradeResponse[] = [
-  {
-    id: 1,
-    itemName: "Programming Assignment 1: Linked Lists",
-    grade: 88,
-    maxGrade: 100,
-    feedback: "Solid implementation — watch edge cases on empty-list deletion.",
-    gradedAt: hoursAgo(20),
-    course: {
-      moodleShortName: "CSC301-2024",
-      moodleFullName: "Data Structures & Algorithms",
-      courseOffering: {
-        course: { code: "CSC301", title: "Data Structures & Algorithms" },
-      },
-    },
-  },
-  {
-    id: 2,
-    itemName: "Week 3 Quiz: Stacks & Queues",
-    grade: 18,
-    maxGrade: 20,
-    feedback: null,
-    gradedAt: hoursAgo(90),
-    course: {
-      moodleShortName: "CSC301-2024",
-      moodleFullName: "Data Structures & Algorithms",
-      courseOffering: {
-        course: { code: "CSC301", title: "Data Structures & Algorithms" },
-      },
-    },
-  },
-  {
-    id: 3,
-    itemName: "OS Lab Report: Process Scheduling",
-    grade: null,
-    maxGrade: 50,
-    feedback: null,
-    gradedAt: null,
-    course: {
-      moodleShortName: "CSC303-2024",
-      moodleFullName: "Operating Systems",
-      courseOffering: {
-        course: { code: "CSC303", title: "Operating Systems" },
-      },
-    },
-  },
-]
-
-// ── Calendar & Zoom (read-only) ────────────────────────────────────────────────
-
-const mockCalendarEvents: CalendarEventResponse[] = [
-  {
-    id: 1,
-    eventType: "zoom",
-    name: "CSC301 Live Session: Balanced Trees",
-    description: "Weekly live walkthrough with Q&A.",
-    startDate: daysAhead(2),
-    endDate: null,
-    meetingUrl: "https://zoom.us/j/1234567890",
-    course: {
-      moodleShortName: "CSC301-2024",
-      courseOffering: {
-        course: { code: "CSC301", title: "Data Structures & Algorithms" },
-      },
-    },
-  },
-  {
-    id: 2,
-    eventType: "course",
-    name: "CSC303 Assignment Window Opens",
-    description: "Submission window for the OS lab report opens.",
-    startDate: daysAhead(1),
-    endDate: null,
-    meetingUrl: null,
-    course: {
-      moodleShortName: "CSC303-2024",
-      courseOffering: {
-        course: { code: "CSC303", title: "Operating Systems" },
-      },
-    },
-  },
-  {
-    id: 3,
-    eventType: "site",
-    name: "Semester Registration Deadline",
-    description:
-      "Last day to register or drop courses for the current semester.",
-    startDate: daysAhead(5),
-    endDate: null,
-    meetingUrl: null,
-    course: null,
-  },
-]
-
-// ── moodleSyncService ─────────────────────────────────────────────────────────
+async function buildUnitLookup(): Promise<
+  Map<number, { name: string; typeCode: string; parentId: number | null }>
+> {
+  const res = await academicUnitsApi.list()
+  return new Map(
+    res.data.map((u) => [
+      u.id,
+      { name: u.name, typeCode: u.typeCode, parentId: u.parentId },
+    ])
+  )
+}
 
 export const moodleSyncService = {
   // ---------- Categories ----------
-  // TODO: replace with → apiClient.get<CategorySyncResponse[]>('/moodle-sync/categories')
+
   async listCategories(): Promise<CategorySyncResponse[]> {
-    await delay()
-    return [...mockCategories]
+    const [res, unitsById] = await Promise.all([
+      apiClient.get<{ data: RawCategorySync[] }>(`${BASE}/categories`, AUTH),
+      buildUnitLookup(),
+    ])
+    return res.data.map((r) => mapCategorySync(r, unitsById))
   },
 
-  // TODO: replace with → apiClient.get<CategorySyncResponse>(`/moodle-sync/categories/${id}`)
+  async getCategoriesNeedingMapping(): Promise<CategorySyncResponse[]> {
+    const [res, unitsById] = await Promise.all([
+      apiClient.get<{ data: RawCategorySync[] }>(
+        `${BASE}/categories/needs-mapping`,
+        AUTH
+      ),
+      buildUnitLookup(),
+    ])
+    return res.data.map((r) => mapCategorySync(r, unitsById))
+  },
+
   async getCategory(id: number): Promise<CategorySyncResponse> {
-    await delay(200)
-    const item = mockCategories.find((c) => c.id === id)
-    if (!item) throw new Error("Category mapping not found")
-    return { ...item }
+    const [res, unitsById] = await Promise.all([
+      apiClient.get<{ data: RawCategorySync }>(
+        `${BASE}/categories/${id}`,
+        AUTH
+      ),
+      buildUnitLookup(),
+    ])
+    return mapCategorySync(res.data, unitsById)
   },
 
-  // TODO: replace with → apiClient.post<CategorySyncResponse>('/moodle-sync/categories/push', dto)
-  async pushCategory(dto: PushCategoryDto): Promise<CategorySyncResponse> {
-    await delay(700)
-    const existing = mockCategories.find(
-      (c) => c.entityType === dto.entityType && c.entityId === dto.entityId
-    )
-    const moodleCategoryId =
-      existing?.moodleCategoryId ?? 500 + mockCategories.length + 1
-    const updated: CategorySyncResponse = {
-      id: existing?.id ?? uid(),
-      entityType: dto.entityType,
-      entityId: dto.entityId,
-      entityName: existing?.entityName ?? `${dto.entityType} #${dto.entityId}`,
-      parentId: existing?.parentId ?? null,
-      moodleCategoryId,
-      moodleCategoryName: (
-        existing?.entityName ?? `${dto.entityType} #${dto.entityId}`
-      ).toUpperCase(),
-      parentMoodleCategoryId:
-        dto.parentMoodleCategoryId ?? existing?.parentMoodleCategoryId ?? null,
-      syncStatus: "SYNCED",
-      syncDirection: "PUSH",
-      lastSyncAt: now(),
-    }
-    const idx = mockCategories.findIndex((c) => c.id === updated.id)
-    if (idx === -1) mockCategories.push(updated)
-    else mockCategories[idx] = updated
-    return { ...updated }
-  },
+  pushCategory: (dto: PushCategoryDto) =>
+    apiClient.post<RawCategorySync>(`${BASE}/categories/push`, dto, AUTH),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/categories/push-hierarchy/${facultyId}`)
-  async pushHierarchy(facultyId: number): Promise<{ pushed: number }> {
-    await delay(1500)
-    let pushed = 0
-    mockCategories = mockCategories.map((c) => {
-      if (c.entityType === "faculty" && c.entityId !== facultyId) return c
-      pushed += 1
-      return {
-        ...c,
-        syncStatus: "SYNCED",
-        lastSyncAt: now(),
-        moodleCategoryId: c.moodleCategoryId ?? 500 + pushed,
-      }
-    })
-    return { pushed }
-  },
+  // Replaces the old faculty-only pushHierarchy — any AcademicUnit can be a
+  // subtree root now (a whole Faculty, or just one Program's Level/Semester
+  // branch), pushed breadth-first. See api-v2.md
+  // §"POST /moodle-sync/categories/push-subtree/{rootUnitId}".
+  pushSubtree: (rootUnitId: number) =>
+    apiClient.post<RawCategorySync[]>(
+      `${BASE}/categories/push-subtree/${rootUnitId}`,
+      undefined,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post('/moodle-sync/categories/pull')
-  async pullCategories(): Promise<{ pulled: number; created: number }> {
-    await delay(1200)
-    mockCategories = mockCategories.map((c) =>
-      c.syncStatus === "STALE"
-        ? { ...c, syncStatus: "SYNCED", lastSyncAt: now() }
-        : c
-    )
-    return { pulled: mockCategories.length, created: 0 }
-  },
+  pullCategories: () =>
+    apiClient.post<{
+      matchedByIdnumber: number
+      updated: number
+      needsMapping: number
+    }>(`${BASE}/categories/pull`, undefined, AUTH),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/categories/pull/${moodleCategoryId}`)
-  async pullCategory(moodleCategoryId: number): Promise<CategorySyncResponse> {
-    await delay(600)
-    const idx = mockCategories.findIndex(
-      (c) => c.moodleCategoryId === moodleCategoryId
-    )
-    if (idx === -1) throw new Error("Moodle category not found")
-    mockCategories[idx] = {
-      ...mockCategories[idx],
-      syncStatus: "SYNCED",
-      lastSyncAt: now(),
-    }
-    return { ...mockCategories[idx] }
-  },
+  pullCategory: (moodleCategoryId: number) =>
+    apiClient.post<RawCategorySync>(
+      `${BASE}/categories/pull/${moodleCategoryId}`,
+      undefined,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.delete(`/moodle-sync/categories/${id}`)
-  async deleteCategoryMapping(id: number): Promise<{ message: string }> {
-    await delay(300)
-    const idx = mockCategories.findIndex((c) => c.id === id)
-    if (idx === -1) throw new Error("Category mapping not found")
-    mockCategories[idx] = {
-      ...mockCategories[idx],
-      syncStatus: "PENDING",
-      moodleCategoryId: null,
-      moodleCategoryName: null,
-      lastSyncAt: null,
-    }
-    return {
-      message:
-        "Mapping removed locally. The Moodle category itself is untouched.",
-    }
-  },
+  resolveCategoryMapping: (id: number, dto: ResolveCategoryMappingDto) =>
+    apiClient.post<RawCategorySync>(
+      `${BASE}/categories/${id}/resolve`,
+      dto,
+      AUTH
+    ),
+
+  deleteCategoryMapping: (id: number) =>
+    apiClient.delete<{ message: string }>(`${BASE}/categories/${id}`, AUTH),
 
   // ---------- Users ----------
-  // TODO: replace with → apiClient.get<UserSyncResponse[]>('/moodle-sync/users', { params: filters })
+
   async listUsers(
     filters: UserSyncQueryFilters = {}
   ): Promise<UserSyncResponse[]> {
-    await delay()
-    return mockUsers.filter((u) => {
-      if (filters.role && u.moodleRole !== filters.role) return false
-      if (filters.status && u.syncStatus !== filters.status) return false
-      return true
-    })
+    const res = await apiClient.get<{ data: UserSyncResponse[] }>(
+      `${BASE}/users`,
+      { ...AUTH, params: filters as Record<string, unknown> }
+    )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.get<UserSyncResponse>(`/moodle-sync/users/${id}`)
   async getUserMapping(id: number): Promise<UserSyncResponse> {
-    await delay(200)
-    const item = mockUsers.find((u) => u.id === id)
-    if (!item) throw new Error("User mapping not found")
-    return { ...item }
+    const res = await apiClient.get<{ data: UserSyncResponse }>(
+      `${BASE}/users/${id}`,
+      AUTH
+    )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.post<UserSyncResponse>(`/moodle-sync/users/push/${userId}`)
-  async pushUser(userId: number): Promise<UserSyncResponse> {
-    await delay(700)
-    const idx = mockUsers.findIndex((u) => u.userId === userId)
-    if (idx === -1) throw new Error("Portal user not found")
-    if (mockUsers[idx].portalRole === "STUDENT") {
-      throw new Error(
-        "Students are synced automatically on tuition payment verification — they can't be pushed manually."
-      )
-    }
-    mockUsers[idx] = {
-      ...mockUsers[idx],
-      moodleUserId: mockUsers[idx].moodleUserId ?? 8000 + idx,
-      moodleUsername:
-        mockUsers[idx].moodleUsername ??
-        mockUsers[idx].name.toLowerCase().replace(/\s+/g, "."),
-      syncStatus: "SYNCED",
-      lastSyncAt: now(),
-    }
-    return { ...mockUsers[idx] }
+  async getUserMappingByUserId(userId: number): Promise<UserSyncResponse> {
+    const res = await apiClient.get<{ data: UserSyncResponse }>(
+      `${BASE}/users/user/${userId}`,
+      AUTH
+    )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.post('/moodle-sync/users/push-bulk', { userIds })
-  async pushUsersBulk({
-    userIds,
-  }: UsersBulkPushPayload): Promise<{ pushed: number; skipped: number }> {
-    await delay(1500)
-    let pushed = 0
-    let skipped = 0
-    for (const userId of userIds) {
-      const idx = mockUsers.findIndex((u) => u.userId === userId)
-      if (idx === -1 || mockUsers[idx].portalRole === "STUDENT") {
-        skipped += 1
-        continue
-      }
-      mockUsers[idx] = {
-        ...mockUsers[idx],
-        moodleUserId: mockUsers[idx].moodleUserId ?? 8000 + idx,
-        moodleUsername:
-          mockUsers[idx].moodleUsername ??
-          mockUsers[idx].name.toLowerCase().replace(/\s+/g, "."),
-        syncStatus: "SYNCED",
-        lastSyncAt: now(),
-      }
-      pushed += 1
-    }
-    return { pushed, skipped }
-  },
+  pushUser: (userId: number) =>
+    apiClient.post<UserSyncResponse>(
+      `${BASE}/users/push/${userId}`,
+      undefined,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post('/moodle-sync/users/pull')
-  async pullUsers(): Promise<{ matched: number; created: number }> {
-    await delay(1200)
-    return {
-      matched: mockUsers.filter((u) => u.syncStatus === "SYNCED").length,
-      created: 0,
-    }
-  },
+  pushUsersBulk: ({ userIds }: UsersBulkPushPayload) =>
+    apiClient.post<{ pushed: number; skipped: number }>(
+      `${BASE}/users/push-bulk`,
+      { userIds },
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/users/pull/${moodleUserId}`)
-  async pullUser(moodleUserId: number): Promise<UserSyncResponse> {
-    await delay(600)
-    const idx = mockUsers.findIndex((u) => u.moodleUserId === moodleUserId)
-    if (idx === -1) throw new Error("Moodle user not found")
-    mockUsers[idx] = {
-      ...mockUsers[idx],
-      syncStatus: "SYNCED",
-      lastSyncAt: now(),
-    }
-    return { ...mockUsers[idx] }
-  },
+  pullUsers: () =>
+    apiClient.post<{ matched: number; created: number }>(
+      `${BASE}/users/pull`,
+      undefined,
+      AUTH
+    ),
+
+  pullUser: (moodleUserId: number) =>
+    apiClient.post<UserSyncResponse>(
+      `${BASE}/users/pull/${moodleUserId}`,
+      undefined,
+      AUTH
+    ),
 
   // ---------- Courses ----------
-  // TODO: replace with → apiClient.get<CourseSyncResponse[]>('/moodle-sync/courses')
+
   async listCourses(): Promise<CourseSyncResponse[]> {
-    await delay()
-    return [...mockCourses]
+    const res = await apiClient.get<{ data: CourseSyncResponse[] }>(
+      `${BASE}/courses`,
+      AUTH
+    )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.get<CourseSyncResponse>(`/moodle-sync/courses/${id}`)
   async getCourse(id: number): Promise<CourseSyncResponse> {
-    await delay(200)
-    const item = mockCourses.find((c) => c.id === id)
-    if (!item) throw new Error("Course mapping not found")
-    return { ...item }
-  },
-
-  // TODO: replace with → apiClient.post<CourseSyncResponse>(`/moodle-sync/courses/push/${courseOfferingId}`)
-  async pushCourse(courseOfferingId: number): Promise<CourseSyncResponse> {
-    await delay(700)
-    const idx = mockCourses.findIndex(
-      (c) => c.courseOfferingId === courseOfferingId
+    const res = await apiClient.get<{ data: CourseSyncResponse }>(
+      `${BASE}/courses/${id}`,
+      AUTH
     )
-    if (idx === -1) throw new Error("Course offering not found")
-    mockCourses[idx] = {
-      ...mockCourses[idx],
-      moodleCourseId: mockCourses[idx].moodleCourseId ?? 200 + idx,
-      moodleShortName:
-        mockCourses[idx].moodleShortName ??
-        `${mockCourses[idx].courseCode}-2024`,
-      moodleFullName:
-        mockCourses[idx].moodleFullName ?? mockCourses[idx].courseTitle,
-      syncStatus: "SYNCED",
-      lastSyncAt: now(),
-    }
-    return { ...mockCourses[idx] }
+    return res.data
   },
 
-  // TODO: replace with → apiClient.post('/moodle-sync/courses/push-bulk', { courseOfferingIds })
-  async pushCoursesBulk({
-    courseOfferingIds,
-  }: CoursesBulkPushPayload): Promise<{ pushed: number }> {
-    await delay(1500)
-    let pushed = 0
-    for (const courseOfferingId of courseOfferingIds) {
-      const idx = mockCourses.findIndex(
-        (c) => c.courseOfferingId === courseOfferingId
-      )
-      if (idx === -1) continue
-      mockCourses[idx] = {
-        ...mockCourses[idx],
-        moodleCourseId: mockCourses[idx].moodleCourseId ?? 200 + idx,
-        moodleShortName:
-          mockCourses[idx].moodleShortName ??
-          `${mockCourses[idx].courseCode}-2024`,
-        moodleFullName:
-          mockCourses[idx].moodleFullName ?? mockCourses[idx].courseTitle,
-        syncStatus: "SYNCED",
-        lastSyncAt: now(),
-      }
-      pushed += 1
-    }
-    return { pushed }
-  },
+  pushCourse: (courseOfferingId: number) =>
+    apiClient.post<CourseSyncResponse>(
+      `${BASE}/courses/push/${courseOfferingId}`,
+      undefined,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post('/moodle-sync/courses/pull')
-  async pullCourses(): Promise<{ pulled: number; created: number }> {
-    await delay(1200)
-    mockCourses = mockCourses.map((c) =>
-      c.syncStatus === "STALE"
-        ? { ...c, syncStatus: "SYNCED", lastSyncAt: now() }
-        : c
-    )
-    return { pulled: mockCourses.length, created: 0 }
-  },
+  // Bruno's body field is `offeringIds`, not `courseOfferingIds` — translated
+  // here so the frontend-facing payload type can keep its clearer name.
+  pushCoursesBulk: ({ courseOfferingIds }: CoursesBulkPushPayload) =>
+    apiClient.post<{ pushed: number }>(
+      `${BASE}/courses/push-bulk`,
+      { offeringIds: courseOfferingIds },
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/courses/pull/${moodleCourseId}`)
-  async pullCourse(moodleCourseId: number): Promise<CourseSyncResponse> {
-    await delay(600)
-    const idx = mockCourses.findIndex(
-      (c) => c.moodleCourseId === moodleCourseId
-    )
-    if (idx === -1) throw new Error("Moodle course not found")
-    mockCourses[idx] = {
-      ...mockCourses[idx],
-      syncStatus: "SYNCED",
-      lastSyncAt: now(),
-    }
-    return { ...mockCourses[idx] }
-  },
+  pullCourses: () =>
+    apiClient.post<{ pulled: number; created: number }>(
+      `${BASE}/courses/pull`,
+      undefined,
+      AUTH
+    ),
+
+  pullCourse: (moodleCourseId: number) =>
+    apiClient.post<CourseSyncResponse>(
+      `${BASE}/courses/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    ),
 
   // ---------- Enrollments ----------
-  // TODO: replace with → apiClient.get<EnrollmentSyncResponse[]>('/moodle-sync/enrollments', { params: filters })
+
   async listEnrollments(
     filters: { status?: string } = {}
   ): Promise<EnrollmentSyncResponse[]> {
-    await delay()
-    return mockEnrollments.filter(
-      (e) => !filters.status || e.syncStatus === filters.status
+    const res = await apiClient.get<{ data: EnrollmentSyncResponse[] }>(
+      `${BASE}/enrollments`,
+      { ...AUTH, params: filters as Record<string, unknown> }
     )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.get<EnrollmentSyncResponse[]>('/moodle-sync/enrollments/errors')
   async listEnrollmentErrors(): Promise<EnrollmentSyncResponse[]> {
-    await delay()
-    return mockEnrollments.filter((e) => e.syncStatus === "FAILED")
-  },
-
-  // TODO: replace with → apiClient.post(`/moodle-sync/enrollments/push/${enrollmentId}`)
-  async pushEnrollment(enrollmentId: number): Promise<EnrollmentSyncResponse> {
-    await delay(700)
-    const idx = mockEnrollments.findIndex(
-      (e) => e.studentEnrollmentId === enrollmentId
+    const res = await apiClient.get<{ data: EnrollmentSyncResponse[] }>(
+      `${BASE}/enrollments/errors`,
+      AUTH
     )
-    if (idx === -1) throw new Error("Enrollment not found")
-    mockEnrollments[idx] = {
-      ...mockEnrollments[idx],
-      moodleCourseId: mockEnrollments[idx].moodleCourseId ?? 200,
-      moodleUserId: mockEnrollments[idx].moodleUserId ?? 9000,
-      syncStatus: "SYNCED",
-      syncError: null,
-      lastSyncAt: now(),
-    }
-    return { ...mockEnrollments[idx] }
+    return res.data
   },
 
-  // TODO: replace with → apiClient.post('/moodle-sync/enrollments/push-all')
-  async pushAllEnrollments(): Promise<{ pushed: number; failed: number }> {
-    await delay(1800)
-    let pushed = 0
-    mockEnrollments = mockEnrollments.map((e) => {
-      if (e.syncStatus === "SYNCED") return e
-      pushed += 1
-      return {
-        ...e,
-        syncStatus: "SYNCED",
-        syncError: null,
-        lastSyncAt: now(),
-        moodleCourseId: e.moodleCourseId ?? 200,
-        moodleUserId: e.moodleUserId ?? 9000,
-      }
+  pushEnrollment: (enrollmentId: number) =>
+    apiClient.post<EnrollmentSyncResponse>(
+      `${BASE}/enrollments/push/${enrollmentId}`,
+      undefined,
+      AUTH
+    ),
+
+  pushAllEnrollments: () =>
+    apiClient.post<{ pushed: number; failed: number }>(
+      `${BASE}/enrollments/push-all`,
+      undefined,
+      AUTH
+    ),
+
+  pullEnrollments: (moodleCourseId: number) =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/enrollments/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    ),
+
+  // ---------- Assessments ----------
+  // Bruno's query/path param is `offeringId` — the frontend keeps `courseId`
+  // as the filter name for consistency with the rest of this module's hooks.
+  //
+  // listAssessments/listAssessmentsByCourse/listUpcomingAssessments/
+  // pullAssessments/pullAllAssessments are the real, existing endpoints.
+  // Everything below the "-- proposed --" marker does NOT exist yet under
+  // /moodle-sync/assessments — this module previously had a duplicate,
+  // fully-mock frontend surface wired to a separate real `/assessments/*`
+  // route namespace; that duplicate has been retired in favour of
+  // consolidating everything onto this one real module, and the gaps below
+  // are the additions needed to fully replace it. See
+  // MISSING_BACKEND_APIS.md for the full spec of each.
+
+  listAssessments: (filters: { courseId?: number; type?: string } = {}) =>
+    apiClient.get<{ data: AssessmentResponse[] }>(`${BASE}/assessments`, {
+      ...AUTH,
+      params: { offeringId: filters.courseId, type: filters.type },
+    }),
+
+  listAssessmentsByCourse: (courseOfferingId: number) =>
+    apiClient.get<{ data: AssessmentResponse[] }>(
+      `${BASE}/assessments/course/${courseOfferingId}`,
+      AUTH
+    ),
+
+  listUpcomingAssessments: () =>
+    apiClient.get<{ data: AssessmentResponse[] }>(
+      `${BASE}/assessments/upcoming`,
+      AUTH
+    ),
+
+  pullAssessments: (moodleCourseId: number) =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/assessments/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    ),
+
+  pullAllAssessments: () =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/assessments/pull-all`,
+      undefined,
+      AUTH
+    ),
+
+  // -- proposed, not yet real (MISSING_BACKEND_APIS.md) --
+
+  async listAssessmentsPaginated(
+    filters: Partial<AssessmentFilter> = {}
+  ): Promise<PaginatedAssessments> {
+    const res = await apiClient.get<{
+      data: AssessmentResponse[]
+      meta?: { total: number; page: number; limit: number }
+    }>(`${BASE}/assessments`, {
+      ...AUTH,
+      params: {
+        type: filters.type,
+        offeringId: filters.courseOfferingId,
+        isVisible: filters.isVisible,
+        upcoming: filters.upcoming,
+        page: filters.page,
+        limit: filters.limit,
+      },
     })
-    return { pushed, failed: 0 }
+    // `meta`/pagination are proposed additions, not live yet — the real
+    // endpoint today just returns `{data: [...]}` with no envelope, so
+    // synthesize one rather than let callers crash on `res.meta.total`.
+    return {
+      data: res.data,
+      meta: res.meta ?? {
+        total: res.data.length,
+        page: filters.page ?? 1,
+        limit: filters.limit ?? res.data.length,
+      },
+    }
   },
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/enrollments/pull/${moodleCourseId}`)
-  async pullEnrollments(moodleCourseId: number): Promise<{ pulled: number }> {
-    await delay(1000)
-    const affected = mockEnrollments.filter(
-      (e) => e.moodleCourseId === moodleCourseId
+  async getAssessment(id: number): Promise<AssessmentResponse> {
+    const res = await apiClient.get<{ data: AssessmentResponse }>(
+      `${BASE}/assessments/${id}`,
+      AUTH
     )
-    return { pulled: affected.length }
+    return res.data
   },
 
-  // ---------- Assessments (read-only) ----------
-  // TODO: replace with → apiClient.get<{ data: AssessmentResponse[] }>('/moodle-sync/assessments', { params: filters })
-  async listAssessments(
-    filters: { courseId?: number; type?: string } = {}
-  ): Promise<{ data: AssessmentResponse[] }> {
-    await delay()
-    const data = mockAssessments.filter(
-      (a) => !filters.type || a.assessmentType === filters.type
+  async getMyAssessments(
+    filters: Partial<
+      Pick<AssessmentFilter, "type" | "upcoming" | "page" | "limit">
+    > = {}
+  ): Promise<PaginatedAssessments> {
+    // /assessments/my itself is a proposed, not-yet-real endpoint (see
+    // MISSING_BACKEND_APIS.md) — this 404s until shipped. Once it exists, its
+    // `meta` envelope is unconfirmed too, so synthesize a fallback the same
+    // way listAssessmentsPaginated does.
+    const res = await apiClient.get<{
+      data: AssessmentResponse[]
+      meta?: { total: number; page: number; limit: number }
+    }>(`${BASE}/assessments/my`, { ...AUTH, params: filters })
+    return {
+      data: res.data,
+      meta: res.meta ?? {
+        total: res.data.length,
+        page: filters.page ?? 1,
+        limit: filters.limit ?? res.data.length,
+      },
+    }
+  },
+
+  async updateAssessmentVisibility(
+    id: number,
+    payload: UpdateVisibilityPayload
+  ): Promise<VisibilityResponse> {
+    return apiClient.patch<VisibilityResponse, UpdateVisibilityPayload>(
+      `${BASE}/assessments/${id}/visibility`,
+      payload,
+      AUTH
     )
-    return { data }
   },
 
-  // TODO: replace with → apiClient.get<{ data: AssessmentResponse[] }>(`/moodle-sync/assessments/course/${courseOfferingId}`)
-  async listAssessmentsByCourse(
-    courseOfferingId: number
-  ): Promise<{ data: AssessmentResponse[] }> {
-    await delay()
-    const course = mockCourses.find(
-      (c) => c.courseOfferingId === courseOfferingId
+  async deleteAssessmentMapping(id: number): Promise<{ message: string }> {
+    return apiClient.delete<{ message: string }>(
+      `${BASE}/assessments/${id}`,
+      AUTH
     )
-    const data = course
-      ? mockAssessments.filter(
-          (a) => a.course.courseOffering.course.code === course.courseCode
-        )
-      : []
-    return { data }
   },
 
-  // TODO: replace with → apiClient.get<{ data: AssessmentResponse[] }>('/moodle-sync/assessments/upcoming')
-  async listUpcomingAssessments(): Promise<{ data: AssessmentResponse[] }> {
-    await delay()
-    const nowMs = Date.now()
-    const data = mockAssessments
-      .filter((a) => a.dueDate && new Date(a.dueDate).getTime() > nowMs)
-      .sort(
-        (a, b) =>
-          new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
-      )
-    return { data }
+  async getAssessmentSyncStatus(): Promise<AssessmentSyncStatusResult> {
+    return apiClient.get<AssessmentSyncStatusResult>(
+      `${BASE}/assessments/sync-status`,
+      AUTH
+    )
   },
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/assessments/pull/${moodleCourseId}`)
-  async pullAssessments(moodleCourseId: number): Promise<{ pulled: number }> {
-    await delay(1000)
-    const course = mockCourses.find((c) => c.moodleCourseId === moodleCourseId)
-    const pulled = course
-      ? mockAssessments.filter(
-          (a) => a.course.moodleShortName === course.moodleShortName
-        ).length
-      : 0
-    return { pulled }
+  // "Retry" is just re-running the real pull for that course — no separate
+  // retry endpoint is needed since pulls are upsert-based (idempotent).
+  retryAssessmentSync(moodleCourseId: number): Promise<AssessmentSyncResult> {
+    return apiClient.post<AssessmentSyncResult>(
+      `${BASE}/assessments/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    )
   },
 
-  // TODO: replace with → apiClient.post('/moodle-sync/assessments/pull-all')
-  async pullAllAssessments(): Promise<{ pulled: number }> {
-    await delay(1800)
-    return { pulled: mockAssessments.length }
+  // CA pipeline bridge — aggregates a student's Moodle assignment/quiz grades
+  // for one course offering into a proportional CA score (this app's
+  // convention: CA out of 40, Exam out of 60 — see grade-detail-modal.tsx —
+  // `caMax` lets a lecturer override the ceiling per course). Read-only: the
+  // frontend applies the previewed scores via the already-real
+  // POST /results/grades/bulk (gradesService.bulkCreateGrades), not a new
+  // write endpoint here — one path writes Grade.caScore.
+  async getCaPreview(
+    offeringId: number,
+    params: { semesterId: number; caMax?: number }
+  ): Promise<CaPreviewResponse> {
+    const res = await apiClient.get<{ data: CaPreviewResponse }>(
+      `${BASE}/assessments/ca-preview/${offeringId}`,
+      { ...AUTH, params }
+    )
+    return res.data
   },
 
   // ---------- Grades (read-only) ----------
-  // TODO: replace with → apiClient.get<{ data: GradeResponse[] }>('/moodle-sync/grades', { params: filters })
-  async listGrades(
-    filters: { courseId?: number; userId?: number } = {}
-  ): Promise<{ data: GradeResponse[] }> {
-    await delay()
-    void filters
-    return { data: [...mockGrades] }
-  },
 
-  // TODO: replace with → apiClient.get<{ data: GradeResponse[] }>(`/moodle-sync/grades/student/${userId}`)
-  async listGradesByStudent(
-    userId: number
-  ): Promise<{ data: GradeResponse[] }> {
-    await delay()
-    void userId
-    return { data: [...mockGrades] }
-  },
+  listGrades: (filters: { courseId?: number; userId?: number } = {}) =>
+    apiClient.get<{ data: GradeResponse[] }>(`${BASE}/grades`, {
+      ...AUTH,
+      params: { offeringId: filters.courseId, userId: filters.userId },
+    }),
 
-  // TODO: replace with → apiClient.get<{ data: GradeResponse[] }>(`/moodle-sync/grades/course/${courseOfferingId}`)
-  async listGradesByCourse(
-    courseOfferingId: number
-  ): Promise<{ data: GradeResponse[] }> {
-    await delay()
-    const course = mockCourses.find(
-      (c) => c.courseOfferingId === courseOfferingId
-    )
-    const data = course
-      ? mockGrades.filter(
-          (g) => g.course.courseOffering.course.code === course.courseCode
-        )
-      : []
-    return { data }
-  },
+  listGradesByStudent: (userId: number) =>
+    apiClient.get<{ data: GradeResponse[] }>(
+      `${BASE}/grades/student/${userId}`,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.get<{ data: GradeResponse[] }>('/moodle-sync/grades/my')
-  async getMyGrades(): Promise<{ data: GradeResponse[] }> {
-    await delay()
-    return { data: [...mockGrades] }
-  },
+  listGradesByCourse: (courseOfferingId: number) =>
+    apiClient.get<{ data: GradeResponse[] }>(
+      `${BASE}/grades/course/${courseOfferingId}`,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/grades/pull/${moodleCourseId}`)
-  async pullGrades(moodleCourseId: number): Promise<{ pulled: number }> {
-    await delay(1000)
-    void moodleCourseId
-    return { pulled: mockGrades.length }
-  },
+  getMyGrades: () =>
+    apiClient.get<{ data: GradeResponse[] }>(`${BASE}/grades/my`, AUTH),
 
-  // TODO: replace with → apiClient.post('/moodle-sync/grades/pull-all')
-  async pullAllGrades(): Promise<{ pulled: number }> {
-    await delay(1800)
-    return { pulled: mockGrades.length }
-  },
+  pullGrades: (moodleCourseId: number) =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/grades/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    ),
+
+  pullAllGrades: () =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/grades/pull-all`,
+      undefined,
+      AUTH
+    ),
 
   // ---------- Calendar & Zoom (read-only) ----------
-  // TODO: replace with → apiClient.get<{ data: CalendarEventResponse[] }>('/moodle-sync/calendar')
-  async listCalendarEvents(): Promise<{ data: CalendarEventResponse[] }> {
-    await delay()
-    return { data: [...mockCalendarEvents] }
-  },
 
-  // TODO: replace with → apiClient.get<{ data: CalendarEventResponse[] }>(`/moodle-sync/calendar/course/${courseOfferingId}`)
-  async listCalendarEventsByCourse(
-    courseOfferingId: number
-  ): Promise<{ data: CalendarEventResponse[] }> {
-    await delay()
-    const course = mockCourses.find(
-      (c) => c.courseOfferingId === courseOfferingId
-    )
-    const data = course
-      ? mockCalendarEvents.filter(
-          (e) => e.course?.moodleShortName === course.moodleShortName
-        )
-      : []
-    return { data }
-  },
+  listCalendarEvents: () =>
+    apiClient.get<{ data: CalendarEventResponse[] }>(`${BASE}/calendar`, AUTH),
 
-  // TODO: replace with → apiClient.get<{ data: CalendarEventResponse[] }>('/moodle-sync/calendar/upcoming')
-  async listUpcomingEvents(): Promise<{ data: CalendarEventResponse[] }> {
-    await delay()
-    const nowMs = Date.now()
-    const data = mockCalendarEvents
-      .filter((e) => new Date(e.startDate).getTime() > nowMs)
-      .sort(
-        (a, b) =>
-          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-      )
-    return { data }
-  },
+  listCalendarEventsByCourse: (courseOfferingId: number) =>
+    apiClient.get<{ data: CalendarEventResponse[] }>(
+      `${BASE}/calendar/course/${courseOfferingId}`,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.get<CalendarEventResponse>(`/moodle-sync/calendar/${id}`)
+  listUpcomingEvents: () =>
+    apiClient.get<{ data: CalendarEventResponse[] }>(
+      `${BASE}/calendar/upcoming`,
+      AUTH
+    ),
+
   async getCalendarEvent(id: number): Promise<CalendarEventResponse> {
-    await delay(200)
-    const item = mockCalendarEvents.find((e) => e.id === id)
-    if (!item) throw new Error("Calendar event not found")
-    return { ...item }
+    const res = await apiClient.get<{ data: CalendarEventResponse }>(
+      `${BASE}/calendar/${id}`,
+      AUTH
+    )
+    return res.data
   },
 
-  // TODO: replace with → apiClient.post('/moodle-sync/calendar/pull')
-  async pullCalendar(): Promise<{ pulled: number }> {
-    await delay(1500)
-    return { pulled: mockCalendarEvents.length }
-  },
+  pullCalendar: () =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/calendar/pull`,
+      undefined,
+      AUTH
+    ),
 
-  // TODO: replace with → apiClient.post(`/moodle-sync/calendar/pull/${moodleCourseId}`)
-  async pullCalendarForCourse(
-    moodleCourseId: number
-  ): Promise<{ pulled: number }> {
-    await delay(900)
-    const course = mockCourses.find((c) => c.moodleCourseId === moodleCourseId)
-    const pulled = course
-      ? mockCalendarEvents.filter(
-          (e) => e.course?.moodleShortName === course.moodleShortName
-        ).length
-      : 0
-    return { pulled }
-  },
+  pullCalendarForCourse: (moodleCourseId: number) =>
+    apiClient.post<{ pulled: number }>(
+      `${BASE}/calendar/pull/${moodleCourseId}`,
+      undefined,
+      AUTH
+    ),
 }

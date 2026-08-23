@@ -330,3 +330,10 @@ before generating any code.**
 - Write readable, maintainable code.
 
 ---
+
+## 13. The real backend (qhub-php/qhub_backend_api)
+
+- please stop implementing or doing anywork on the backend.
+- only focus on the frontend api integration from bruno.
+- leave the backend and focuse on the frontend dev.
+- the backend has been completely built remotley.

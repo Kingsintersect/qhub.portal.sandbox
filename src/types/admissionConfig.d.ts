@@ -10,7 +10,7 @@
 export type AdmissionStepGroup = "PROCESS" | "FORM"
 
 export interface AdmissionStepDefinition {
-  id: string
+  id: number
   group: AdmissionStepGroup
   key: string
   label: string

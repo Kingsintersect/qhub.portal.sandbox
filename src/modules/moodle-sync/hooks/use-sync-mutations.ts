@@ -6,7 +6,9 @@ import { moodleSyncKeys } from "./query-keys"
 import type {
   CoursesBulkPushPayload,
   PushCategoryDto,
+  ResolveCategoryMappingDto,
   UsersBulkPushPayload,
+  UpdateVisibilityPayload,
 } from "../types"
 
 // ---------- Category mutations ----------
@@ -20,11 +22,13 @@ export function usePushCategory() {
   })
 }
 
-export function usePushHierarchy() {
+// Replaces the old faculty-only usePushHierarchy — any AcademicUnit node can
+// root a subtree push now, not just a Faculty.
+export function usePushSubtree() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (facultyId: number) =>
-      moodleSyncService.pushHierarchy(facultyId),
+    mutationFn: (rootUnitId: number) =>
+      moodleSyncService.pushSubtree(rootUnitId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
   })
@@ -44,6 +48,16 @@ export function usePullCategory() {
   return useMutation({
     mutationFn: (moodleCategoryId: number) =>
       moodleSyncService.pullCategory(moodleCategoryId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+  })
+}
+
+export function useResolveCategoryMapping() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: ResolveCategoryMappingDto }) =>
+      moodleSyncService.resolveCategoryMapping(id, dto),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
   })
@@ -188,6 +202,49 @@ export function usePullAllAssessments() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: moodleSyncService.pullAllAssessments,
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: [...moodleSyncKeys.all, "assessments"],
+      }),
+  })
+}
+
+export function useRetryAssessmentSync() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (moodleCourseId: number) =>
+      moodleSyncService.retryAssessmentSync(moodleCourseId),
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: [...moodleSyncKeys.all, "assessments"],
+      }),
+  })
+}
+
+export function useUpdateAssessmentVisibility() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: UpdateVisibilityPayload
+    }) => moodleSyncService.updateAssessmentVisibility(id, payload),
+    onSuccess: (_data, { id }) =>
+      Promise.all([
+        qc.invalidateQueries({
+          queryKey: [...moodleSyncKeys.all, "assessments"],
+        }),
+        qc.invalidateQueries({ queryKey: moodleSyncKeys.assessment(id) }),
+      ]),
+  })
+}
+
+export function useDeleteAssessmentMapping() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => moodleSyncService.deleteAssessmentMapping(id),
     onSuccess: () =>
       qc.invalidateQueries({
         queryKey: [...moodleSyncKeys.all, "assessments"],

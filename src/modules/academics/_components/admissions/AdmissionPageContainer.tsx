@@ -9,9 +9,9 @@ import {
   useUpdateAdmissionStatus,
 } from "./hooks/useAdmissionCycles"
 import { useQuery } from "@tanstack/react-query"
-import { feeManagementQueryOptions } from "@/services/feeManagementApi"
+import { courseStructureQueryOptions } from "@/services/courseStructureApi"
 
-import type { AdmissionCycle, AdmissionStatus } from "@/types/school"
+import type { AdmissionCycle, AdmissionCycleStatus } from "@/types/school"
 import type { AdmissionCycleFormValues } from "@/schemas/school.schema"
 
 import { AdmissionCycleForm } from "./components/AdmissionCycleForm"
@@ -41,25 +41,35 @@ export default function AdmissionsPage({
 }: AdmissionsPageProps) {
   // ── Shared data ──────────────────────────
   const { data: sessions, isLoading: isLoadingSessions } = useAcademicSessions()
-  const { data: programs } = useQuery({
-    ...feeManagementQueryOptions.programs(),
+  const { data: programsRes } = useQuery({
+    ...courseStructureQueryOptions.programs.list(),
     staleTime: 1000 * 60 * 30,
   })
+  // RequirementsManager compares program ids as strings (a holdover from the
+  // legacy mock program shape) — real Program.id is numeric, so it's
+  // stringified here rather than changing that comparison logic.
+  const programs = programsRes?.data.map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    code: p.code,
+  }))
 
   // ── Local state ──────────────────────────
   const [selectedSessionId, setSelectedSessionId] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [editingCycle, setEditingCycle] = useState<AdmissionCycle | null>(null)
-  const [managingCycleId, setManagingCycleId] = useState<string | null>(null)
+  const [managingCycleId, setManagingCycleId] = useState<number | null>(null)
 
   // ── Data hooks ───────────────────────────
-  const { data: cycles, isLoading: isLoadingCycles } = useAdmissionCycles(
-    selectedSessionId || null
-  )
+  const selectedSessionIdNum = selectedSessionId
+    ? Number(selectedSessionId)
+    : null
+  const { data: cycles, isLoading: isLoadingCycles } =
+    useAdmissionCycles(selectedSessionIdNum)
   const createCycle = useCreateAdmissionCycle()
-  const updateCycle = useUpdateAdmissionCycle(selectedSessionId)
-  const deleteCycle = useDeleteAdmissionCycle(selectedSessionId)
-  const updateStatus = useUpdateAdmissionStatus(selectedSessionId)
+  const updateCycle = useUpdateAdmissionCycle(selectedSessionIdNum ?? 0)
+  const deleteCycle = useDeleteAdmissionCycle(selectedSessionIdNum ?? 0)
+  const updateStatus = useUpdateAdmissionStatus(selectedSessionIdNum ?? 0)
 
   // If user doesn't have permission, show nothing
   if (!canManage) return null
@@ -75,27 +85,35 @@ export default function AdmissionsPage({
     setShowForm(true)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     await deleteCycle.mutateAsync(id)
     toast.success("Admission cycle deleted")
   }
 
-  const handleToggleStatus = async (id: string, status: AdmissionStatus) => {
+  const handleToggleStatus = async (
+    id: number,
+    status: AdmissionCycleStatus
+  ) => {
     await updateStatus.mutateAsync({ id, status })
-    toast.success(status === "open" ? "Admissions opened" : "Admissions closed")
+    toast.success(status === "OPEN" ? "Admissions opened" : "Admissions closed")
   }
 
   const handleFormSubmit = async (data: AdmissionCycleFormValues) => {
     if (editingCycle) {
       await updateCycle.mutateAsync({
         id: editingCycle.id,
-        payload: { ...data, status: editingCycle.status },
+        payload: {
+          ...data,
+          academic_session_id: Number(data.academic_session_id),
+          status: editingCycle.status,
+        },
       })
       toast.success("Admission cycle updated")
     } else {
       await createCycle.mutateAsync({
         ...data,
-        status: "draft",
+        academic_session_id: Number(data.academic_session_id),
+        status: "DRAFT",
       })
       toast.success("Admission cycle created")
     }
@@ -108,8 +126,8 @@ export default function AdmissionsPage({
     setEditingCycle(null)
   }
 
-  const getSessionName = (sessionId: string) =>
-    sessions?.find((s) => s.id === sessionId)?.name ?? sessionId
+  const getSessionName = (sessionId: number) =>
+    sessions?.find((s) => s.id === sessionId)?.name ?? String(sessionId)
 
   const isPending = createCycle.isPending || updateCycle.isPending
 
@@ -130,7 +148,7 @@ export default function AdmissionsPage({
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Requirements — {getSessionName(cycle?.academic_session_id ?? "")}
+            Requirements — {getSessionName(cycle?.academic_session_id ?? 0)}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Set minimum entry requirements for each program or for all programs.

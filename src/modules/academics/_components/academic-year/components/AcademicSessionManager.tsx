@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   useAcademicSessions,
   useCreateSession,
-  useDeleteSession,
   useActivateSession,
 } from "@/hooks/useAcademicSessions"
 import { useAcademicSessionSetupStore } from "@/store/dashboard/academicSessionSetupStore"
@@ -27,14 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { EmptyState } from "./EmptyState"
-import {
-  CalendarDays,
-  Plus,
-  Trash2,
-  ArrowRight,
-  Power,
-  Loader2,
-} from "lucide-react"
+import { CalendarDays, Plus, ArrowRight, Power, Loader2 } from "lucide-react"
 
 interface AcademicSessionManagerProps {
   canManage?: boolean
@@ -45,7 +37,6 @@ export function AcademicSessionManager({
 }: AcademicSessionManagerProps) {
   const { data: sessions, isLoading } = useAcademicSessions()
   const createSession = useCreateSession()
-  const deleteSession = useDeleteSession()
   const activateSession = useActivateSession()
 
   const { setSelectedSession, setCurrentStep } = useAcademicSessionSetupStore()
@@ -67,7 +58,7 @@ export function AcademicSessionManager({
     setShowForm(false)
   }
 
-  const handleSelect = (id: string, name: string) => {
+  const handleSelect = (id: number, name: string) => {
     setSelectedSession(id, name)
     setCurrentStep("semesters")
   }
@@ -239,16 +230,6 @@ export function AcademicSessionManager({
                       title="Activate session"
                     >
                       <Power className="size-4" />
-                    </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => deleteSession.mutate(session.id)}
-                      title="Delete session"
-                    >
-                      <Trash2 className="size-4" />
                     </Button>
                   )}
                 </div>

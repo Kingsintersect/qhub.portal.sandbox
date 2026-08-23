@@ -19,3 +19,8 @@ export function useSyncCourse(id: number) {
     enabled: !!id,
   })
 }
+
+// Student-facing "My Courses" + SSO launch moved to the enrollment module —
+// see modules/enrollment/hooks/use-enrollment-mutations.ts's
+// useLaunchMoodleCourse. This module only owns admin-facing sync
+// bookkeeping (push/pull/status), not the student's own course access.

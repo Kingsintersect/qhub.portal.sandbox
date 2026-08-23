@@ -14,14 +14,14 @@ export type SyncQueryFilters = z.infer<
   typeof CommonSchemas.SyncQueryFiltersSchema
 >
 
-export type CategoryEntityType = z.infer<
-  typeof CategorySchemas.CategoryEntityTypeSchema
->
 export type PushCategoryDto = z.infer<
   typeof CategorySchemas.PushCategoryDtoSchema
 >
 export type CategorySyncResponse = z.infer<
   typeof CategorySchemas.CategorySyncResponseSchema
+>
+export type ResolveCategoryMappingDto = z.infer<
+  typeof CategorySchemas.ResolveCategoryMappingSchema
 >
 
 export type MoodleRole = z.infer<typeof UserSchemas.MoodleRoleSchema>
@@ -46,6 +46,30 @@ export type AssessmentType = z.infer<
 >
 export type AssessmentResponse = z.infer<
   typeof AssessmentSchemas.AssessmentResponseSchema
+>
+export type AssessmentFilter = z.infer<
+  typeof AssessmentSchemas.AssessmentFilterSchema
+>
+export type PaginatedAssessments = z.infer<
+  typeof AssessmentSchemas.PaginatedAssessmentsSchema
+>
+export type UpdateVisibilityPayload = z.infer<
+  typeof AssessmentSchemas.UpdateVisibilitySchema
+>
+export type VisibilityResponse = z.infer<
+  typeof AssessmentSchemas.VisibilityResponseSchema
+>
+export type AssessmentSyncResult = z.infer<
+  typeof AssessmentSchemas.SyncResultSchema
+>
+export type AssessmentSyncStatusResult = z.infer<
+  typeof AssessmentSchemas.SyncStatusSchema
+>
+export type CaPreviewItem = z.infer<
+  typeof AssessmentSchemas.CaPreviewItemSchema
+>
+export type CaPreviewResponse = z.infer<
+  typeof AssessmentSchemas.CaPreviewResponseSchema
 >
 
 export type GradeResponse = z.infer<typeof GradeSchemas.GradeResponseSchema>

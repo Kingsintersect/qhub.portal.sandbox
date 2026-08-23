@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 
 export interface AcademicSession {
-  id: string
+  id: number
   name: string
   startDate: string
   endDate: string
@@ -11,56 +11,27 @@ export interface AcademicSession {
 }
 
 export interface Semester {
-  id: string
-  academicSessionId: string
+  id: number
+  academicSessionId: number
   name: string
-  sequence_no: number
   isActive: boolean
   startDate: string
   endDate: string
+  registrationStart?: string
+  registrationEnd?: string
 }
 
-export interface FeeStructure {
-  id: string
-  academic_session_id: string
-  semester_id: string
-  program_id: string
-  level: number
-  total_amount: number
-  description: string
-}
-
-export interface StudentFeeAccount {
-  id: string
-  student_id: string
-  academic_session_id: string
-  total_fee: number
-  paid_amount: number
-  balance: number
-  status: "pending" | "partially_paid" | "fully_paid" | "overdue"
-}
-
-export interface Program {
+// Legacy mock-only shape used by the admissions "Requirements" screen
+// (RequirementsManager) — distinct from the real `Program` entity below,
+// which uses numeric ids per bruno/academic. The real numeric id is
+// stringified at the call site (AdmissionPageContainer) rather than
+// changing this interface, since RequirementsManager's own comparison logic
+// is written against string ids. Not the same interface as `Program`; kept
+// separate to avoid a duplicate-name collision.
+export interface LegacyProgramSummary {
   id: string
   name: string
   code: string
-}
-
-export interface FresherFeeItem {
-  id: string
-  academic_session_id: string
-  name: string
-  amount: number
-}
-
-export interface OtherFeeItem {
-  id: string
-  academic_session_id: string
-  semester_id: string // "" means "All Semesters"
-  level: number // 0 means "All Levels"
-  name: string
-  amount: number
-  description: string
 }
 
 // ── Form / Payload types ────────────────────
@@ -70,148 +41,247 @@ export type UpdateAcademicSessionPayload = Partial<CreateAcademicSessionPayload>
 
 export type CreateSemesterPayload = Omit<Semester, "id">
 
-export type CreateFeeStructurePayload = Omit<FeeStructure, "id">
-
-export type CreateFresherFeePayload = Omit<FresherFeeItem, "id">
-
-export type CreateOtherFeePayload = Omit<OtherFeeItem, "id">
-
 // ── Course Structure ────────────────────────
 
+// Real backend contract per bruno/academic — see CLAUDE.md §13. Faculty,
+// Department, and Program all use numeric auto-increment ids and camelCase
+// fields matching sandbox/schema.prisma exactly. `departments`/`programs`/
+// `lecturers` are only populated when fetched via the single-resource GET
+// (academic_README.md: "Get faculty by ID with departments" /
+// "Get department with programs & lecturers") — list endpoints don't
+// include them.
 export interface Faculty {
-  id: string
+  id: number
   name: string
   code: string
-  description: string
-  dean_user_id: number | null
-  email: string
-  phone_number: string
-  is_active: boolean
-  departments_count: number
+  description: string | null
+  deanUserId: number | null
+  email: string | null
+  phoneNumber: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  departments?: Department[]
+}
+
+export interface DepartmentLecturer {
+  id: number
+  userId: number
+  staffNumber: string
+  designation: string
+  user?: {
+    firstName: string | null
+    lastName: string | null
+    email: string
+  }
 }
 
 export interface Department {
-  id: string
-  faculty_id: string
+  id: number
+  facultyId: number | null
   name: string
   code: string
-  description: string
-  hod_user_id: number | null
-  email: string
-  phone_number: string
-  is_active: boolean
-  programs_count: number
+  description: string | null
+  hodUserId: number | null
+  email: string | null
+  phoneNumber: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  programs?: Program[]
+  lecturers?: DepartmentLecturer[]
 }
 
+// Multi-structure refactor — see sandbox/schema-moodel-sync-refactor/README.md
+// §2. `DEGREE` is the default and preserves every existing Program's
+// behavior unchanged; the other four values let the same schema serve
+// postgraduate schools, certificate/diploma tracks, and secondary schools.
+export type ProgramCategory =
+  | "DEGREE"
+  | "POSTGRADUATE"
+  | "CERTIFICATE"
+  | "DIPLOMA"
+  | "SECONDARY_SCHOOL"
+
 export interface Program {
-  id: string
-  department_id: string
+  id: number
+  departmentId: number | null
   name: string
   code: string
-  degree_type: string
-  duration_years: number
-  description: string
-  min_credit_units: number
-  is_active: boolean
+  degreeType: string
+  durationYears: number
+  description: string | null
+  admissionRequirements: string | null
+  minCreditUnits: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  // Multi-structure refactor additions — all nullable/defaulted so existing
+  // DEGREE programs read back unchanged. See SCHEMA_CHANGES.md §3.
+  programCategory: ProgramCategory
+  parentAcademicUnitId: number | null
+  gradingSchemeId: number | null
 }
 
 export interface CurriculumLevel {
-  id: string
+  id: number
   name: string
-  numeric_value: number
-  semesters_count: number
+  numericValue: number
 }
 
-export interface CurriculumSemester {
-  id: string
-  level_id: string
-  name: string
-  sequence_no: number
-  courses_count: number
+// ── Academic Structure (generic AcademicUnit tree) ──────────────────────────
+// Proposed — see sandbox/schema-moodel-sync-refactor/{README,api-v2}.md
+// §"Academic Structure". Gives the Structure Builder admin UI and Moodle
+// category sync one uniform tree to walk regardless of a given deployment's
+// real shape (Faculty→Department→Program for a degree school, or pure
+// structural nodes like "Stream"/"Section" for a secondary school — see the
+// README's worked examples). Nothing under `/academic-structure` exists in
+// bruno yet; every consumer of this section 404s until the backend ships it.
+
+export type AcademicUnitLinkKind =
+  | "faculty"
+  | "department"
+  | "program"
+  | "level"
+  | "semester"
+
+export interface AcademicUnitType {
+  id: number
+  code: string
+  label: string
 }
+
+export interface AcademicUnitLinkedEntity {
+  type: AcademicUnitLinkKind
+  id: number
+}
+
+export interface AcademicUnit {
+  id: number
+  typeId: number
+  typeCode: string
+  parentId: number | null
+  name: string
+  sortOrder: number
+  linkedEntity: AcademicUnitLinkedEntity | null
+  isActive: boolean
+  childCount: number
+}
+
+export interface AcademicUnitDetail extends AcademicUnit {
+  children: AcademicUnit[]
+}
+
+export interface CreateUnitTypePayload {
+  code: string
+  label: string
+}
+
+export interface CreateAcademicUnitPayload {
+  typeCode: string
+  parentId?: number | null
+  name: string
+  sortOrder?: number
+  linkedEntity?: AcademicUnitLinkedEntity | null
+}
+
+export type UpdateAcademicUnitPayload = Partial<
+  Pick<CreateAcademicUnitPayload, "name" | "sortOrder" | "parentId">
+>
 
 export interface CreateFacultyPayload {
   name: string
   code: string
   description?: string
+  deanUserId?: number
   email?: string
-  phone_number?: string
+  phoneNumber?: string
 }
 
 export type UpdateFacultyPayload = Partial<CreateFacultyPayload>
 
 export interface CreateDepartmentPayload {
-  faculty_id: string
+  // Nullable so a Department can anchor a non-degree structure (e.g. a
+  // "School of Postgraduate Studies") with no parent Faculty — see
+  // sandbox/schema-moodel-sync-refactor/README.md §3.
+  facultyId: number | null
   name: string
   code: string
   description?: string
+  hodUserId?: number
   email?: string
-  phone_number?: string
+  phoneNumber?: string
 }
 
-export type UpdateDepartmentPayload = Partial<
-  Omit<CreateDepartmentPayload, "faculty_id">
->
+export type UpdateDepartmentPayload = Partial<CreateDepartmentPayload>
 
 export interface CreateProgramPayload {
-  department_id: string
+  // Nullable for the same reason as Department.facultyId above — a
+  // SECONDARY_SCHOOL Program anchors under the AcademicUnit tree instead
+  // via parentAcademicUnitId, not a Department.
+  departmentId: number | null
   name: string
   code: string
-  degree_type: string
-  duration_years: number
+  degreeType: string
+  durationYears: number
   description?: string
-  min_credit_units: number
+  admissionRequirements?: string
+  minCreditUnits: number
+  programCategory?: ProgramCategory
+  parentAcademicUnitId?: number | null
+  gradingSchemeId?: number | null
 }
 
-export type UpdateProgramPayload = Partial<
-  Omit<CreateProgramPayload, "department_id">
->
+export type UpdateProgramPayload = Partial<CreateProgramPayload>
 
 export interface CreateCurriculumLevelPayload {
   name: string
-  numeric_value: number
+  numericValue: number
 }
-
-export type UpdateCurriculumLevelPayload = Partial<CreateCurriculumLevelPayload>
-
-export interface CreateCurriculumSemesterPayload {
-  level_id: string
-  name: string
-  sequence_no: number
-}
-
-export type UpdateCurriculumSemesterPayload = Partial<
-  Omit<CreateCurriculumSemesterPayload, "level_id">
->
 
 // ── Course Management ───────────────────────
+// Real backend contract per bruno/course and sandbox/course/course_README.md
+// (source of truth — see CLAUDE.md §13). `curriculum_semester` mirrors
+// curriculumApi.ts's already-real handling of the not-yet-shipped
+// `curriculumSemester` field (see missing_curriculum_apis.readme.md) — it
+// will always read back null until the backend ships it.
+//
+// There is no reverse "which programs is this course in" lookup endpoint —
+// only "which courses are in this program" (`GET /courses/programs/:id`,
+// each entry = Course fields + isRequired). `ProgramCourse` below is that
+// shape, not a separate junction-row type with its own id; assign/remove
+// are keyed by the (programId, courseId) pair, and there is no dedicated
+// "update a mapping" endpoint — toggling isRequired is a remove+reassign.
 
-export type CourseType = "GENERAL" | "FACULTY" | "DEPARTMENTAL" | "ELECTIVE"
+// `SUBJECT`/`RESEARCH_PROJECT` added by the multi-structure refactor — a WAEC
+// subject and a thesis/dissertation unit are both modeled as a Course row,
+// just with a different course_type. See SCHEMA_CHANGES.md §1.
+export type CourseType =
+  | "GENERAL"
+  | "FACULTY"
+  | "DEPARTMENTAL"
+  | "ELECTIVE"
+  | "SUBJECT"
+  | "RESEARCH_PROJECT"
 
 export interface Course {
-  id: string
+  id: number
   code: string
   title: string
-  description: string
+  description: string | null
   credit_units: number
   course_type: CourseType
-  curriculum_semester_id: string
-  owning_department_id: string | null
+  level_id: number
+  owning_department_id: number | null
+  syllabus: string | null
+  curriculum_semester: number | null
   is_active: boolean
-  // denormalized for display
-  level_name: string
-  semester_name: string
-  department_name: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface ProgramCourse {
-  id: string
-  program_id: string
-  course_id: string
+export interface ProgramCourse extends Course {
   is_required: boolean
-  // denormalized for display
-  program_name: string
-  program_code: string
 }
 
 export interface CreateCoursePayload {
@@ -220,30 +290,120 @@ export interface CreateCoursePayload {
   description?: string
   credit_units: number
   course_type: CourseType
-  curriculum_semester_id: string
-  owning_department_id?: string | null
+  level_id: number
+  owning_department_id?: number | null
+  syllabus?: string
 }
 
 export type UpdateCoursePayload = Partial<CreateCoursePayload>
 
 export interface AssignCourseToProgramPayload {
-  program_id: string
-  course_id: string
+  program_id: number
+  course_id: number
   is_required: boolean
 }
 
-export interface UpdateProgramCoursePayload {
-  is_required: boolean
+// ── Course Prerequisites ─────────────────────
+// GET /courses/:id/prerequisites and the `prerequisites` array nested in
+// GET /courses/:id both return this trimmed shape per course_README.md
+// ("each entry: id, code, title").
+
+export interface CoursePrerequisite {
+  id: number
+  code: string
+  title: string
 }
+
+// ── Course Offerings ─────────────────────────
+// One offering = one course running in one semester of one session. Real
+// contract per course_README.md's "Course Offerings"/"Offering Lecturers"/
+// "Class Schedules" sections.
+
+export type CourseOfferingStatus = "PLANNED" | "OPEN" | "CLOSED" | "CANCELLED"
+export type OfferingLecturerRole = "primary" | "assistant" | "tutorial"
+
+export interface CourseOffering {
+  id: number
+  course_id: number
+  course_code: string
+  course_title: string
+  academic_session_id: number
+  semester_id: number
+  max_capacity: number | null
+  status: CourseOfferingStatus
+  created_at: string
+  updated_at: string
+  // Proposed backend addition — see MISSING_BACKEND_APIS.md. Null until the
+  // backend adds it; shown as "—" rather than fabricated.
+  enrolled_count: number | null
+}
+
+export interface OfferingLecturerAssignment {
+  lecturer_id: number
+  role: OfferingLecturerRole
+}
+
+export interface ClassSchedule {
+  id: number
+  offering_id: number
+  lecturer_id: number
+  day_of_week: string
+  start_time: string
+  end_time: string
+  venue: string
+  class_type: string
+}
+
+export interface CourseOfferingDetail extends CourseOffering {
+  lecturers: OfferingLecturerAssignment[]
+  schedules: ClassSchedule[]
+}
+
+export interface CreateOfferingPayload {
+  course_id: number
+  academic_session_id: number
+  semester_id: number
+  max_capacity?: number
+  status?: CourseOfferingStatus
+}
+
+export type UpdateOfferingPayload = Partial<
+  Pick<CreateOfferingPayload, "max_capacity" | "status">
+>
+
+export interface AssignLecturerPayload {
+  offering_id: number
+  lecturer_id: number
+  role?: OfferingLecturerRole
+}
+
+export interface CreateSchedulePayload {
+  offering_id: number
+  lecturer_id: number
+  day_of_week: string
+  start_time: string
+  end_time: string
+  venue: string
+  class_type: string
+}
+
+export type UpdateSchedulePayload = Partial<
+  Omit<CreateSchedulePayload, "offering_id">
+>
 
 // ── Admissions ──────────────────────────────
+// Real backend contract per sandbox/admission/missing_admission_cycle_apis.readme.md
+// (source of truth — see CLAUDE.md §13). Named `AdmissionCycleStatus`, not
+// `AdmissionStatus`, to avoid colliding with schema.prisma's unrelated
+// `AdmissionStatus` enum (OFFERED/ACCEPTED/DECLINED/EXPIRED) on the Admission
+// (offer) model — a different concept entirely from an admission cycle/window.
 
-export type AdmissionStatus = "draft" | "open" | "closed"
+export type AdmissionCycleStatus = "DRAFT" | "OPEN" | "CLOSED"
 
 export interface AdmissionCycle {
-  id: string
-  academic_session_id: string
-  status: AdmissionStatus
+  id: number
+  academic_session_id: number
+  status: AdmissionCycleStatus
   application_start_date: string
   application_end_date: string // "" means no deadline (infinite)
   late_application_allowed: boolean
@@ -258,9 +418,9 @@ export interface AdmissionCycle {
 }
 
 export interface AdmissionRequirement {
-  id: string
-  admission_cycle_id: string
-  program_id: string // "" means all programs
+  id: number
+  admission_cycle_id: number
+  program_id: string // "" means all programs (numeric program id, stringified)
   min_age: number // 0 means no min
   max_age: number // 0 means no max
   min_credits: number
@@ -274,15 +434,6 @@ export type CreateAdmissionCyclePayload = Omit<
 >
 export type UpdateAdmissionCyclePayload = Partial<CreateAdmissionCyclePayload>
 export type CreateAdmissionRequirementPayload = Omit<AdmissionRequirement, "id">
-
-export interface GenerateFeeAccountsPayload {
-  academic_session_id: string
-}
-
-export interface GenerateFeeAccountsResponse {
-  generated_count: number
-  message: string
-}
 
 // ── Admission Applications (Review) ─────────
 

@@ -2,10 +2,13 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   ArrowLeft,
+  Award,
   BookOpen,
   CheckCircle2,
   FileText,
@@ -25,6 +28,13 @@ import {
   applicationReviewMutationOptions,
   applicationReviewQueryOptions,
 } from "@/services/applicationReviewApi"
+import { admissionOfferMutationOptions } from "@/services/admissionOfferApi"
+import { useAllPrograms, useLevels } from "@/hooks/useCourseStructure"
+import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import {
+  createAdmissionOfferSchema,
+  type CreateAdmissionOfferFormValues,
+} from "@/schemas/school.schema"
 import type { ApplicationReviewStatus } from "@/types/school"
 
 const statusVariantMap: Record<
@@ -52,6 +62,7 @@ export default function ApplicationDetailPage() {
   const [denyModalOpen, setDenyModalOpen] = useState(false)
   const [denyReason, setDenyReason] = useState("")
   const [confirmApproveOpen, setConfirmApproveOpen] = useState(false)
+  const [createOfferOpen, setCreateOfferOpen] = useState(false)
 
   const {
     data: application,
@@ -77,6 +88,64 @@ export default function ApplicationDetailPage() {
       setConfirmApproveOpen(false)
     },
     onError: () => toast.error("Failed to submit decision"),
+  })
+
+  const { data: programs } = useAllPrograms()
+  const { data: levelsData } = useLevels()
+  const { data: sessions } = useAcademicSessions()
+  const levels = levelsData?.data ?? []
+
+  const createOfferForm = useForm<CreateAdmissionOfferFormValues>({
+    resolver: zodResolver(createAdmissionOfferSchema),
+    defaultValues: {
+      admissionNumber: "",
+      programId: 0,
+      levelId: 0,
+      sessionId: 0,
+      admissionDate: new Date().toISOString().slice(0, 10),
+      admissionType: "merit",
+      expiryDate: "",
+    },
+  })
+
+  const createOfferMutation = useMutation({
+    ...admissionOfferMutationOptions.create(),
+    onSuccess: () => {
+      toast.success("Admission offer created")
+      setCreateOfferOpen(false)
+    },
+    onError: (err: Error) =>
+      toast.error(
+        err.message ??
+          "Failed to create offer — an offer may already exist for this application"
+      ),
+  })
+
+  const handleOpenCreateOffer = () => {
+    createOfferForm.reset({
+      admissionNumber: "",
+      programId:
+        Number(application?.program_choice.first_choice_program_id) || 0,
+      levelId: 0,
+      sessionId: Number(application?.admission_cycle_id) || 0,
+      admissionDate: new Date().toISOString().slice(0, 10),
+      admissionType: "merit",
+      expiryDate: "",
+    })
+    setCreateOfferOpen(true)
+  }
+
+  const handleCreateOffer = createOfferForm.handleSubmit((data) => {
+    createOfferMutation.mutate({
+      applicationId: Number(id),
+      admissionNumber: data.admissionNumber,
+      programId: data.programId,
+      levelId: data.levelId,
+      sessionId: data.sessionId,
+      admissionDate: data.admissionDate,
+      admissionType: data.admissionType,
+      expiryDate: data.expiryDate || undefined,
+    })
   })
 
   const handleApprove = () => {
@@ -190,6 +259,18 @@ export default function ApplicationDetailPage() {
               >
                 <XCircle size={16} />
                 Deny
+              </button>
+            </div>
+          )}
+
+          {application.status === "approved" && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenCreateOffer}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Award size={16} />
+                Create Admission Offer
               </button>
             </div>
           )}
@@ -497,6 +578,146 @@ export default function ApplicationDetailPage() {
               placeholder="e.g. JAMB score below cut-off, missing required documents…"
               className="w-full resize-none rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground transition-all outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
+          </div>
+        </Modal>
+
+        {/* Create Admission Offer Modal */}
+        <Modal
+          open={createOfferOpen}
+          onClose={() => setCreateOfferOpen(false)}
+          title="Create Admission Offer"
+          subtitle={`Formally admit ${personal_info.first_name} ${personal_info.last_name}`}
+          size="md"
+          footer={
+            <>
+              <button
+                onClick={() => setCreateOfferOpen(false)}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateOffer}
+                disabled={createOfferMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                {createOfferMutation.isPending && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                Create Offer
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-foreground">
+                Admission Number
+              </label>
+              <input
+                {...createOfferForm.register("admissionNumber")}
+                placeholder="e.g. ADM-2026-00001"
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              {createOfferForm.formState.errors.admissionNumber && (
+                <p className="mt-1 text-xs text-destructive">
+                  {createOfferForm.formState.errors.admissionNumber.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Program
+                </label>
+                <select
+                  {...createOfferForm.register("programId", {
+                    valueAsNumber: true,
+                  })}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value={0}>Select program</option>
+                  {(programs?.data ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Level
+                </label>
+                <select
+                  {...createOfferForm.register("levelId", {
+                    valueAsNumber: true,
+                  })}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value={0}>Select level</option>
+                  {levels.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Session
+                </label>
+                <select
+                  {...createOfferForm.register("sessionId", {
+                    valueAsNumber: true,
+                  })}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value={0}>Select session</option>
+                  {(sessions ?? []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Admission Type
+                </label>
+                <input
+                  {...createOfferForm.register("admissionType")}
+                  placeholder="merit, catchment, transfer…"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Admission Date
+                </label>
+                <input
+                  type="date"
+                  {...createOfferForm.register("admissionDate")}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Offer Expiry (optional)
+                </label>
+                <input
+                  type="date"
+                  {...createOfferForm.register("expiryDate")}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
           </div>
         </Modal>
       </div>

@@ -9,28 +9,27 @@ import Modal from "@/components/custom/Modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import Combobox from "@/components/custom/Combobox"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { useAcademicUnits } from "@/hooks/useAcademicStructure"
 import { PushCategoryDtoSchema } from "../../schemas/category.schema"
 import { usePushCategory } from "../../hooks/use-sync-mutations"
 import type { PushCategoryDto } from "../../types"
 
-const ENTITY_TYPES: PushCategoryDto["entityType"][] = [
-  "faculty",
-  "department",
-  "program",
-  "level",
-  "semester",
-]
-
 export function CategoryPushDialog() {
   const [open, setOpen] = useState(false)
   const pushCategory = usePushCategory()
+  const { data: unitsData } = useAcademicUnits(undefined, { enabled: open })
+  const unitOptions = (unitsData?.data ?? []).map((u) => ({
+    value: u.id,
+    label: u.name,
+    description: u.typeCode,
+  }))
 
   const form = useForm<PushCategoryDto>({
     resolver: zodResolver(PushCategoryDtoSchema),
     defaultValues: {
-      entityType: "faculty",
-      entityId: 0,
+      academicUnitId: 0,
       parentMoodleCategoryId: undefined,
     },
   })
@@ -38,11 +37,11 @@ export function CategoryPushDialog() {
   const submit = form.handleSubmit(async (values) => {
     try {
       await pushCategory.mutateAsync(values)
-      toast.success("Entity pushed to Moodle")
+      toast.success("Node pushed to Moodle")
       setOpen(false)
       form.reset()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to push entity")
+      toast.error(err instanceof Error ? err.message : "Failed to push node")
     }
   })
 
@@ -55,14 +54,14 @@ export function CategoryPushDialog() {
         onClick={() => setOpen(true)}
       >
         <UploadCloud size={13} />
-        Push Entity
+        Push Node
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Push Entity to Moodle"
-        subtitle="Manually push a faculty, program, level, or semester by its portal ID."
+        title="Push Node to Moodle"
+        subtitle="Manually push one node from the Academic Structure tree."
         size="sm"
         footer={
           <>
@@ -87,42 +86,22 @@ export function CategoryPushDialog() {
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Entity Type</Label>
+            <Label>Structure Node</Label>
             <Controller
               control={form.control}
-              name="entityType"
+              name="academicUnitId"
               render={({ field }) => (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {ENTITY_TYPES.map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => field.onChange(type)}
-                      className={
-                        field.value === type
-                          ? "rounded-lg border border-primary bg-primary/10 px-2 py-1.5 text-xs font-medium text-primary capitalize"
-                          : "rounded-lg border border-border px-2 py-1.5 text-xs text-muted-foreground capitalize hover:bg-muted"
-                      }
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
+                <Combobox
+                  options={unitOptions}
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(Number(v))}
+                  placeholder="Search for a node…"
+                />
               )}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="entity-id">Entity ID</Label>
-            <Input
-              id="entity-id"
-              type="number"
-              min={1}
-              {...form.register("entityId", { valueAsNumber: true })}
-            />
-            {form.formState.errors.entityId && (
+            {form.formState.errors.academicUnitId && (
               <p className="text-xs text-destructive">
-                {form.formState.errors.entityId.message}
+                {form.formState.errors.academicUnitId.message}
               </p>
             )}
           </div>

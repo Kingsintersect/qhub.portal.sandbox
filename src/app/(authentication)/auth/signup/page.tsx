@@ -23,6 +23,10 @@ const registerBaseSchema = z.object({
   username: usernameSchema("Username"),
   password: passwordSchema.min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
+  firstName: z.string().min(1, "First name is required"),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1, "Last name is required"),
+  phoneNumber: z.string().min(10, "Enter a valid phone number"),
 })
 
 const registerSchema = registerBaseSchema.refine(
@@ -40,6 +44,10 @@ type RegisterForm = {
   username: string
   password: string
   confirmPassword: string
+  firstName: string
+  middleName: string
+  lastName: string
+  phoneNumber: string
 }
 
 export default function SignUpPage() {
@@ -53,6 +61,10 @@ export default function SignUpPage() {
     username: "",
     password: "",
     confirmPassword: "",
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    phoneNumber: "",
   })
 
   function patch(values: Partial<RegisterForm>) {
@@ -85,6 +97,10 @@ export default function SignUpPage() {
         email: payloadParsed.data.email ?? "",
         username: payloadParsed.data.username ?? "",
         password: payloadParsed.data.password ?? "",
+        firstName: payloadParsed.data.firstName,
+        middleName: payloadParsed.data.middleName || undefined,
+        lastName: payloadParsed.data.lastName,
+        phoneNumber: payloadParsed.data.phoneNumber,
       }
 
       const response = await registerWithBackend(payload)
@@ -185,6 +201,50 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">First Name *</span>
+                  <Input
+                    value={form.firstName}
+                    onChange={(e) => patch({ firstName: e.target.value })}
+                    placeholder="e.g. Ada"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Last Name *</span>
+                  <Input
+                    value={form.lastName}
+                    onChange={(e) => patch({ lastName: e.target.value })}
+                    placeholder="e.g. Obi"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">
+                    Middle Name{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </span>
+                  <Input
+                    value={form.middleName}
+                    onChange={(e) => patch({ middleName: e.target.value })}
+                    placeholder="e.g. Nkem"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Phone Number *</span>
+                  <Input
+                    type="tel"
+                    value={form.phoneNumber}
+                    onChange={(e) => patch({ phoneNumber: e.target.value })}
+                    placeholder="+2348012345678"
+                  />
+                </label>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-2">
                   <span className="text-sm font-medium">Email Address *</span>

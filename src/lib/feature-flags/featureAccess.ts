@@ -83,7 +83,6 @@ const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
   { prefix: "/manager/finance", feature: "payment" },
   { prefix: "/admin/finance", feature: "payment" },
   { prefix: "/student/payments", feature: "payment" },
-  { prefix: "/admin/setup/fee-management", feature: "payment" },
 
   { prefix: "/manager/review-applications", feature: "admission" },
   { prefix: "/manager/academics/admissions", feature: "admission" },

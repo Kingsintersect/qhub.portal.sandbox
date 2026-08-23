@@ -50,6 +50,10 @@ export type BackendRegisterPayload = {
   email: string
   username: string
   password: string
+  firstName?: string
+  middleName?: string
+  lastName?: string
+  phoneNumber?: string
 }
 
 export type BackendRefreshResponse = BackendAuthTokens & {
@@ -188,6 +192,30 @@ export const normalizeBackendAuthUser = (
   }
 }
 
+// Real API: GET /auth/me — Bruno: auth/Me.bru. /auth/login's response only
+// carries `roles: string[]`, not permissions (see auth_README.md), so the
+// real, backend-granted permission list has to be fetched separately right
+// after login. Called with an explicit bearer header (not apiClient's shared
+// token state) since this runs inside NextAuth's authorize() before the
+// token has been persisted anywhere. Best-effort: a failed lookup here
+// degrades to zero permissions rather than failing the whole login.
+//
+// This is one flat list for the whole account, same as the real backend
+// returns — it does not vary by which of the account's roles is currently
+// active, so a multi-role user (e.g. TUTOR + HOD) sees the union of both
+// regardless of which role they're switched to. That's a backend modeling
+// choice, not something the frontend works around.
+const fetchMyPermissions = async (accessToken: string): Promise<string[]> => {
+  try {
+    const me = await apiClient.get<{ permissions?: string[] }>("/auth/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    return me.permissions ?? []
+  } catch {
+    return []
+  }
+}
+
 export const loginWithBackend = async (
   payload: BackendLoginPayload
 ): Promise<
@@ -206,8 +234,11 @@ export const loginWithBackend = async (
     throw new Error("Invalid authentication response from backend.")
   }
 
+  const permissions = await fetchMyPermissions(accessToken)
+
   return {
     ...normalizedUser,
+    permissions,
     accessToken,
     refreshToken,
   }
@@ -271,6 +302,64 @@ const refreshWithBackend = async (): Promise<string | null> => {
   } finally {
     logRefreshDebug("settled-clear-in-flight")
     refreshInFlight = null
+  }
+}
+
+// Real API: POST /auth/forgot-password — Bruno: auth/Forgot Password.bru.
+// Public. Always resolves with the same generic message whether or not the
+// email exists (the backend enforces this to prevent account enumeration).
+export const requestPasswordReset = async (email: string): Promise<void> => {
+  await apiClient.post("/auth/forgot-password", { email })
+}
+
+// Real API: POST /auth/reset-password — Bruno: auth/Reset Password.bru.
+// Public. Revokes all of the user's refresh tokens server-side on success —
+// they must sign in again afterward.
+export const resetPasswordWithToken = async (
+  token: string,
+  newPassword: string
+): Promise<void> => {
+  await apiClient.post("/auth/reset-password", { token, newPassword })
+}
+
+export type AdminCreateUserPayload = {
+  email: string
+  username: string
+  password: string
+  firstName?: string
+  middleName?: string
+  lastName?: string
+  phoneNumber?: string
+  roleIds: number[]
+}
+
+// Real API: POST /auth/users — Bruno: auth/Users - Create (Admin).bru.
+// Admin only. Lets an admin create an account and assign role(s) in one
+// call — the account is `isVerified: true` immediately (admin-vouched),
+// unlike public Register. Needed for onboarding staff who don't
+// self-register (bursary, registrar, HOD, etc.).
+export const adminCreateUser = async (
+  payload: AdminCreateUserPayload
+): Promise<{ data: { id: number } }> => {
+  return apiClient.post("/auth/users", payload, { access_token: true })
+}
+
+// Real API: POST /auth/logout — Bruno: auth/Logout.bru. Revokes the refresh
+// token server-side and audit-logs the logout. Best-effort: a failed call
+// here (expired token, network error) must never block the client-side
+// sign-out that follows it at every call site.
+export const logoutFromBackend = async (): Promise<void> => {
+  const refreshToken = getStoredRefreshToken()
+  try {
+    await apiClient.post(
+      "/auth/logout",
+      refreshToken ? { refreshToken } : undefined,
+      { access_token: true }
+    )
+  } catch {
+    // Ignore — proceed with client-side logout regardless.
+  } finally {
+    clearStoredAuthTokens()
   }
 }
 

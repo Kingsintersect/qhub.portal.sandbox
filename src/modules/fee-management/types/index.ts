@@ -11,6 +11,7 @@ export type PaymentStatus = z.infer<typeof Common.PaymentStatusSchema>
 
 // ── Fee Types ──────────────────────────────────────────────────────────────────
 export type CreateFeeTypeDto = z.infer<typeof FeeType.CreateFeeTypeDtoSchema>
+export type CreateFeeTypeInputValues = FeeType.CreateFeeTypeInputValues
 export type UpdateFeeTypeDto = z.infer<typeof FeeType.UpdateFeeTypeDtoSchema>
 export type FeeTypeResponse = z.infer<typeof FeeType.FeeTypeResponseSchema>
 export type ActivateFeeTypeResponse = z.infer<

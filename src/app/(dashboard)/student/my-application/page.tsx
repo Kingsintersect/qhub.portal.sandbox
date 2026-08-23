@@ -26,7 +26,6 @@ import {
 import type {
   ApplicationReviewStatus,
   ApplicantAcademicRecord,
-  ApplicantDocument,
   UpdateApplicationPayload,
 } from "@/types/school"
 
@@ -69,6 +68,33 @@ export default function MyApplicationPage() {
     onError: () => toast.error("Failed to save changes"),
   })
 
+  const addDocumentMutation = useMutation({
+    ...applicationReviewMutationOptions.addDocument(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationReviewKeys.mine() })
+      toast.success("Document uploaded")
+    },
+    onError: () => toast.error("Failed to upload document"),
+  })
+
+  const replaceDocumentMutation = useMutation({
+    ...applicationReviewMutationOptions.replaceDocument(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationReviewKeys.mine() })
+      toast.success("Document replaced")
+    },
+    onError: () => toast.error("Failed to replace document"),
+  })
+
+  const deleteDocumentMutation = useMutation({
+    ...applicationReviewMutationOptions.deleteDocument(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationReviewKeys.mine() })
+      toast.success("Document removed")
+    },
+    onError: () => toast.error("Failed to remove document"),
+  })
+
   const handleFieldSave = (
     section: keyof UpdateApplicationPayload,
     key: string,
@@ -106,46 +132,25 @@ export default function MyApplicationPage() {
 
   const handleDocumentRemove = (docId: string) => {
     if (!application) return
-    const updated = application.documents.filter((d) => d.id !== docId)
-    updateMutation.mutate({
-      id: application.id,
-      payload: { documents: updated },
-    })
+    deleteDocumentMutation.mutate({ applicationId: application.id, docId })
   }
 
   const handleDocumentReplace = (docId: string, file: File) => {
     if (!application) return
-    const updated = application.documents.map((d) =>
-      d.id === docId
-        ? {
-            ...d,
-            url: URL.createObjectURL(file),
-            name: file.name,
-            uploaded_at: new Date().toISOString(),
-          }
-        : d
-    )
-    updateMutation.mutate({
-      id: application.id,
-      payload: { documents: updated },
+    replaceDocumentMutation.mutate({
+      applicationId: application.id,
+      docId,
+      file,
     })
-    toast.success("Document replaced")
   }
 
   const handleDocumentAdd = (file: File) => {
     if (!application) return
-    const newDoc: ApplicantDocument = {
-      id: `doc-${Date.now()}`,
-      name: file.name,
+    addDocumentMutation.mutate({
+      applicationId: application.id,
+      file,
       type: "other",
-      url: URL.createObjectURL(file),
-      uploaded_at: new Date().toISOString(),
-    }
-    updateMutation.mutate({
-      id: application.id,
-      payload: { documents: [...application.documents, newDoc] },
     })
-    toast.success("Document uploaded")
   }
 
   if (isLoading) {
@@ -179,8 +184,11 @@ export default function MyApplicationPage() {
     )
   }
 
-  const isEditable =
-    application.status === "pending" || application.status === "under_review"
+  // Both PATCH /admissions/applications/:id and the document endpoints only
+  // allow edits while status is still "pending" (Applications - Update.bru /
+  // Application Documents - Add.bru: "Only works while the application is
+  // still pending") — under_review is real but not editable.
+  const isEditable = application.status === "pending"
   const { personal_info, academic_records, program_choice, documents } =
     application
 

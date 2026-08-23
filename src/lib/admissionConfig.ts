@@ -9,7 +9,7 @@ import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
   // ─── Process steps ────────────────────────────────────────────────
   {
-    id: "process-1",
+    id: 1,
     group: "PROCESS",
     key: "APPLICATION_PAYMENT",
     label: "Application Fee",
@@ -21,7 +21,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 1,
   },
   {
-    id: "process-2",
+    id: 2,
     group: "PROCESS",
     key: "APPLICATION_FORM",
     label: "Application Form",
@@ -33,7 +33,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 2,
   },
   {
-    id: "process-3",
+    id: 3,
     group: "PROCESS",
     key: "ADMISSION_STATUS",
     label: "Admission Status",
@@ -45,7 +45,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 3,
   },
   {
-    id: "process-4",
+    id: 4,
     group: "PROCESS",
     key: "ACCEPTANCE_FEE",
     label: "Acceptance Fee",
@@ -57,7 +57,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 4,
   },
   {
-    id: "process-5",
+    id: 5,
     group: "PROCESS",
     key: "TUITION_PAYMENT",
     label: "Tuition Payment",
@@ -69,7 +69,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 5,
   },
   {
-    id: "process-6",
+    id: 6,
     group: "PROCESS",
     key: "COMPLETED",
     label: "Completed",
@@ -83,7 +83,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
 
   // ─── Application form steps ───────────────────────────────────────
   {
-    id: "form-1",
+    id: 7,
     group: "FORM",
     key: "PERSONAL_INFO",
     label: "Personal Information",
@@ -94,7 +94,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 1,
   },
   {
-    id: "form-2",
+    id: 8,
     group: "FORM",
     key: "SPONSOR_INFO",
     label: "Sponsor Information",
@@ -105,7 +105,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 2,
   },
   {
-    id: "form-3",
+    id: 9,
     group: "FORM",
     key: "NEXT_OF_KIN",
     label: "Next of Kin",
@@ -116,7 +116,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 3,
   },
   {
-    id: "form-4",
+    id: 10,
     group: "FORM",
     key: "DOCUMENTS",
     label: "Documents",
@@ -128,7 +128,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 4,
   },
   {
-    id: "form-5",
+    id: 11,
     group: "FORM",
     key: "QUALIFICATION_FIELDS",
     label: "Qualification Information",
@@ -139,7 +139,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 5,
   },
   {
-    id: "form-6",
+    id: 12,
     group: "FORM",
     key: "EXAM_SITTING",
     label: "Exam Sitting",
@@ -150,7 +150,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 6,
   },
   {
-    id: "form-7",
+    id: 13,
     group: "FORM",
     key: "QUALIFICATION_DOCUMENTS",
     label: "Qualification Documents",
@@ -161,7 +161,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 7,
   },
   {
-    id: "form-8",
+    id: 14,
     group: "FORM",
     key: "PROGRAM_SELECTION",
     label: "Program Selection",
@@ -173,7 +173,7 @@ export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
     order: 8,
   },
   {
-    id: "form-9",
+    id: 15,
     group: "FORM",
     key: "REVIEW",
     label: "Review & Submit",

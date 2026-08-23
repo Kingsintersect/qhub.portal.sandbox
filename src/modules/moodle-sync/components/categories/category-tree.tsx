@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Layers,
   CalendarDays,
+  Network,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,21 +17,24 @@ import { Button } from "@/components/ui/button"
 import EmptyState from "@/components/custom/EmptyState"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { useSyncCategories } from "../../hooks/use-sync-categories"
-import {
-  usePushCategory,
-  usePushHierarchy,
-} from "../../hooks/use-sync-mutations"
+import { usePushCategory, usePushSubtree } from "../../hooks/use-sync-mutations"
 import { useMoodleSyncUiStore } from "../../store/moodle-sync-ui.store"
 import { SyncStatusBadge } from "../shared/sync-status-badge"
 import { SyncDirectionBadge } from "../shared/sync-direction-badge"
 import type { CategorySyncResponse } from "../../types"
 
-const ENTITY_ICON: Record<CategorySyncResponse["entityType"], LucideIcon> = {
-  faculty: Building2,
-  department: Building2,
-  program: GraduationCap,
-  level: Layers,
-  semester: CalendarDays,
+// Known seeded type codes get a dedicated icon; any other code (a custom
+// type an admin added, e.g. "COHORT") falls back to a generic icon — the
+// tree no longer needs to know about a fixed set of entity types. See
+// sandbox/schema-moodel-sync-refactor/api-v2.md §"Moodle Category Sync".
+const TYPE_ICON: Record<string, LucideIcon> = {
+  FACULTY: Building2,
+  DEPARTMENT: Building2,
+  SCHOOL: Building2,
+  PROGRAM: GraduationCap,
+  LEVEL: Layers,
+  SEMESTER: CalendarDays,
+  TERM: CalendarDays,
 }
 
 function buildTree(items: CategorySyncResponse[]) {
@@ -50,14 +54,14 @@ interface TreeNodeProps {
 }
 
 function TreeNode({ node, depth, byParent }: TreeNodeProps) {
-  const children = byParent.get(node.entityId) ?? []
+  const children = byParent.get(node.academicUnitId) ?? []
   const expanded = useMoodleSyncUiStore((s) =>
-    s.expandedCategoryIds.has(node.entityId)
+    s.expandedCategoryIds.has(node.academicUnitId)
   )
   const toggleExpanded = useMoodleSyncUiStore((s) => s.toggleCategoryExpanded)
   const pushCategory = usePushCategory()
-  const pushHierarchy = usePushHierarchy()
-  const Icon = ENTITY_ICON[node.entityType]
+  const pushSubtree = usePushSubtree()
+  const Icon = TYPE_ICON[node.unitTypeCode] ?? Network
   const hasChildren = children.length > 0
 
   return (
@@ -68,7 +72,7 @@ function TreeNode({ node, depth, byParent }: TreeNodeProps) {
       >
         <button
           type="button"
-          onClick={() => hasChildren && toggleExpanded(node.entityId)}
+          onClick={() => hasChildren && toggleExpanded(node.academicUnitId)}
           className={cn(
             "shrink-0 text-muted-foreground",
             !hasChildren && "opacity-0"
@@ -85,10 +89,10 @@ function TreeNode({ node, depth, byParent }: TreeNodeProps) {
         </div>
 
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          {node.entityName}
+          {node.unitName}
         </span>
         <span className="hidden shrink-0 text-[11px] text-muted-foreground capitalize sm:inline">
-          {node.entityType}
+          {node.unitTypeCode.toLowerCase()}
         </span>
 
         <SyncDirectionBadge
@@ -98,7 +102,7 @@ function TreeNode({ node, depth, byParent }: TreeNodeProps) {
         <SyncStatusBadge status={node.syncStatus} />
 
         <div className="flex shrink-0 items-center gap-1">
-          {node.entityType === "faculty" && (
+          {hasChildren && (
             <PermissionGate
               require={{ resource: "moodle-sync", action: "push" }}
             >
@@ -106,14 +110,14 @@ function TreeNode({ node, depth, byParent }: TreeNodeProps) {
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs"
-                disabled={pushHierarchy.isPending}
-                onClick={() => pushHierarchy.mutate(node.entityId)}
-                title="Push this faculty and its whole hierarchy"
+                disabled={pushSubtree.isPending}
+                onClick={() => pushSubtree.mutate(node.academicUnitId)}
+                title="Push this node and its whole subtree"
               >
-                {pushHierarchy.isPending ? (
+                {pushSubtree.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
-                  "Push Hierarchy"
+                  "Push Subtree"
                 )}
               </Button>
             </PermissionGate>
@@ -128,8 +132,7 @@ function TreeNode({ node, depth, byParent }: TreeNodeProps) {
                 disabled={pushCategory.isPending}
                 onClick={() =>
                   pushCategory.mutate({
-                    entityType: node.entityType,
-                    entityId: node.entityId,
+                    academicUnitId: node.academicUnitId,
                     parentMoodleCategoryId:
                       node.parentMoodleCategoryId ?? undefined,
                   })

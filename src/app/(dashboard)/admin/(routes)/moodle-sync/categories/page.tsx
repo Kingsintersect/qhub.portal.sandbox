@@ -7,6 +7,7 @@ import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { CategoryTree } from "@/modules/moodle-sync/components/categories/category-tree"
 import { CategoryPullPanel } from "@/modules/moodle-sync/components/categories/category-pull-panel"
 import { CategoryPushDialog } from "@/modules/moodle-sync/components/categories/category-push-dialog"
+import { CategoryNeedsMappingPanel } from "@/modules/moodle-sync/components/categories/category-needs-mapping-panel"
 
 export default function MoodleSyncCategoriesPage() {
   return (
@@ -43,8 +44,8 @@ export default function MoodleSyncCategoriesPage() {
                   Category Hierarchy
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  Faculty → Program → Level → Semester, mapped to Moodle
-                  categories.
+                  Your Academic Structure tree, mapped to Moodle categories —
+                  any shape, any depth.
                 </p>
               </div>
             </div>
@@ -53,6 +54,7 @@ export default function MoodleSyncCategoriesPage() {
         </motion.div>
 
         <CategoryPullPanel />
+        <CategoryNeedsMappingPanel />
         <CategoryTree />
       </div>
     </PermissionGate>

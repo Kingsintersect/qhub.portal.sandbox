@@ -1,20 +1,23 @@
 /* ------------------------------------------------------------------ */
-/*  Admission Step Registry — API Service (Mock-Ready)                 */
+/*  Admission Step Registry — API Service                              */
 /*                                                                     */
 /*  Full CRUD on the step definitions that drive:                      */
 /*    - src/app/(admission)/(routes)/process-admission/page.tsx        */
 /*    - src/app/(admission)/(routes)/admission-application-form/       */
-/*  Runs on an in-memory dummy store today. Replace each method's body */
-/*  with the commented apiClient call once the backend endpoints in    */
-/*  sandbox/admission/admission_features_workflow.md exist — the       */
-/*  interface (and every consumer of it) stays the same.               */
+/*  Real backend contract per sandbox/admission/admission_features_    */
+/*  workflow.md — no bruno collection exists for this yet (a genuinely */
+/*  new, additive endpoint set), so this is built directly against     */
+/*  that doc's spec. Until the backend ships it, every call here 404s  */
+/*  and the consuming pages surface that as a normal failed query —    */
+/*  no client-side mock fallback, per this module's "don't fake it"    */
+/*  convention (see admissionSetupApi.ts for the matching approach on  */
+/*  Admission Cycles).                                                 */
 /* ------------------------------------------------------------------ */
 
-import {
+import apiClient, {
   createApiMutationOptions,
   createApiQueryOptions,
 } from "@/lib/clients/apiClient"
-import { DEFAULT_ADMISSION_STEPS, sortByOrder } from "@/lib/admissionConfig"
 import type {
   AdmissionConfig,
   AdmissionStepDefinition,
@@ -23,32 +26,15 @@ import type {
   UpdateAdmissionStepPayload,
 } from "@/types/admissionConfig"
 
-const delay = (ms = 400) => new Promise((res) => setTimeout(res, ms))
-
-/* ------------------------------------------------------------------ */
-/*  MOCK STORE                                                          */
-/* ------------------------------------------------------------------ */
-
-let mockSteps: AdmissionStepDefinition[] = DEFAULT_ADMISSION_STEPS.map((s) => ({
-  ...s,
-}))
-let nextId = mockSteps.length + 1
-
-function nextOrder(group: AdmissionStepGroup): number {
-  const inGroup = mockSteps.filter((s) => s.group === group)
-  return inGroup.length === 0 ? 1 : Math.max(...inGroup.map((s) => s.order)) + 1
-}
-
-/* ------------------------------------------------------------------ */
-/*  Public API                                                          */
-/* ------------------------------------------------------------------ */
+const AUTH = { access_token: true } as const
 
 export const admissionStepsApi = {
   async list(group?: AdmissionStepGroup): Promise<AdmissionStepDefinition[]> {
-    // TODO: replace with → apiClient.get<AdmissionStepDefinition[]>("/admissions/config/steps", { access_token: true, params: { group } })
-    await delay(300)
-    const rows = group ? mockSteps.filter((s) => s.group === group) : mockSteps
-    return sortByOrder(rows).map((s) => ({ ...s }))
+    const res = await apiClient.get<{ data: AdmissionStepDefinition[] }>(
+      "/admissions/config/steps",
+      { ...AUTH, params: { group } }
+    )
+    return res.data
   },
 
   /** Composes both groups into the shape process-admission / useAdmissionForm consume. */
@@ -63,68 +49,43 @@ export const admissionStepsApi = {
   async create(
     payload: CreateAdmissionStepPayload
   ): Promise<AdmissionStepDefinition> {
-    // TODO: replace with → apiClient.post<AdmissionStepDefinition>("/admissions/config/steps", payload, { access_token: true })
-    await delay(500)
-    if (
-      mockSteps.some((s) => s.group === payload.group && s.key === payload.key)
-    ) {
-      throw new Error(
-        `A step with key "${payload.key}" already exists in this group.`
-      )
-    }
-    const created: AdmissionStepDefinition = {
-      id: `custom-${nextId++}`,
-      order: nextOrder(payload.group),
-      ...payload,
-    }
-    mockSteps = [...mockSteps, created]
-    return { ...created }
+    const res = await apiClient.post<{ data: AdmissionStepDefinition }>(
+      "/admissions/config/steps",
+      payload,
+      AUTH
+    )
+    return res.data
   },
 
   async update(
-    id: string,
+    id: number,
     payload: UpdateAdmissionStepPayload
   ): Promise<AdmissionStepDefinition> {
-    // TODO: replace with → apiClient.patch<AdmissionStepDefinition>(`/admissions/config/steps/${id}`, payload, { access_token: true })
-    await delay(400)
-    const existing = mockSteps.find((s) => s.id === id)
-    if (!existing) throw new Error("Step not found")
-    const updated: AdmissionStepDefinition = {
-      ...existing,
-      ...payload,
-      // A required step can never be turned off, regardless of what's asked.
-      enabled: existing.required ? true : (payload.enabled ?? existing.enabled),
-    }
-    mockSteps = mockSteps.map((s) => (s.id === id ? updated : s))
-    return { ...updated }
+    const res = await apiClient.patch<{ data: AdmissionStepDefinition }>(
+      `/admissions/config/steps/${id}`,
+      payload,
+      AUTH
+    )
+    return res.data
   },
 
-  async remove(id: string): Promise<{ message: string }> {
-    // TODO: replace with → apiClient.delete<{ message: string }>(`/admissions/config/steps/${id}`, { access_token: true })
-    await delay(400)
-    const existing = mockSteps.find((s) => s.id === id)
-    if (!existing) throw new Error("Step not found")
-    if (existing.required)
-      throw new Error(
-        `"${existing.label}" is a required step and can't be deleted.`
-      )
-    mockSteps = mockSteps.filter((s) => s.id !== id)
-    return { message: "Step deleted" }
+  async remove(id: number): Promise<{ message: string }> {
+    return apiClient.delete<{ message: string }>(
+      `/admissions/config/steps/${id}`,
+      AUTH
+    )
   },
 
   async reorder(
     group: AdmissionStepGroup,
-    orderedIds: string[]
+    orderedIds: number[]
   ): Promise<AdmissionStepDefinition[]> {
-    // TODO: replace with → apiClient.post<AdmissionStepDefinition[]>("/admissions/config/steps/reorder", { group, orderedIds }, { access_token: true })
-    await delay(300)
-    const orderById = new Map(orderedIds.map((id, idx) => [id, idx + 1]))
-    mockSteps = mockSteps.map((s) =>
-      s.group === group && orderById.has(s.id)
-        ? { ...s, order: orderById.get(s.id)! }
-        : s
+    const res = await apiClient.post<{ data: AdmissionStepDefinition[] }>(
+      "/admissions/config/steps/reorder",
+      { group, orderedIds },
+      AUTH
     )
-    return admissionStepsApi.list(group)
+    return res.data
   },
 }
 
@@ -167,14 +128,14 @@ export const admissionStepsMutationOptions = {
   update: () =>
     createApiMutationOptions<
       AdmissionStepDefinition,
-      { id: string; payload: UpdateAdmissionStepPayload }
+      { id: number; payload: UpdateAdmissionStepPayload }
     >({
       mutationKey: [...admissionStepsKeys.all, "update"],
       mutationFn: ({ id, payload }) => admissionStepsApi.update(id, payload),
     }),
 
   remove: () =>
-    createApiMutationOptions<{ message: string }, string>({
+    createApiMutationOptions<{ message: string }, number>({
       mutationKey: [...admissionStepsKeys.all, "remove"],
       mutationFn: (id) => admissionStepsApi.remove(id),
     }),
@@ -182,7 +143,7 @@ export const admissionStepsMutationOptions = {
   reorder: () =>
     createApiMutationOptions<
       AdmissionStepDefinition[],
-      { group: AdmissionStepGroup; orderedIds: string[] }
+      { group: AdmissionStepGroup; orderedIds: number[] }
     >({
       mutationKey: [...admissionStepsKeys.all, "reorder"],
       mutationFn: ({ group, orderedIds }) =>

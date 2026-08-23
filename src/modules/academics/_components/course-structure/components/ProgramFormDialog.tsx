@@ -1,0 +1,196 @@
+"use client"
+
+import { useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import Modal from "@/components/custom/Modal"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useCreateProgram, useUpdateProgram } from "@/hooks/useCourseStructure"
+import { programSchema, type ProgramFormValues } from "@/schemas/school.schema"
+import type { Program } from "@/types/school"
+
+interface ProgramFormDialogProps {
+  open: boolean
+  onClose: () => void
+  departmentId: number
+  program?: Program | null
+}
+
+export function ProgramFormDialog({
+  open,
+  onClose,
+  departmentId,
+  program,
+}: ProgramFormDialogProps) {
+  const isEditing = !!program
+  const createProgram = useCreateProgram()
+  const updateProgram = useUpdateProgram()
+  const isPending = createProgram.isPending || updateProgram.isPending
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProgramFormValues>({
+    resolver: zodResolver(programSchema),
+    defaultValues: {
+      name: "",
+      code: "",
+      degreeType: "",
+      durationYears: 4,
+      minCreditUnits: 120,
+    },
+  })
+
+  useEffect(() => {
+    if (!open) return
+    reset({
+      name: program?.name ?? "",
+      code: program?.code ?? "",
+      degreeType: program?.degreeType ?? "",
+      durationYears: program?.durationYears ?? 4,
+      description: program?.description ?? "",
+      admissionRequirements: program?.admissionRequirements ?? "",
+      minCreditUnits: program?.minCreditUnits ?? 120,
+    })
+  }, [open, program, reset])
+
+  const onSubmit = async (values: ProgramFormValues) => {
+    try {
+      if (isEditing) {
+        await updateProgram.mutateAsync({ id: program.id, payload: values })
+        toast.success("Program updated")
+      } else {
+        await createProgram.mutateAsync({ ...values, departmentId })
+        toast.success("Program created")
+      }
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save program")
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Edit Program" : "Create Program"}
+      subtitle="e.g., B.Sc. Computer Science (code: CSC-BSC)"
+      size="md"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit(onSubmit)} disabled={isPending}>
+            {isPending && (
+              <Loader2
+                className="size-4 animate-spin"
+                data-icon="inline-start"
+              />
+            )}
+            {isEditing ? "Save Changes" : "Create Program"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="program-name">Program Name</Label>
+          <Input
+            id="program-name"
+            placeholder="B.Sc. Computer Science"
+            aria-invalid={!!errors.name}
+            {...register("name")}
+          />
+          {errors.name && (
+            <p className="text-sm text-destructive">{errors.name.message}</p>
+          )}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="program-code">Code</Label>
+            <Input
+              id="program-code"
+              placeholder="CSC-BSC"
+              aria-invalid={!!errors.code}
+              {...register("code")}
+              disabled={isEditing}
+            />
+            {errors.code && (
+              <p className="text-sm text-destructive">{errors.code.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="program-degree">Degree Type</Label>
+            <Input
+              id="program-degree"
+              placeholder="B.Sc"
+              aria-invalid={!!errors.degreeType}
+              {...register("degreeType")}
+            />
+            {errors.degreeType && (
+              <p className="text-sm text-destructive">
+                {errors.degreeType.message}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="program-duration">Duration (years)</Label>
+            <Input
+              id="program-duration"
+              type="number"
+              min={1}
+              aria-invalid={!!errors.durationYears}
+              {...register("durationYears", { valueAsNumber: true })}
+            />
+            {errors.durationYears && (
+              <p className="text-sm text-destructive">
+                {errors.durationYears.message}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="program-min-units">Minimum Credit Units</Label>
+          <Input
+            id="program-min-units"
+            type="number"
+            min={1}
+            className="max-w-40"
+            aria-invalid={!!errors.minCreditUnits}
+            {...register("minCreditUnits", { valueAsNumber: true })}
+          />
+          {errors.minCreditUnits && (
+            <p className="text-sm text-destructive">
+              {errors.minCreditUnits.message}
+            </p>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="program-description">Description</Label>
+          <Textarea
+            id="program-description"
+            rows={2}
+            {...register("description")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="program-requirements">Admission Requirements</Label>
+          <Textarea
+            id="program-requirements"
+            rows={2}
+            placeholder="5 O'Level credits including Mathematics and English"
+            {...register("admissionRequirements")}
+          />
+        </div>
+      </div>
+    </Modal>
+  )
+}

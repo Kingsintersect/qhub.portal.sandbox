@@ -3,54 +3,43 @@ import {
   createApiQueryOptions,
 } from "@/lib/clients/apiClient"
 import apiClient from "@/lib/clients/apiClient"
-import { dummySettingsApi } from "@/services/dummyData"
 import type {
   Setting,
   CreateSettingPayload,
   UpdateSettingPayload,
   SettingsQueryParams,
-  ApiListResponse,
-  ApiSingleResponse,
+  ApiPaginatedResponse,
 } from "@/types/school"
 
 const AUTH = { access_token: true }
 
-// ── Settings REST layer ──────────────────────
-// Each method calls the dummy API today.
-// Uncomment the apiClient line and remove the dummy call when the backend is ready.
+// Real backend contract per bruno/configuration/*.bru (source of truth — see
+// CLAUDE.md §13). List is the only endpoint wrapped in `{data, meta}` — every other
+// endpoint here returns its setting FLAT, confirmed by each .bru file's docs block
+// ("Returns the flat setting object" / "Response is the flat setting object, not
+// wrapped in data") and by Create's post-response script reading `res.body?.id`
+// directly, never `res.body?.data?.id`.
 
 export const settingsApi = {
   list: async (
     params?: SettingsQueryParams
-  ): Promise<ApiListResponse<Setting>> => {
-    // return dummySettingsApi.list(params);
-    return apiClient.get<ApiListResponse<Setting>>("/configuration/settings", {
-      ...AUTH,
-      ...params,
-    })
-  },
-
-  getById: async (id: number): Promise<ApiSingleResponse<Setting>> => {
-    // return dummySettingsApi.getById(id);
-    return apiClient.get<ApiSingleResponse<Setting>>(
-      `/configuration/settings/${id}`,
-      AUTH
+  ): Promise<ApiPaginatedResponse<Setting>> => {
+    return apiClient.get<ApiPaginatedResponse<Setting>>(
+      "/configuration/settings",
+      { ...AUTH, params: params as Record<string, unknown> | undefined }
     )
   },
 
-  getByKey: async (key: string): Promise<ApiSingleResponse<Setting>> => {
-    // return dummySettingsApi.getByKey(key);
-    return apiClient.get<ApiSingleResponse<Setting>>(
-      `/configuration/settings/key/${key}`,
-      AUTH
-    )
+  getById: async (id: number): Promise<Setting> => {
+    return apiClient.get<Setting>(`/configuration/settings/${id}`, AUTH)
   },
 
-  create: async (
-    payload: CreateSettingPayload
-  ): Promise<ApiSingleResponse<Setting>> => {
-    // return dummySettingsApi.create(payload);
-    return apiClient.post<ApiSingleResponse<Setting>, CreateSettingPayload>(
+  getByKey: async (key: string): Promise<Setting> => {
+    return apiClient.get<Setting>(`/configuration/settings/key/${key}`, AUTH)
+  },
+
+  create: async (payload: CreateSettingPayload): Promise<Setting> => {
+    return apiClient.post<Setting, CreateSettingPayload>(
       "/configuration/settings",
       payload,
       AUTH
@@ -60,21 +49,17 @@ export const settingsApi = {
   update: async (
     id: number,
     payload: UpdateSettingPayload
-  ): Promise<ApiSingleResponse<Setting>> => {
-    // return dummySettingsApi.update(id, payload);
-    return apiClient.patch<ApiSingleResponse<Setting>, UpdateSettingPayload>(
+  ): Promise<Setting> => {
+    return apiClient.patch<Setting, UpdateSettingPayload>(
       `/configuration/settings/${id}`,
       payload,
       AUTH
     )
   },
 
-  remove: async (id: number): Promise<{ message: string }> => {
-    // return dummySettingsApi.remove(id);
-    return apiClient.delete<{ message: string }>(
-      `/configuration/settings/${id}`,
-      AUTH
-    )
+  // 204 No Content — no response body.
+  remove: async (id: number): Promise<void> => {
+    return apiClient.delete<void>(`/configuration/settings/${id}`, AUTH)
   },
 }
 
@@ -103,7 +88,7 @@ export const configurationQueryOptions = {
   settingDetail: (id: number) =>
     createApiQueryOptions({
       queryKey: configurationKeys.settingDetail(id),
-      queryFn: async () => (await settingsApi.getById(id)).data,
+      queryFn: () => settingsApi.getById(id),
     }),
 }
 
@@ -111,14 +96,14 @@ export const configurationQueryOptions = {
 
 export const configurationMutationOptions = {
   create: () =>
-    createApiMutationOptions<ApiSingleResponse<Setting>, CreateSettingPayload>({
+    createApiMutationOptions<Setting, CreateSettingPayload>({
       mutationKey: [...configurationKeys.settings(), "create"],
       mutationFn: settingsApi.create,
     }),
 
   update: () =>
     createApiMutationOptions<
-      ApiSingleResponse<Setting>,
+      Setting,
       { id: number; payload: UpdateSettingPayload }
     >({
       mutationKey: [...configurationKeys.settings(), "update"],
@@ -126,7 +111,7 @@ export const configurationMutationOptions = {
     }),
 
   remove: () =>
-    createApiMutationOptions<{ message: string }, number>({
+    createApiMutationOptions<void, number>({
       mutationKey: [...configurationKeys.settings(), "delete"],
       mutationFn: settingsApi.remove,
     }),

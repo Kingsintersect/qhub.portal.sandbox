@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useSession, signOut } from "next-auth/react"
+import { logoutFromBackend } from "@/lib/auth/backendAuth"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { ArrowRight, LogOut, Menu, X } from "lucide-react"
@@ -126,7 +127,10 @@ export default function NavBar() {
 
             {isAuthenticated && (
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={async () => {
+                  await logoutFromBackend()
+                  await signOut({ callbackUrl: "/" })
+                }}
                 title="Log out"
                 aria-label="Log out"
                 className="hidden rounded-md p-2 text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive sm:inline-flex"
@@ -214,7 +218,10 @@ export default function NavBar() {
 
               {isAuthenticated && (
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={async () => {
+                    await logoutFromBackend()
+                    await signOut({ callbackUrl: "/" })
+                  }}
                   className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-destructive uppercase transition-colors hover:bg-destructive/10"
                 >
                   <LogOut className="h-4 w-4" />

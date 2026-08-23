@@ -20,7 +20,7 @@ import type {
 
 export const auditApi = {
   /**
-   * GET /api/audit/logs
+   * GET /audit/logs
    * Fetches audit logs with pagination and filters
    */
   getLogs: async (
@@ -50,7 +50,7 @@ export const auditApi = {
   },
 
   /**
-   * GET /api/audit/users/:userId/logs
+   * GET /audit/logs/user/:userId
    * Fetches logs for a specific user
    */
   getUserLogs: async (
@@ -67,7 +67,7 @@ export const auditApi = {
     if (params.startDate) queryParams.startDate = params.startDate
     if (params.endDate) queryParams.endDate = params.endDate
 
-    return apiClient.get<AuditLogsResponse>(`/api/audit/users/${userId}/logs`, {
+    return apiClient.get<AuditLogsResponse>(`/audit/logs/user/${userId}`, {
       params: queryParams,
       access_token: true,
       ...options,
@@ -75,7 +75,7 @@ export const auditApi = {
   },
 
   /**
-   * GET /api/audit/entity/:type/:id
+   * GET /audit/logs/entity/:type/:id
    * Fetches logs for a specific entity
    */
   getEntityLogs: async (
@@ -84,7 +84,7 @@ export const auditApi = {
     options?: RequestOptions
   ): Promise<AuditEntityLogsResponse> => {
     return apiClient.get<AuditEntityLogsResponse>(
-      `/api/audit/entity/${entityType}/${entityId}`,
+      `/audit/logs/entity/${entityType}/${entityId}`,
       {
         access_token: true,
         ...options,
@@ -93,7 +93,7 @@ export const auditApi = {
   },
 
   /**
-   * GET /api/audit/stats
+   * GET /audit/stats
    * Fetches audit statistics
    */
   getStats: async (options?: RequestOptions): Promise<AuditStats> => {
@@ -104,7 +104,7 @@ export const auditApi = {
   },
 
   /**
-   * GET /api/audit/export
+   * GET /audit/export
    * Exports audit logs in various formats
    */
   exportLogs: async (
@@ -141,7 +141,7 @@ export const auditApi = {
   },
 
   /**
-   * POST /api/audit/log
+   * POST /audit/log
    * Creates a custom audit log entry
    */
   createLog: async (

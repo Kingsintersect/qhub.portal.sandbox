@@ -165,6 +165,8 @@ export const STEP_STORAGE_KEY = "odl_admission_step"
 
 // ─── Default Form Values ─────────────────────────────────────────────────────
 export const DEFAULT_FORM_VALUES: FormDefaultValues = {
+  nationality: "Nigerian",
+  state_of_origin: "",
   lga: "",
   religion: "",
   dob: "",
@@ -210,6 +212,8 @@ export const DEFAULT_FORM_VALUES: FormDefaultValues = {
   first_sitting_result: undefined,
   second_sitting_result: undefined,
 
+  programId: 0,
+  entryMode: "" as "UTME" | "DIRECT_ENTRY" | "TRANSFER" | "",
   startTerm: "2026/2027 - 100 level - 1st Semester",
   studyMode: "online",
 
@@ -219,6 +223,8 @@ export const DEFAULT_FORM_VALUES: FormDefaultValues = {
 // ─── Step Field Mappings ─────────────────────────────────────────────────────
 export const STEP_FIELDS: Record<FormStep, string[]> = {
   [FormStep.PERSONAL_INFO]: [
+    "nationality",
+    "state_of_origin",
     "lga",
     "religion",
     "dob",
@@ -267,7 +273,12 @@ export const STEP_FIELDS: Record<FormStep, string[]> = {
     "first_sitting_result",
     "second_sitting_result",
   ],
-  [FormStep.PROGRAM_SELECTION]: ["startTerm", "studyMode"],
+  [FormStep.PROGRAM_SELECTION]: [
+    "programId",
+    "entryMode",
+    "startTerm",
+    "studyMode",
+  ],
   [FormStep.REVIEW]: ["agreeToTerms"],
 }
 
@@ -286,6 +297,8 @@ export type StepSchemaMap = {
 
 // ─── Form Default Values Type ────────────────────────────────────────────────
 export interface FormDefaultValues {
+  nationality: string
+  state_of_origin: string
   lga: string
   religion: string
   dob: string
@@ -331,6 +344,8 @@ export interface FormDefaultValues {
   first_sitting_result: File | undefined
   second_sitting_result: File | undefined
 
+  programId: number
+  entryMode: "UTME" | "DIRECT_ENTRY" | "TRANSFER" | ""
   startTerm: string
   studyMode: "online" | "offline"
 

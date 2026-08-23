@@ -6,6 +6,11 @@ import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { formStorage } from "@/lib/storage"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
+import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import {
+  fetchMyProfile,
+  submitApplication,
+} from "../services/application-submit.service"
 import {
   personalInfoSchema,
   sponsorInfoSchema,
@@ -74,6 +79,11 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   // ─── Admin-configured active steps — admins can disable/reorder steps ───
   const { data: admissionConfig } = useQuery(
     admissionStepsQueryOptions.config()
+  )
+  const { data: sessions } = useAcademicSessions()
+  const activeSessionId = useMemo(
+    () => sessions?.find((s) => s.isActive)?.id ?? null,
+    [sessions]
   )
   const activeSteps = useMemo(() => {
     return getActiveFormSteps(admissionConfig?.formSteps ?? [])
@@ -331,8 +341,15 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
         return
       }
 
-      // TODO: API call to submit the application
-      // await submitAdmissionApplication(result.data);
+      if (!activeSessionId) {
+        toast.error(
+          "No active academic session found. Please contact admissions."
+        )
+        return
+      }
+
+      const profile = await fetchMyProfile()
+      await submitApplication(values, profile, activeSessionId)
 
       await formStorage.clearFormData(FORM_STORAGE_KEY)
       localStorage.removeItem(STEP_STORAGE_KEY)
@@ -340,11 +357,15 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
       setIsSubmitted(true)
     } catch (error) {
       console.error("Submission failed:", error)
-      toast.error("Failed to submit application. Please try again.")
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to submit application. Please try again."
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
-  }, [form])
+  }, [form, activeSessionId])
 
   // ─── Reset form ──────────────────────────────────────────────────────────
   const resetForm = useCallback(async () => {
