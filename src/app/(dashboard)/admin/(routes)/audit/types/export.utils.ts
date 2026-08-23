@@ -1,4 +1,4 @@
-import type { AuditLog, ExportFormat } from "./audit.types";
+import type { AuditLog, ExportFormat } from "./audit.types"
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -7,57 +7,65 @@ import type { AuditLog, ExportFormat } from "./audit.types";
  * No external dependencies required.
  */
 export async function exportAuditLogs(
-    logs: AuditLog[],
-    format: ExportFormat,
-    filename: string,
+  logs: AuditLog[],
+  format: ExportFormat,
+  filename: string
 ): Promise<void> {
-    // Artificial minimum delay for UX feedback
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+  // Artificial minimum delay for UX feedback
+  await new Promise<void>((resolve) => setTimeout(resolve, 300))
 
-    switch (format) {
-        case "csv":
-            exportCsv(logs, filename);
-            break;
-        case "excel":
-            exportExcel(logs, filename);
-            break;
-        case "pdf":
-            exportPdf(logs, filename);
-            break;
-    }
+  switch (format) {
+    case "csv":
+      exportCsv(logs, filename)
+      break
+    case "excel":
+      exportExcel(logs, filename)
+      break
+    case "pdf":
+      exportPdf(logs, filename)
+      break
+  }
 }
 
 // ─── CSV ──────────────────────────────────────────────────────────────────────
 
 function exportCsv(logs: AuditLog[], filename: string): void {
-    const headers = [
-        "ID", "User", "Email", "Action", "Entity Type",
-        "Entity ID", "IP Address", "Date",
-    ];
+  const headers = [
+    "ID",
+    "User",
+    "Email",
+    "Action",
+    "Entity Type",
+    "Entity ID",
+    "IP Address",
+    "Date",
+  ]
 
-    const rows = logs.map((log) => [
-        log.id,
-        `${log.user.firstName} ${log.user.lastName}`,
-        log.user.email,
-        log.action,
-        log.entityType,
-        log.entityId,
-        log.ipAddress ?? "",
-        log.createdAt,
-    ]);
+  const rows = logs.map((log) => [
+    log.id,
+    `${log.user.firstName} ${log.user.lastName}`,
+    log.user.email,
+    log.action,
+    log.entityType,
+    log.entityId,
+    log.ipAddress ?? "",
+    log.createdAt,
+  ])
 
-    const csv = [headers, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-        .join("\n");
+  const csv = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+    )
+    .join("\n")
 
-    // UTF-8 BOM so Excel opens it correctly
-    downloadFile(`\uFEFF${csv}`, `${filename}.csv`, "text/csv;charset=utf-8");
+  // UTF-8 BOM so Excel opens it correctly
+  downloadFile(`\uFEFF${csv}`, `${filename}.csv`, "text/csv;charset=utf-8")
 }
 
 // ─── Excel (XMLSS — opens natively in Excel) ─────────────────────────────────
 
 function exportExcel(logs: AuditLog[], filename: string): void {
-    const headerRow = `
+  const headerRow = `
     <Row>
       <Cell><Data ss:Type="String">ID</Data></Cell>
       <Cell><Data ss:Type="String">User</Data></Cell>
@@ -67,25 +75,25 @@ function exportExcel(logs: AuditLog[], filename: string): void {
       <Cell><Data ss:Type="String">Entity ID</Data></Cell>
       <Cell><Data ss:Type="String">IP Address</Data></Cell>
       <Cell><Data ss:Type="String">Date</Data></Cell>
-    </Row>`;
+    </Row>`
 
-    const dataRows = logs
-        .map(
-            (log) => `
+  const dataRows = logs
+    .map(
+      (log) => `
     <Row>
       <Cell><Data ss:Type="Number">${log.id}</Data></Cell>
       <Cell><Data ss:Type="String">${escXml(`${log.user.firstName} ${log.user.lastName}`)}</Data></Cell>
-      <Cell><Data ss:Type="String">${escXml(log.user.email)}</Data></Cell>
+      <Cell><Data ss:Type="String">${escXml(log.user.email ?? "")}</Data></Cell>
       <Cell><Data ss:Type="String">${log.action}</Data></Cell>
       <Cell><Data ss:Type="String">${log.entityType}</Data></Cell>
       <Cell><Data ss:Type="Number">${log.entityId}</Data></Cell>
       <Cell><Data ss:Type="String">${escXml(log.ipAddress ?? "")}</Data></Cell>
       <Cell><Data ss:Type="String">${log.createdAt}</Data></Cell>
-    </Row>`,
-        )
-        .join("");
+    </Row>`
+    )
+    .join("")
 
-    const xml = `<?xml version="1.0"?>
+  const xml = `<?xml version="1.0"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook
   xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -94,30 +102,30 @@ function exportExcel(logs: AuditLog[], filename: string): void {
     <Table>${headerRow}${dataRows}
     </Table>
   </Worksheet>
-</Workbook>`;
+</Workbook>`
 
-    downloadFile(xml, `${filename}.xls`, "application/vnd.ms-excel");
+  downloadFile(xml, `${filename}.xls`, "application/vnd.ms-excel")
 }
 
 // ─── PDF (print-ready HTML page) ─────────────────────────────────────────────
 
 function exportPdf(logs: AuditLog[], filename: string): void {
-    const rows = logs
-        .map(
-            (log) => `
+  const rows = logs
+    .map(
+      (log) => `
     <tr>
       <td>${log.id}</td>
       <td>${escHtml(`${log.user.firstName} ${log.user.lastName}`)}</td>
-      <td>${escHtml(log.user.email)}</td>
+      <td>${escHtml(log.user.email ?? "")}</td>
       <td><strong>${log.action}</strong></td>
       <td>${log.entityType} #${log.entityId}</td>
       <td>${log.ipAddress ?? "—"}</td>
       <td>${new Date(log.createdAt).toLocaleDateString("en-NG")}</td>
-    </tr>`,
-        )
-        .join("");
+    </tr>`
+    )
+    .join("")
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -153,37 +161,41 @@ function exportPdf(logs: AuditLog[], filename: string): void {
     <tbody>${rows}</tbody>
   </table>
 </body>
-</html>`;
+</html>`
 
-    const printWin = window.open("", "_blank", "width=1024,height=768");
-    if (printWin) {
-        printWin.document.write(html);
-        printWin.document.close();
-    }
+  const printWin = window.open("", "_blank", "width=1024,height=768")
+  if (printWin) {
+    printWin.document.write(html)
+    printWin.document.close()
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function downloadFile(content: string, filename: string, mimeType: string): void {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+function downloadFile(
+  content: string,
+  filename: string,
+  mimeType: string
+): void {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 function escXml(str: string): string {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
 }
 
 function escHtml(str: string): string {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
