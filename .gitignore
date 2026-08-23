@@ -39,4 +39,7 @@ pnpm-debug.log*
 next-env.d.ts
 /sandbox
 /sandbox/
+bruno
+/bruno
+/bruno/
 test.txt

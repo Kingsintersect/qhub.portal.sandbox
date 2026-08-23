@@ -9,413 +9,56 @@ import type {
   UpdateRolePayload,
   CreatePermissionPayload,
   UpdatePermissionPayload,
-  AssignRolePayload,
+  AssignRolesPayload,
   RevokeRolePayload,
   UserWithRoles,
+  UserRoleSummary,
 } from "@/types/roles"
 import type { ApiListResponse, ApiSingleResponse } from "@/types/school"
 
-// ── helpers ─────────────────────────────────
-let _nextId = 100
-const nid = () => ++_nextId
-const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms))
-
-// ── seed: permissions ───────────────────────
-
-const permissions: Permission[] = [
-  {
-    id: 1,
-    resource: "results",
-    action: "view.own",
-    module: "academics",
-    description: "View own results",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 2,
-    resource: "results",
-    action: "upload",
-    module: "academics",
-    description: "Upload course results",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 3,
-    resource: "courses",
-    action: "register",
-    module: "academics",
-    description: "Register courses for a semester",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 4,
-    resource: "students",
-    action: "view.class",
-    module: "students",
-    description: "View class list for a course",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 5,
-    resource: "courses",
-    action: "approve",
-    module: "academics",
-    description: "Approve course registration",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 6,
-    resource: "fees",
-    action: "pay",
-    module: "finance",
-    description: "Pay school fees online",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 7,
-    resource: "fees",
-    action: "verify",
-    module: "finance",
-    description: "Verify fee payment receipts",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 8,
-    resource: "users",
-    action: "manage",
-    module: "admin",
-    description: "Manage platform users",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 9,
-    resource: "results",
-    action: "approve",
-    module: "academics",
-    description: "Approve uploaded results",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 10,
-    resource: "departments",
-    action: "manage",
-    module: "admin",
-    description: "Manage departments",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 11,
-    resource: "fees",
-    action: "configure",
-    module: "finance",
-    description: "Configure fee structures",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-  {
-    id: 12,
-    resource: "students",
-    action: "admit",
-    module: "students",
-    description: "Process student admissions",
-    created_at: "2024-09-01T00:00:00Z",
-  },
-]
-
-// ── seed: roles ─────────────────────────────
-
-const roles: Role[] = [
-  {
-    id: 1,
-    name: "Student",
-    slug: "student",
-    description: "Regular undergraduate/postgraduate student",
-    is_default: true,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [1, 3, 6].includes(p.id)),
-    users_count: 1240,
-  },
-  {
-    id: 2,
-    name: "Tutor",
-    slug: "tutor",
-    description: "Course tutor and academic advisor",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [1, 2, 4].includes(p.id)),
-    users_count: 86,
-  },
-  {
-    id: 3,
-    name: "Head of Department",
-    slug: "hod",
-    description:
-      "Head of Department — inherits tutor privileges plus approval rights",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [1, 2, 4, 5, 9].includes(p.id)),
-    users_count: 12,
-  },
-  {
-    id: 4,
-    name: "Dean",
-    slug: "dean",
-    description: "Faculty Dean with oversight across departments",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [1, 2, 4, 5, 9].includes(p.id)),
-    users_count: 5,
-  },
-  {
-    id: 5,
-    name: "Bursary",
-    slug: "bursary",
-    description: "Finance/Bursary department staff",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [6, 7, 11].includes(p.id)),
-    users_count: 8,
-  },
-  {
-    id: 6,
-    name: "Super Admin",
-    slug: "super-admin",
-    description: "ICT/System Administrator with full platform access",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: [...permissions],
-    users_count: 3,
-  },
-  {
-    id: 7,
-    name: "Staff",
-    slug: "staff",
-    description: "General non-academic staff member",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [4, 8].includes(p.id)),
-    users_count: 15,
-  },
-  {
-    id: 8,
-    name: "Registrar",
-    slug: "registrar",
-    description: "Academic registry staff with student records access",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) => [4, 8, 10, 12].includes(p.id)),
-    users_count: 4,
-  },
-  {
-    id: 9,
-    name: "Admin",
-    slug: "admin",
-    description: "Administrative manager with user and department oversight",
-    is_default: false,
-    created_at: "2024-09-01T00:00:00Z",
-    permissions: permissions.filter((p) =>
-      [1, 2, 4, 5, 8, 9, 10].includes(p.id)
-    ),
-    users_count: 6,
-  },
-]
-
-// ── seed: users for role lookup ─────────────
-
-const usersPool: UserWithRoles[] = [
-  {
-    id: 1,
-    matric_no: "CSC/2021/001",
-    staff_id: null,
-    email: "john.doe@student.edu.ng",
-    first_name: "John",
-    last_name: "Doe",
-    phone: "08012345678",
-    department_id: 1,
-    faculty_id: 1,
-    level: "300",
-    is_active: true,
-    roles: [],
-  },
-  {
-    id: 2,
-    matric_no: "CSC/2021/045",
-    staff_id: null,
-    email: "amina.bello@student.edu.ng",
-    first_name: "Amina",
-    last_name: "Bello",
-    phone: "08098765432",
-    department_id: 1,
-    faculty_id: 1,
-    level: "200",
-    is_active: true,
-    roles: [],
-  },
-  {
-    id: 3,
-    matric_no: null,
-    staff_id: "STF/2019/012",
-    email: "dr.okafor@staff.edu.ng",
-    first_name: "Chinedu",
-    last_name: "Okafor",
-    phone: "08033445566",
-    department_id: 1,
-    faculty_id: 1,
-    level: null,
-    is_active: true,
-    roles: [],
-  },
-  {
-    id: 4,
-    matric_no: null,
-    staff_id: "STF/2015/003",
-    email: "prof.adeyemi@staff.edu.ng",
-    first_name: "Funke",
-    last_name: "Adeyemi",
-    phone: "08077889900",
-    department_id: 2,
-    faculty_id: 1,
-    level: null,
-    is_active: true,
-    roles: [],
-  },
-  {
-    id: 5,
-    matric_no: null,
-    staff_id: "STF/2010/001",
-    email: "admin@edu.ng",
-    first_name: "Ibrahim",
-    last_name: "Musa",
-    phone: "08011223344",
-    department_id: null,
-    faculty_id: null,
-    level: null,
-    is_active: true,
-    roles: [],
-  },
-  {
-    id: 6,
-    matric_no: "EEE/2022/018",
-    staff_id: null,
-    email: "grace.eze@student.edu.ng",
-    first_name: "Grace",
-    last_name: "Eze",
-    phone: "09012345678",
-    department_id: 3,
-    faculty_id: 2,
-    level: "100",
-    is_active: false,
-    roles: [],
-  },
-]
-
-// map role-id → user-ids for dummy lookups
-const roleUserMap: Record<number, number[]> = {
-  1: [1, 2, 6],
-  2: [3, 4],
-  3: [4],
-  4: [4],
-  5: [5],
-  6: [5],
-}
+const AUTH = { access_token: true } as const
 
 // ── Roles ───────────────────────────────────
 
 export const rolesApi = {
   list: async (): Promise<ApiListResponse<Role>> => {
-    // await delay();
-    // return { data: [...roles], total: roles.length };
-    return apiClient.get<ApiListResponse<Role>>("/auth/roles", {
-      access_token: true,
-    })
+    return apiClient.get<ApiListResponse<Role>>("/auth/roles", AUTH)
   },
 
   getById: async (id: number): Promise<ApiSingleResponse<Role>> => {
-    // await delay();
-    // const role = roles.find((r) => r.id === id);
-    // if (!role) throw new Error("Role not found");
-    // return { data: { ...role }, message: "OK" };
-    return apiClient.get<ApiSingleResponse<Role>>(`/auth/roles/${id}`, {
-      access_token: true,
-    })
+    return apiClient.get<ApiSingleResponse<Role>>(`/auth/roles/${id}`, AUTH)
   },
 
   create: async (
     payload: CreateRolePayload
   ): Promise<ApiSingleResponse<Role>> => {
-    // await delay();
-    // const newRole: Role = {
-    //    id: nid(),
-    //    name: payload.name,
-    //    slug: payload.slug,
-    //    description: payload.description || null,
-    //    is_default: payload.is_default,
-    //    created_at: new Date().toISOString(),
-    //    permissions: permissions.filter((p) => payload.permission_ids.includes(p.id)),
-    //    users_count: 0,
-    // };
-    // roles.push(newRole);
-    // return { data: newRole, message: "Created" };
-    return apiClient.post<ApiSingleResponse<Role>>("/auth/roles", payload, {
-      access_token: true,
-    })
+    return apiClient.post<ApiSingleResponse<Role>>("/auth/roles", payload, AUTH)
   },
 
   update: async (
     id: number,
     payload: UpdateRolePayload
   ): Promise<ApiSingleResponse<Role>> => {
-    // await delay();
-    // const idx = roles.findIndex((r) => r.id === id);
-    // if (idx === -1) throw new Error("Role not found");
-    // const updated: Role = {
-    //    ...roles[idx],
-    //    ...payload,
-    //    description: payload.description ?? roles[idx].description,
-    //    permissions: payload.permission_ids
-    //       ? permissions.filter((p) => payload.permission_ids!.includes(p.id))
-    //       : roles[idx].permissions,
-    // };
-    // roles[idx] = updated;
-    // return { data: { ...updated }, message: "Updated" };
-    const { permission_ids, ...rolePayload } = payload
+    const { permission_ids: _permission_ids, ...rolePayload } = payload
     return apiClient.patch<ApiSingleResponse<Role>>(
       `/auth/roles/${id}`,
       rolePayload,
-      { access_token: true }
+      AUTH
     )
   },
 
   delete: async (id: number): Promise<{ message: string }> => {
-    // await delay();
-    // const idx = roles.findIndex((r) => r.id === id);
-    // if (idx === -1) throw new Error("Role not found");
-    // roles.splice(idx, 1);
-    // return { message: "Deleted" };
-    return apiClient.delete<{ message: string }>(`/auth/roles/${id}`, {
-      access_token: true,
-    })
+    return apiClient.delete<{ message: string }>(`/auth/roles/${id}`, AUTH)
   },
 
+  // Proposed — see MISSING_BACKEND_APIS.md §"POST /auth/roles/:id/duplicate".
+  // No bruno endpoint exists yet; built against the designed contract
+  // (same response shape as Create, name suffixed "(Copy)").
   duplicate: async (id: number): Promise<ApiSingleResponse<Role>> => {
-    // await delay();
-    // const source = roles.find((r) => r.id === id);
-    // if (!source) throw new Error("Role not found");
-    // const copy: Role = {
-    //    ...source,
-    //    id: nid(),
-    //    name: `${source.name} (Copy)`,
-    //    slug: `${source.slug}-copy`,
-    //    is_default: false,
-    //    created_at: new Date().toISOString(),
-    //    users_count: 0,
-    //    permissions: source.permissions ? [...source.permissions] : [],
-    // };
-    // roles.push(copy);
-    // return { data: copy, message: "Duplicated" };
     return apiClient.post<ApiSingleResponse<Role>>(
       `/auth/roles/${id}/duplicate`,
       {},
-      { access_token: true }
+      AUTH
     )
   },
 }
@@ -423,48 +66,47 @@ export const rolesApi = {
 // ── Permissions ─────────────────────────────
 
 export const permissionsApi = {
+  // GET /auth/permissions is paginated server-side (default page size well
+  // below the real permission count — confirmed 89 permissions vs. a
+  // hardcoded limit=15 here, which silently truncated the admin UI to
+  // whatever the first page happened to contain). Page through every
+  // result so callers get the full catalog; DataTable already handles
+  // client-side pagination/search on top of the full array, matching every
+  // other admin list in this app.
   list: async (): Promise<ApiListResponse<Permission>> => {
-    return apiClient.get<ApiListResponse<Permission>>(
-      "/auth/permissions?page=1&limit=15",
-      {
-        access_token: true,
-      }
-    )
+    const limit = 100
+    let page = 1
+    let all: Permission[] = []
+    for (;;) {
+      const res = await apiClient.get<{
+        data: Permission[]
+        meta: { total: number; page: number; limit: number }
+      }>(`/auth/permissions?page=${page}&limit=${limit}`, AUTH)
+      all = all.concat(res.data)
+      const total = res.meta?.total ?? all.length
+      if (all.length >= total || res.data.length === 0) break
+      page += 1
+    }
+    return { data: all, total: all.length }
   },
 
+  // Proposed — bruno's Permissions collection documents list+create only
+  // (Show/Delete are not part of the spec). Built against a designed
+  // contract; see MISSING_BACKEND_APIS.md for the confirmation ask.
   getById: async (id: number): Promise<ApiSingleResponse<Permission>> => {
-    //  await delay()
-    //  const perm = permissions.find((p) => p.id === id)
-    //  if (!perm) throw new Error("Permission not found")
-    //  return { data: { ...perm }, message: "OK" }
     return apiClient.get<ApiSingleResponse<Permission>>(
       `/auth/permissions/${id}`,
-      {
-        access_token: true,
-      }
+      AUTH
     )
   },
 
   create: async (
     payload: CreatePermissionPayload
   ): Promise<ApiSingleResponse<Permission>> => {
-    //  await delay()
-    //  const newPerm: Permission = {
-    //    id: nid(),
-    //    resource: payload.resource,
-    //    action: payload.action,
-    //    module: payload.module,
-    //    description: payload.description || null,
-    //    created_at: new Date().toISOString(),
-    //  }
-    //  permissions.push(newPerm)
-    //  return { data: newPerm, message: "Created" }
     return apiClient.post<ApiSingleResponse<Permission>>(
       "/auth/permissions",
       payload,
-      {
-        access_token: true,
-      }
+      AUTH
     )
   },
 
@@ -472,41 +114,19 @@ export const permissionsApi = {
     id: number,
     payload: UpdatePermissionPayload
   ): Promise<ApiSingleResponse<Permission>> => {
-    //  await delay()
-    //  const idx = permissions.findIndex((p) => p.id === id)
-    //  if (idx === -1) throw new Error("Permission not found")
-    //  const updated: Permission = {
-    //    ...permissions[idx],
-    //    ...payload,
-    //    description: payload.description ?? permissions[idx].description,
-    //  }
-    //  permissions[idx] = updated
-    //  return { data: { ...updated }, message: "Updated" }
     return apiClient.patch<ApiSingleResponse<Permission>>(
       `/auth/permissions/${id}`,
       payload,
-      {
-        access_token: true,
-      }
+      AUTH
     )
   },
 
+  // Proposed — see note on getById above.
   delete: async (id: number): Promise<{ message: string }> => {
-    //  await delay()
-    //  const idx = permissions.findIndex((p) => p.id === id)
-    //  if (idx === -1) throw new Error("Permission not found")
-    //  permissions.splice(idx, 1)
-    //  // Also remove from any roles that had it
-    //  roles.forEach((r) => {
-    //    if (r.permissions) {
-    //      r.permissions = r.permissions.filter((p) => p.id !== id)
-    //    }
-    //  })
-    //  return { message: "Deleted" }
-    //  return apiClient.delete<{ message: string }>(`auth/roles/${roleId}/permissions/${id}`, {
-    return apiClient.delete<{ message: string }>(`/auth/permissions/${id}`, {
-      access_token: true,
-    })
+    return apiClient.delete<{ message: string }>(
+      `/auth/permissions/${id}`,
+      AUTH
+    )
   },
 }
 
@@ -526,48 +146,51 @@ export const rolePermissionsApi = {
     return apiClient.post<ApiSingleResponse<Role>>(
       `/auth/roles/${roleId}/permissions`,
       { permissionIds },
-      { access_token: true }
+      AUTH
     )
   },
 }
 
 // ── User-Role Assignment ────────────────────
+// listForUser/assign/revoke are real, bruno-documented endpoints
+// (Users - {List Roles, Assign Roles, Remove Role}.bru) with no prior
+// frontend caller. getUsersWithRole is the reverse lookup ("which users
+// hold this role") needed by RoleDetailView's Users tab — no such endpoint
+// exists in bruno; built against the proposed contract in
+// MISSING_BACKEND_APIS.md rather than left mocked.
 
 export const userRolesApi = {
+  listForUser: async (
+    userId: number
+  ): Promise<ApiListResponse<UserRoleSummary>> => {
+    return apiClient.get<ApiListResponse<UserRoleSummary>>(
+      `/auth/users/${userId}/roles`,
+      AUTH
+    )
+  },
+
+  assign: async (payload: AssignRolesPayload): Promise<{ message: string }> => {
+    return apiClient.post<{ message: string }>(
+      `/auth/users/${payload.user_id}/roles`,
+      { roleIds: payload.role_ids },
+      AUTH
+    )
+  },
+
+  revoke: async (payload: RevokeRolePayload): Promise<void> => {
+    return apiClient.delete<void>(
+      `/auth/users/${payload.user_id}/roles/${payload.role_id}`,
+      AUTH
+    )
+  },
+
   getUsersWithRole: async (
     roleId: number
   ): Promise<ApiListResponse<UserWithRoles>> => {
-    await delay()
-    const userIds = roleUserMap[roleId] ?? []
-    const matchedUsers = usersPool
-      .filter((u) => userIds.includes(u.id))
-      .map((u) => ({ ...u, roles: roles.filter((r) => r.id === roleId) }))
-    return { data: matchedUsers, total: matchedUsers.length }
-    // return apiClient.get<ApiListResponse<UserWithRoles>>(`/auth/roles/${roleId}/users`, AUTH);
-  },
-
-  assign: async (payload: AssignRolePayload): Promise<{ message: string }> => {
-    await delay()
-    if (!roleUserMap[payload.role_id]) roleUserMap[payload.role_id] = []
-    if (!roleUserMap[payload.role_id].includes(payload.user_id)) {
-      roleUserMap[payload.role_id].push(payload.user_id)
-    }
-    return { message: "Role assigned" }
-    // return apiClient.post<{ message: string }>("/auth/user-roles", payload, AUTH);
-  },
-
-  revoke: async (payload: RevokeRolePayload): Promise<{ message: string }> => {
-    await delay()
-    if (roleUserMap[payload.role_id]) {
-      roleUserMap[payload.role_id] = roleUserMap[payload.role_id].filter(
-        (id) => id !== payload.user_id
-      )
-    }
-    return { message: "Role revoked" }
-    // return apiClient.delete<{ message: string }>(
-    //     `/auth/user-roles/${payload.user_id}/${payload.role_id}`,
-    //     AUTH
-    // );
+    return apiClient.get<ApiListResponse<UserWithRoles>>(
+      `/auth/roles/${roleId}/users`,
+      AUTH
+    )
   },
 }
 
@@ -585,6 +208,12 @@ export const permissionsKeys = {
   list: () => [...permissionsKeys.all, "list"] as const,
   detail: (permissionId: number) =>
     [...permissionsKeys.all, "detail", permissionId] as const,
+}
+
+export const userRolesKeys = {
+  all: ["user-roles"] as const,
+  forUser: (userId: number) =>
+    [...userRolesKeys.all, "for-user", userId] as const,
 }
 
 export const rolesQueryOptions = {
@@ -640,6 +269,17 @@ export const permissionsQueryOptions = {
       queryKey: permissionsKeys.detail(permissionId),
       queryFn: async () => {
         const response = await permissionsApi.getById(permissionId)
+        return response.data
+      },
+    }),
+}
+
+export const userRolesQueryOptions = {
+  forUser: (userId: number) =>
+    createApiQueryOptions({
+      queryKey: userRolesKeys.forUser(userId),
+      queryFn: async () => {
+        const response = await userRolesApi.listForUser(userId)
         return response.data
       },
     }),
@@ -707,5 +347,19 @@ export const permissionsMutationOptions = {
     createApiMutationOptions<{ message: string }, number>({
       mutationKey: [...permissionsKeys.all, "delete"],
       mutationFn: permissionsApi.delete,
+    }),
+}
+
+export const userRolesMutationOptions = {
+  assign: () =>
+    createApiMutationOptions<{ message: string }, AssignRolesPayload>({
+      mutationKey: [...userRolesKeys.all, "assign"],
+      mutationFn: userRolesApi.assign,
+    }),
+
+  revoke: () =>
+    createApiMutationOptions<void, RevokeRolePayload>({
+      mutationKey: [...userRolesKeys.all, "revoke"],
+      mutationFn: userRolesApi.revoke,
     }),
 }

@@ -159,9 +159,17 @@ function SignInFormContent() {
             </label>
 
             <label className="block space-y-2">
-              <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Password
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                  Password
+                </span>
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <LockKeyhole
                   size={15}

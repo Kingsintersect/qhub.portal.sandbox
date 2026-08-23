@@ -1,1 +1,4 @@
-export { notificationKeys } from "../services/notification.service";
+export {
+  notificationKeys,
+  templateKeys,
+} from "../services/notification.service"

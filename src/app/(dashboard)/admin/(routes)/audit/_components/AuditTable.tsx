@@ -1,40 +1,56 @@
-"use client";
+"use client"
 
-import { useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import {
-  ChevronLeft, ChevronRight, Eye, Search, Loader2, Inbox,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { useAuditStore } from "../store/audit.store";
-import { useAuditLogs } from "../hooks/useAudit";
-import { formatRelativeTime } from "@/lib/utils/date.utils";
-import type { AuditLog } from "../types/audit.types";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ActionBadge } from "./ActionBadge";
-import { ExportMenu } from "./ExportMenu";
-import { AuditFilters } from "./AuditFilters";
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Search,
+  Loader2,
+  Inbox,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { useAuditStore } from "../store/audit.store"
+import { useAuditLogs } from "../hooks/useAudit"
+import { formatRelativeTime } from "@/lib/utils/date.utils"
+import type { AuditLog } from "../types/audit.types"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ActionBadge } from "./ActionBadge"
+import { ExportMenu } from "./ExportMenu"
+import { AuditFilters } from "./AuditFilters"
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 interface AuditRowProps {
-  log: AuditLog;
-  index: number;
-  isSelected: boolean;
-  onToggle: () => void;
-  onView: () => void;
+  log: AuditLog
+  index: number
+  isSelected: boolean
+  onToggle: () => void
+  onView: () => void
 }
 
 function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
+  const firstName = log.user.firstName?.trim() || ""
+  const lastName = log.user.lastName?.trim() || ""
+  const email = log.user.email?.trim() || ""
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ") || "Unknown User"
+  const initials =
+    `${firstName.charAt(0) || ""}${lastName.charAt(0) || ""}`.toUpperCase() ||
+    email.charAt(0).toUpperCase() ||
+    "U"
+
   return (
     <motion.tr
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.25 }}
-      className={`group border-b border-border transition-colors hover:bg-muted/50 ${isSelected ? "bg-primary-50/40" : ""
-        }`}
+      className={`group border-b border-border transition-colors hover:bg-muted/50 ${
+        isSelected ? "bg-primary-50/40" : ""
+      }`}
     >
       {/* Checkbox */}
       <td className="w-10 px-3 py-3">
@@ -46,22 +62,22 @@ function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
       </td>
 
       {/* ID */}
-      <td className="px-3 py-3 text-xs font-mono text-muted-foreground">
+      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
         #{log.id}
       </td>
 
       {/* User */}
       <td className="px-3 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-[10px] font-bold text-primary">
-            {log.user.firstName[0]}{log.user.lastName[0]}
+          <div className="bg-primary-100 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-primary">
+            {initials}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">
-              {log.user.firstName} {log.user.lastName}
+              {displayName}
             </p>
             <p className="truncate text-[10px] text-muted-foreground">
-              {log.user.email}
+              {email || "No email"}
             </p>
           </div>
         </div>
@@ -75,7 +91,7 @@ function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
       {/* Entity */}
       <td className="px-3 py-3">
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className="text-[10px] border-border">
+          <Badge variant="outline" className="border-border text-[10px]">
             {log.entityType}
           </Badge>
           <span className="text-xs text-muted-foreground">#{log.entityId}</span>
@@ -88,7 +104,7 @@ function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
       </td>
 
       {/* Time */}
-      <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
+      <td className="px-3 py-3 text-xs whitespace-nowrap text-muted-foreground">
         {formatRelativeTime(log.createdAt)}
       </td>
 
@@ -98,56 +114,62 @@ function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
           variant="ghost"
           size="icon"
           onClick={onView}
-          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
         >
           <Eye className="h-3.5 w-3.5" />
         </Button>
       </td>
     </motion.tr>
-  );
+  )
 }
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 
 export function AuditTable() {
   const {
-    filters, setFilters,
-    selectedIds, toggleSelectedId, selectAllIds, clearSelectedIds,
-    setSelectedLog, setDetailModalOpen,
-  } = useAuditStore();
+    filters,
+    setFilters,
+    selectedIds,
+    toggleSelectedId,
+    selectAllIds,
+    clearSelectedIds,
+    setSelectedLog,
+    setDetailModalOpen,
+  } = useAuditStore()
 
-  const { data, isLoading, isFetching } = useAuditLogs(filters);
+  const { data, isLoading, isFetching } = useAuditLogs(filters)
 
-  const logs = data?.data ?? [];
-  const meta = data?.meta ?? { total: 0, page: 1, limit: 10 };
-  const totalPages = Math.ceil(meta.total / meta.limit);
-  const allSelected = logs.length > 0 && logs.every((l) => selectedIds.has(l.id));
+  const logs = data?.data ?? []
+  const meta = data?.meta ?? { total: 0, page: 1, limit: 10 }
+  const totalPages = Math.ceil(meta.total / meta.limit)
+  const allSelected =
+    logs.length > 0 && logs.every((l) => selectedIds.has(l.id))
 
   const handleView = useCallback(
     (log: AuditLog) => {
-      setSelectedLog(log);
-      setDetailModalOpen(true);
+      setSelectedLog(log)
+      setDetailModalOpen(true)
     },
     [setSelectedLog, setDetailModalOpen]
-  );
+  )
 
   function toggleAll() {
-    if (allSelected) clearSelectedIds();
-    else selectAllIds(logs.map((l) => l.id));
+    if (allSelected) clearSelectedIds()
+    else selectAllIds(logs.map((l) => l.id))
   }
 
   return (
-    <div className="flex flex-col gap-0 rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+    <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0 max-w-sm">
+        <div className="flex max-w-sm min-w-0 flex-1 items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search logs..."
               value={filters.search ?? ""}
               onChange={(e) => setFilters({ search: e.target.value, page: 1 })}
-              className="pl-8 h-8 border-border bg-background text-sm"
+              className="h-8 border-border bg-background pl-8 text-sm"
             />
           </div>
           {isFetching && !isLoading && (
@@ -166,9 +188,11 @@ export function AuditTable() {
             </motion.span>
           )}
           <ExportMenu
-            logs={selectedIds.size > 0
-              ? logs.filter((l) => selectedIds.has(l.id))
-              : logs}
+            logs={
+              selectedIds.size > 0
+                ? logs.filter((l) => selectedIds.has(l.id))
+                : logs
+            }
           />
           <AuditFilters />
         </div>
@@ -186,22 +210,22 @@ export function AuditTable() {
                   className="border-border"
                 />
               </th>
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 ID
               </th>
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 User
               </th>
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Action
               </th>
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Entity
               </th>
-              <th className="hidden px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground xl:table-cell">
+              <th className="hidden px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase xl:table-cell">
                 IP Address
               </th>
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Time
               </th>
               <th className="w-10 px-3 py-2.5" />
@@ -253,7 +277,8 @@ export function AuditTable() {
             {Math.min((meta.page - 1) * meta.limit + 1, meta.total)}–
             {Math.min(meta.page * meta.limit, meta.total)}
           </span>{" "}
-          of <span className="font-semibold text-foreground">{meta.total}</span> logs
+          of <span className="font-semibold text-foreground">{meta.total}</span>{" "}
+          logs
         </p>
 
         <div className="flex items-center gap-1">
@@ -268,26 +293,25 @@ export function AuditTable() {
           </Button>
 
           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-            let pageNum: number;
-            if (totalPages <= 5) pageNum = i + 1;
-            else if (meta.page <= 3) pageNum = i + 1;
-            else if (meta.page >= totalPages - 2) pageNum = totalPages - 4 + i;
-            else pageNum = meta.page - 2 + i;
+            let pageNum: number
+            if (totalPages <= 5) pageNum = i + 1
+            else if (meta.page <= 3) pageNum = i + 1
+            else if (meta.page >= totalPages - 2) pageNum = totalPages - 4 + i
+            else pageNum = meta.page - 2 + i
 
             return (
               <Button
                 key={pageNum}
                 variant={meta.page === pageNum ? "default" : "outline"}
                 size="icon"
-                className={`h-7 w-7 text-xs ${meta.page === pageNum
-                  ? "bg-primary text-white"
-                  : ""
-                  }`}
+                className={`h-7 w-7 text-xs ${
+                  meta.page === pageNum ? "bg-primary text-white" : ""
+                }`}
                 onClick={() => setFilters({ page: pageNum })}
               >
                 {pageNum}
               </Button>
-            );
+            )
           })}
 
           <Button
@@ -302,5 +326,5 @@ export function AuditTable() {
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
+import { logoutFromBackend } from "@/lib/auth/backendAuth"
 import { motion, AnimatePresence } from "framer-motion"
 import { gsap } from "gsap"
 import {
@@ -269,6 +270,7 @@ export default function Sidebar() {
   const logoRef = useRef<HTMLDivElement>(null)
 
   const handleLogout = async () => {
+    await logoutFromBackend()
     await signOut({ callbackUrl: "/auth/signin" })
   }
 
@@ -289,14 +291,17 @@ export default function Sidebar() {
     }
   }, [])
 
-  if (!user) return null
-
-  const roleKey = user.role as keyof typeof navConfig
-  const groups = navConfig[roleKey]
+  const groups = user
+    ? navConfig[user.role as keyof typeof navConfig]
+    : undefined
   const visibleGroups = useMemo(
-    () => filterNavGroupsByFeatureFlags(groups, featureFlagsResponse?.flags),
+    () =>
+      filterNavGroupsByFeatureFlags(groups ?? [], featureFlagsResponse?.flags),
     [groups, featureFlagsResponse?.flags]
   )
+
+  if (!user) return null
+
   const meta = roleMeta[user.role]
   const initials = user.name
     .split(" ")

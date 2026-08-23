@@ -10,17 +10,17 @@
     ]
   },
   {
-    "module": "Installation",
+    "module": "Configurations",
     "permissions": [
       {
-        "resource": "installation-config",
+        "resource": "app-config",
         "action": "view",
-        "description": "View system installation/setup configuration"
+        "description": "View system app/setup configuration"
       },
       {
-        "resource": "installation-config",
+        "resource": "app-config",
         "action": "manage",
-        "description": "Edit system installation/setup configuration"
+        "description": "Edit system app/setup configuration"
       },
       {
         "resource": "feature-registry",
@@ -121,6 +121,51 @@
         "resource": "venue-schedule",
         "action": "view",
         "description": "Check venue availability for scheduling"
+      }
+    ]
+  },
+  {
+    "module": "Enrollment",
+    "permissions": [
+      {
+        "resource": "enrollment",
+        "action": "view.own",
+        "description": "View own course enrollment records (student)"
+      },
+      {
+        "resource": "enrollment",
+        "action": "create.own",
+        "description": "Register (self-enroll) for open course offerings"
+      },
+      {
+        "resource": "enrollment",
+        "action": "drop.own",
+        "description": "Drop own course enrollment"
+      },
+      {
+        "resource": "enrollment",
+        "action": "view",
+        "description": "View enrollment roster for assigned course offerings (tutor/HOD)"
+      },
+      {
+        "resource": "enrollment",
+        "action": "view.all",
+        "description": "View all student enrollment records"
+      },
+      {
+        "resource": "enrollment",
+        "action": "manage",
+        "description": "Enroll, bulk-enroll and drop students on their behalf"
+      },
+      {
+        "resource": "attendance",
+        "action": "record",
+        "description": "Record and update attendance for assigned class schedules"
+      },
+      {
+        "resource": "attendance",
+        "action": "view.own",
+        "description": "View own attendance summary (student)"
       }
     ]
   },
@@ -236,6 +281,11 @@
         "resource": "fee-management",
         "action": "manage",
         "description": "Create or edit fee types, invoices, and fee structures"
+      },
+      {
+        "resource": "fee-management",
+        "action": "waive",
+        "description": "Waive or forgive a student invoice balance (scholarship, billing correction) — BURSARY only"
       },
       {
         "resource": "payments",
@@ -375,6 +425,31 @@
     ]
   },
   {
+    "module": "Moodle Sync",
+    "permissions": [
+      {
+        "resource": "moodle-sync",
+        "action": "view",
+        "description": "View Moodle sync mappings, status, and read-only synced data (categories, users, courses, enrollments, assessments, grades, calendar)"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "push",
+        "description": "Push portal entities (categories, users, courses, enrollments) to Moodle"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "pull",
+        "description": "Pull data from Moodle into the portal"
+      },
+      {
+        "resource": "moodle-sync",
+        "action": "manage",
+        "description": "Full control over Moodle sync configuration, including deleting sync mappings"
+      }
+    ]
+  },
+  {
     "module": "Account",
     "permissions": [
       {
@@ -446,6 +521,21 @@
         "resource": "my-payments",
         "action": "make",
         "description": "Make a payment against own invoice"
+      },
+      {
+        "resource": "my-documents",
+        "action": "view",
+        "description": "View own uploaded documents and their verification status"
+      },
+      {
+        "resource": "my-documents",
+        "action": "upload",
+        "description": "Upload own documents (birth certificate, results, transcript, etc.) for verification"
+      },
+      {
+        "resource": "my-hostel",
+        "action": "view",
+        "description": "View own hostel room allocation and allocation history"
       }
     ]
   },
@@ -466,6 +556,71 @@
         "resource": "teaching-resources",
         "action": "manage",
         "description": "Upload or edit teaching resources"
+      }
+    ]
+  },
+  {
+    "module": "Documents",
+    "permissions": [
+      {
+        "resource": "documents",
+        "action": "view",
+        "description": "View student documents — list, detail, by student, and download"
+      },
+      {
+        "resource": "documents",
+        "action": "verify",
+        "description": "Verify or reject a student's uploaded document"
+      },
+      {
+        "resource": "documents",
+        "action": "manage",
+        "description": "Update document metadata, or delete any document record"
+      }
+    ]
+  },
+  {
+    "module": "Hostel",
+    "permissions": [
+      {
+        "resource": "hostels",
+        "action": "view",
+        "description": "View hostels, blocks, rooms, vacancies, and room allocations"
+      },
+      {
+        "resource": "hostels",
+        "action": "manage",
+        "description": "Create, edit, or deactivate hostels, blocks, and rooms"
+      },
+      {
+        "resource": "hostels",
+        "action": "allocate",
+        "description": "Allocate or vacate a student's room assignment"
+      }
+    ]
+  },
+  {
+    "module": "Clearance",
+    "permissions": [
+      {
+        "resource": "clearance",
+        "action": "view",
+        "description": "View clearance types and clearance requests"
+      },
+      {
+        "resource": "clearance",
+        "action": "request",
+        "description": "Request clearance for yourself"
+      },
+      {
+        "resource": "clearance",
+        "action": "approve",
+        "description": "Approve or reject clearance requests"
+      },
+      {
+        "resource": "clearance",
+        "action": "manage",
+        "description": "Create, edit, or deactivate clearance types"
       }
     ]
   }

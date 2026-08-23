@@ -2,32 +2,33 @@
 /*  Admission Module — React Query Hooks                               */
 /* ------------------------------------------------------------------ */
 
-"use client";
+"use client"
 
 import {
-    useQuery,
-    useMutation,
-    useQueryClient,
-    type QueryClient,
-} from "@tanstack/react-query";
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query"
 import {
-    admissionKeys,
-    admissionMutationOptions,
-    admissionQueryOptions,
-    admissionService,
-} from "../services/admissionService";
-import { useAdmissionStore } from "../store/admissionStore";
-import type { AdmissionStudent } from "../types/admission";
+  admissionKeys,
+  admissionMutationOptions,
+  admissionQueryOptions,
+  admissionService,
+} from "../services/admissionService"
+import { useAdmissionStore } from "../store/admissionStore"
+import type { AdmissionStudent } from "../types/admission"
 
 async function syncAdmissionStudent(
-    queryClient: QueryClient,
-    setStudent: (student: AdmissionStudent) => void,
-    nextStudent?: AdmissionStudent,
+  queryClient: QueryClient,
+  setStudent: (student: AdmissionStudent) => void,
+  nextStudent?: AdmissionStudent
 ) {
-    const student = nextStudent ?? await admissionService.fetchStudentAdmission();
-    setStudent(student);
-    queryClient.setQueryData(admissionKeys.student(), student);
-    return student;
+  const student =
+    nextStudent ?? (await admissionService.fetchStudentAdmission())
+  setStudent(student)
+  queryClient.setQueryData(admissionKeys.student(), student)
+  return student
 }
 
 /* ------------------------------------------------------------------ */
@@ -35,17 +36,17 @@ async function syncAdmissionStudent(
 /* ------------------------------------------------------------------ */
 
 export function useFees() {
-    const setFees = useAdmissionStore((s) => s.setFees);
+  const setFees = useAdmissionStore((s) => s.setFees)
 
-    return useQuery({
-        ...admissionQueryOptions.fees(),
-        staleTime: 1000 * 60 * 10,
-        queryFn: async () => {
-            const data = await admissionService.fetchFees();
-            setFees(data);
-            return data;
-        },
-    });
+  return useQuery({
+    ...admissionQueryOptions.fees(),
+    staleTime: 1000 * 60 * 10,
+    queryFn: async () => {
+      const data = await admissionService.fetchFees()
+      setFees(data)
+      return data
+    },
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -53,17 +54,17 @@ export function useFees() {
 /* ------------------------------------------------------------------ */
 
 export function useStudentAdmission() {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
+  const setStudent = useAdmissionStore((s) => s.setStudent)
 
-    return useQuery({
-        ...admissionQueryOptions.student(),
-        staleTime: 1000 * 60,
-        queryFn: async () => {
-            const data = await admissionService.fetchStudentAdmission();
-            setStudent(data);
-            return data;
-        },
-    });
+  return useQuery({
+    ...admissionQueryOptions.student(),
+    staleTime: 1000 * 60,
+    queryFn: async () => {
+      const data = await admissionService.fetchStudentAdmission()
+      setStudent(data)
+      return data
+    },
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -71,9 +72,9 @@ export function useStudentAdmission() {
 /* ------------------------------------------------------------------ */
 
 export function useInitiateApplicationPayment() {
-    return useMutation({
-        ...admissionMutationOptions.initiateApplicationPayment(),
-    });
+  return useMutation({
+    ...admissionMutationOptions.initiateApplicationPayment(),
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -81,20 +82,20 @@ export function useInitiateApplicationPayment() {
 /* ------------------------------------------------------------------ */
 
 export function useVerifyApplicationPayment(reference: string) {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
-    const queryClient = useQueryClient();
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
 
-    return useQuery({
-        ...admissionQueryOptions.verifyApplicationPayment(reference),
-        queryFn: async () => {
-            const result = await admissionService.verifyApplicationPayment(reference);
-            await syncAdmissionStudent(queryClient, setStudent);
-            return result;
-        },
-        enabled: !!reference,
-        retry: 2,
-        staleTime: Infinity,
-    });
+  return useQuery({
+    ...admissionQueryOptions.verifyApplicationPayment(reference),
+    queryFn: async () => {
+      const result = await admissionService.verifyApplicationPayment(reference)
+      await syncAdmissionStudent(queryClient, setStudent)
+      return result
+    },
+    enabled: !!reference,
+    retry: 2,
+    staleTime: Infinity,
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -102,9 +103,9 @@ export function useVerifyApplicationPayment(reference: string) {
 /* ------------------------------------------------------------------ */
 
 export function useInitiateAcceptanceFeePayment() {
-    return useMutation({
-        ...admissionMutationOptions.initiateAcceptanceFeePayment(),
-    });
+  return useMutation({
+    ...admissionMutationOptions.initiateAcceptanceFeePayment(),
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -112,20 +113,21 @@ export function useInitiateAcceptanceFeePayment() {
 /* ------------------------------------------------------------------ */
 
 export function useVerifyAcceptanceFeePayment(reference: string) {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
-    const queryClient = useQueryClient();
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
 
-    return useQuery({
-        ...admissionQueryOptions.verifyAcceptanceFeePayment(reference),
-        queryFn: async () => {
-            const result = await admissionService.verifyAcceptanceFeePayment(reference);
-            await syncAdmissionStudent(queryClient, setStudent);
-            return result;
-        },
-        enabled: !!reference,
-        retry: 2,
-        staleTime: Infinity,
-    });
+  return useQuery({
+    ...admissionQueryOptions.verifyAcceptanceFeePayment(reference),
+    queryFn: async () => {
+      const result =
+        await admissionService.verifyAcceptanceFeePayment(reference)
+      await syncAdmissionStudent(queryClient, setStudent)
+      return result
+    },
+    enabled: !!reference,
+    retry: 2,
+    staleTime: Infinity,
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,9 +135,9 @@ export function useVerifyAcceptanceFeePayment(reference: string) {
 /* ------------------------------------------------------------------ */
 
 export function useInitiateTuitionPayment() {
-    return useMutation({
-        ...admissionMutationOptions.initiateTuitionPayment(),
-    });
+  return useMutation({
+    ...admissionMutationOptions.initiateTuitionPayment(),
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -143,20 +145,20 @@ export function useInitiateTuitionPayment() {
 /* ------------------------------------------------------------------ */
 
 export function useVerifyTuitionPayment(reference: string) {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
-    const queryClient = useQueryClient();
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
 
-    return useQuery({
-        ...admissionQueryOptions.verifyTuitionPayment(reference),
-        queryFn: async () => {
-            const result = await admissionService.verifyTuitionPayment(reference);
-            await syncAdmissionStudent(queryClient, setStudent);
-            return result;
-        },
-        enabled: !!reference,
-        retry: 2,
-        staleTime: Infinity,
-    });
+  return useQuery({
+    ...admissionQueryOptions.verifyTuitionPayment(reference),
+    queryFn: async () => {
+      const result = await admissionService.verifyTuitionPayment(reference)
+      await syncAdmissionStudent(queryClient, setStudent)
+      return result
+    },
+    enabled: !!reference,
+    retry: 2,
+    staleTime: Infinity,
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -164,50 +166,91 @@ export function useVerifyTuitionPayment(reference: string) {
 /* ------------------------------------------------------------------ */
 
 export function useDevSimulate() {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
-    const queryClient = useQueryClient();
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
 
-    const simulateAppPaymentPaid = useMutation({
-        ...admissionMutationOptions.simulateAppPaymentPaid(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateAppPaymentPaid = useMutation({
+    ...admissionMutationOptions.simulateAppPaymentPaid(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateApplied = useMutation({
-        ...admissionMutationOptions.simulateApplied(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateApplied = useMutation({
+    ...admissionMutationOptions.simulateApplied(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateOffered = useMutation({
-        ...admissionMutationOptions.simulateOffered(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateOffered = useMutation({
+    ...admissionMutationOptions.simulateOffered(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateAccepted = useMutation({
-        ...admissionMutationOptions.simulateAccepted(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateAccepted = useMutation({
+    ...admissionMutationOptions.simulateAccepted(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateDeclined = useMutation({
-        ...admissionMutationOptions.simulateDeclined(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateDeclined = useMutation({
+    ...admissionMutationOptions.simulateDeclined(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateExpired = useMutation({
-        ...admissionMutationOptions.simulateExpired(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateExpired = useMutation({
+    ...admissionMutationOptions.simulateExpired(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const simulateTuitionPaid = useMutation({
-        ...admissionMutationOptions.simulateTuitionPaid(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const simulateTuitionPaid = useMutation({
+    ...admissionMutationOptions.simulateTuitionPaid(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    const resetAll = useMutation({
-        ...admissionMutationOptions.resetAll(),
-        onSuccess: async (data) => { await syncAdmissionStudent(queryClient, setStudent, data); },
-    });
+  const resetAll = useMutation({
+    ...admissionMutationOptions.resetAll(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 
-    return { simulateAppPaymentPaid, simulateApplied, simulateOffered, simulateAccepted, simulateDeclined, simulateExpired, simulateTuitionPaid, resetAll };
+  return {
+    simulateAppPaymentPaid,
+    simulateApplied,
+    simulateOffered,
+    simulateAccepted,
+    simulateDeclined,
+    simulateExpired,
+    simulateTuitionPaid,
+    resetAll,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Accept Admission                                                     */
+/* ------------------------------------------------------------------ */
+
+export function useAcceptAdmission() {
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    ...admissionMutationOptions.acceptAdmission(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -215,13 +258,13 @@ export function useDevSimulate() {
 /* ------------------------------------------------------------------ */
 
 export function useDeclineAdmission() {
-    const setStudent = useAdmissionStore((s) => s.setStudent);
-    const queryClient = useQueryClient();
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
 
-    return useMutation({
-        ...admissionMutationOptions.declineAdmission(),
-        onSuccess: async (data) => {
-            await syncAdmissionStudent(queryClient, setStudent, data);
-        },
-    });
+  return useMutation({
+    ...admissionMutationOptions.declineAdmission(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
 }
