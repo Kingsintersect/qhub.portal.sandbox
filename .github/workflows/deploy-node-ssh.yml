@@ -1,7 +1,7 @@
 name: Deploy to VPS - Production
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Triggers
+# Triggers this workflow on pushes to the develop branch. The build job runs on every push
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
