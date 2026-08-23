@@ -1,0 +1,88 @@
+"use client"
+
+import Link from "next/link"
+import { motion } from "framer-motion"
+import { toast } from "sonner"
+import { ArrowLeft, ShieldOff, Users, Loader2, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { UserSyncTable } from "@/modules/moodle-sync/components/users/user-sync-table"
+import { usePullUsers } from "@/modules/moodle-sync/hooks/use-sync-mutations"
+
+export default function MoodleSyncUsersPage() {
+  const pullUsers = usePullUsers()
+
+  const handlePullAll = async () => {
+    try {
+      const result = await pullUsers.mutateAsync()
+      toast.success(
+        `Matched ${result.matched}, created ${result.created} user(s) from Moodle`
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Pull failed")
+    }
+  }
+
+  return (
+    <PermissionGate
+      require={{ resource: "moodle-sync", action: "view" }}
+      fallback={
+        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
+          <ShieldOff size={40} className="opacity-40" />
+          <p className="text-sm">
+            You do not have permission to view Moodle user sync.
+          </p>
+        </div>
+      }
+    >
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-3"
+        >
+          <Link
+            href="/admin/moodle-sync"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft size={13} /> Back to Moodle Sync
+          </Link>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
+                <Users size={18} className="text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Users</h1>
+                <p className="text-xs text-muted-foreground">
+                  Students sync automatically on tuition verification.
+                  Lecturers, staff, and admins are pushed manually.
+                </p>
+              </div>
+            </div>
+            <PermissionGate
+              require={{ resource: "moodle-sync", action: "pull" }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs"
+                disabled={pullUsers.isPending}
+                onClick={handlePullAll}
+              >
+                {pullUsers.isPending ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Download size={13} />
+                )}
+                Pull from Moodle
+              </Button>
+            </PermissionGate>
+          </div>
+        </motion.div>
+
+        <UserSyncTable />
+      </div>
+    </PermissionGate>
+  )
+}

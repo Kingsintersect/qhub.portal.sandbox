@@ -1,465 +1,522 @@
 /**
  * Director Service
  * ─────────────────────────────────────────────────────────────────────────────
- * All live API calls are commented out and replaced with simulated dummy data.
- * To switch to live mode: uncomment the `apiClient` calls and remove the
- * `simulateDelay` + dummy-data blocks beneath each function.
+ * Real backend contract per bruno/{user,academic,fee,enrollment}/*.bru and
+ * sandbox/MISSING_BACKEND_APIS.md §2.8 (the sole source of truth — see
+ * CLAUDE.md §13). No `bruno/director/` collection exists, so this module
+ * composes real endpoints from the User, Academic, and Fee modules wherever
+ * possible instead of inventing bespoke Director endpoints — per §2.8's own
+ * recommendation. A handful of genuine aggregates (enrollment trend, revenue
+ * trend, faculty/level/gender/designation breakdowns) have no real backing
+ * anywhere yet; those are called against a designed, documented contract and
+ * will 404 until the backend ships them — see the per-function comments below
+ * and §2.8 for the full spec of each.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// import { apiClient } from "@/core/client";
+import apiClient from "@/lib/clients/apiClient"
+import { usersApi } from "@/services/usersApi"
+import { facultiesApi, programsApi } from "@/services/courseStructureApi"
+import type {
+  Student,
+  Tutor,
+  StudentQueryFilters,
+  UserQueryFilters,
+} from "@/types/users"
 import {
   DashboardOverview,
+  DashboardMetric,
   EnrollmentDataPoint,
   FacultyDistribution,
   FinancialSummary,
   PaymentRecord,
+  PaymentStatus,
   StatisticalReport,
+  StudentRecord,
+  TutorRecord,
   GradeReport,
+  StudentGradeRecord,
   DirectorFilter,
-} from "../types/director.types";
+} from "../types/director.types"
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
+const AUTH = { access_token: true } as const
 
-const simulateDelay = (ms = 800) =>
-  new Promise<void>((res) => setTimeout(res, ms));
+// ─── Shared mappers ──────────────────────────────────────────────────────────
 
-const rnd = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
-// ─── Seed Data ───────────────────────────────────────────────────────────────
-
-const FACULTIES = [
-  "Engineering",
-  "Sciences",
-  "Arts",
-  "Social Sciences",
-  "Medicine",
-  "Law",
-  "Education",
-  "Management Sciences",
-] as const;
-
-const DEPARTMENTS: Record<string, string[]> = {
-  Engineering: ["Civil Engineering", "Electrical Engineering", "Mechanical Engineering", "Chemical Engineering"],
-  Sciences: ["Mathematics", "Physics", "Chemistry", "Biology", "Computer Science"],
-  Arts: ["English", "History", "Philosophy", "Linguistics", "Theatre Arts"],
-  "Social Sciences": ["Economics", "Political Science", "Sociology", "Mass Communication", "Psychology"],
-  Medicine: ["Medicine & Surgery", "Nursing Science", "Medical Laboratory Science", "Physiotherapy"],
-  Law: ["Law"],
-  Education: ["Educational Management", "Guidance & Counselling", "Science Education", "Arts Education"],
-  "Management Sciences": ["Accounting", "Business Administration", "Banking & Finance", "Marketing"],
-};
-
-const FIRST_NAMES = [
-  "Chukwuemeka", "Amaka", "Obinna", "Ngozi", "Kelechi", "Adaeze", "Ifeanyi",
-  "Chioma", "Emeka", "Uchenna", "Nnamdi", "Blessing", "Chidinma", "Ikechukwu",
-  "Adaora", "Chidi", "Obiageli", "Nkechi", "Uche", "Oluchi", "Tochukwu",
-  "Ifeoma", "Chukwudi", "Chiamaka", "Okechukwu",
-];
-const LAST_NAMES = [
-  "Okonkwo", "Nwosu", "Eze", "Chukwu", "Obi", "Nzekwe", "Onyekachi",
-  "Aneke", "Ugwu", "Nwachukwu", "Obiora", "Okafor", "Onyia", "Egwuonwu",
-  "Nweke", "Agu", "Onuoha", "Mbah", "Onyebueke", "Nwofor",
-];
-
-const randomName = () =>
-  `${FIRST_NAMES[rnd(0, FIRST_NAMES.length - 1)]} ${LAST_NAMES[rnd(0, LAST_NAMES.length - 1)]}`;
-
-const randomMatric = (year = "2021") =>
-  `UNIZIK/${year}/${rnd(100000, 999999)}`;
-
-const randomStaffId = () => `STAFF/${rnd(1000, 9999)}`;
-
-const ACADEMIC_YEARS = ["2020/2021", "2021/2022", "2022/2023", "2023/2024", "2024/2025"];
-const LEVELS = ["100", "200", "300", "400", "500"] as const;
-const SEMESTERS = ["First", "Second"] as const;
-const PAYMENT_STATUSES = ["paid", "partial", "unpaid", "overdue"] as const;
-const GRADES = ["A", "B", "C", "D", "E", "F"] as const;
-const GRADE_POINTS = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
-
-// ─── Mock Generator: Students ─────────────────────────────────────────────────
-
-function generateStudents(count = 200) {
-  return Array.from({ length: count }, (_, i) => {
-    const faculty = FACULTIES[rnd(0, FACULTIES.length - 1)];
-    const depts = DEPARTMENTS[faculty];
-    const department = depts[rnd(0, depts.length - 1)];
-    const level = LEVELS[rnd(0, LEVELS.length - 1)];
-    const gpa = parseFloat((rnd(10, 50) / 10).toFixed(2));
-    const cgpa = parseFloat((rnd(15, 50) / 10).toFixed(2));
-    const admYear = rnd(2018, 2024).toString();
-    return {
-      id: `STU-${i + 1}`,
-      matricNumber: randomMatric(admYear),
-      fullName: randomName(),
-      email: `student${i + 1}@unizik.edu.ng`,
-      phone: `080${rnd(10000000, 99999999)}`,
-      faculty,
-      department,
-      program: `${department} (B.Sc)`,
-      level,
-      academicYear: ACADEMIC_YEARS[rnd(0, ACADEMIC_YEARS.length - 1)],
-      gpa,
-      cgpa,
-      status: ["active", "active", "active", "deferred", "graduated", "withdrawn"][rnd(0, 5)] as any,
-      admissionYear: admYear,
-      gender: rnd(0, 1) === 0 ? "Male" : "Female" as any,
-    };
-  });
+function mapInvoiceStatus(status: string): PaymentStatus {
+  switch (status) {
+    case "PAID":
+      return "paid"
+    case "PARTIALLY_PAID":
+      return "partial"
+    case "OVERDUE":
+      return "overdue"
+    default:
+      return "unpaid" // PENDING, CANCELLED, WAIVED
+  }
 }
 
-// ─── Mock Generator: Tutors ────────────────────────────────────────────────
-
-function generateTutors(count = 60) {
-  const designations = ["Professor", "Associate Professor", "Senior Tutor", "Tutor I", "Tutor II", "Assistant Tutor", "Graduate Assistant"];
-  return Array.from({ length: count }, (_, i) => {
-    const faculty = FACULTIES[rnd(0, FACULTIES.length - 1)];
-    const depts = DEPARTMENTS[faculty];
-    const department = depts[rnd(0, depts.length - 1)];
-    return {
-      id: `LEC-${i + 1}`,
-      staffId: randomStaffId(),
-      fullName: randomName(),
-      email: `tutor${i + 1}@unizik.edu.ng`,
-      phone: `080${rnd(10000000, 99999999)}`,
-      faculty,
-      department,
-      designation: designations[rnd(0, designations.length - 1)],
-      courses: [`${department.substring(0, 3).toUpperCase()}${rnd(100, 499)}`, `${department.substring(0, 3).toUpperCase()}${rnd(100, 499)}`],
-      studentsCount: rnd(30, 250),
-      yearsOfService: rnd(1, 35),
-      status: ["active", "active", "active", "on-leave", "sabbatical"][rnd(0, 4)] as any,
-      gender: rnd(0, 1) === 0 ? "Male" : "Female" as any,
-    };
-  });
+function mapStudentStatus(status: string): StudentRecord["status"] {
+  switch (status) {
+    case "GRADUATED":
+      return "graduated"
+    case "WITHDRAWN":
+      return "withdrawn"
+    case "DEFERRED":
+      return "deferred"
+    default:
+      return "active" // ACTIVE, SUSPENDED, RUSTICATED
+  }
 }
 
-// ─── Mock Generator: Payments ─────────────────────────────────────────────────
-
-function generatePayments(students: ReturnType<typeof generateStudents>): PaymentRecord[] {
-  return students.map((s) => {
-    const expected = [150000, 165000, 175000, 200000, 220000][rnd(0, 4)];
-    const statusPick = PAYMENT_STATUSES[rnd(0, 3)];
-    const paid =
-      statusPick === "paid"
-        ? expected
-        : statusPick === "partial"
-          ? rnd(50000, expected - 10000)
-          : statusPick === "unpaid"
-            ? 0
-            : rnd(0, 40000);
-    return {
-      id: `PAY-${s.id}`,
-      studentId: s.id,
-      studentName: s.fullName,
-      matricNumber: s.matricNumber,
-      faculty: s.faculty,
-      department: s.department,
-      program: s.program,
-      level: s.level,
-      academicYear: s.academicYear,
-      semester: SEMESTERS[rnd(0, 1)],
-      amount: expected,
-      amountPaid: paid,
-      balance: expected - paid,
-      status: statusPick,
-      paymentDate: statusPick !== "unpaid" ? `2024-${String(rnd(1, 12)).padStart(2, "0")}-${String(rnd(1, 28)).padStart(2, "0")}` : undefined,
-      dueDate: "2024-10-31",
-      paymentChannel: ["Remita", "Bank Transfer", "Card Payment"][rnd(0, 2)],
-    };
-  });
+function mapStudentRecord(s: Student): StudentRecord {
+  const fullName =
+    [s.user.first_name, s.user.last_name].filter(Boolean).join(" ") ||
+    s.user.username
+  return {
+    id: String(s.id),
+    matricNumber: s.matric_number,
+    fullName,
+    email: s.user.email,
+    phone: s.user.phone_number ?? "—",
+    faculty: s.faculty_name,
+    department: s.department_name,
+    program: s.program_name,
+    level: s.current_level,
+    academicYear: s.admission_date
+      ? new Date(s.admission_date).getFullYear().toString()
+      : "—",
+    cgpa: s.current_cgpa ?? 0,
+    status: mapStudentStatus(s.status),
+    gender: s.gender === "MALE" ? "Male" : "Female",
+  }
 }
 
-// ─── Mock Generator: Grade Records ───────────────────────────────────────────
-
-function generateGrades(students: ReturnType<typeof generateStudents>) {
-  return students.slice(0, 120).map((s) => {
-    const courses = Array.from({ length: rnd(4, 7) }, (_, j) => {
-      const g = GRADES[rnd(0, 5)];
-      return {
-        courseCode: `${s.department.substring(0, 3).toUpperCase()}${rnd(100, 499)}`,
-        courseTitle: `Course ${j + 1} in ${s.department}`,
-        creditUnits: rnd(2, 4),
-        score: rnd(30, 100),
-        grade: g,
-        gradePoints: GRADE_POINTS[g],
-        semester: SEMESTERS[rnd(0, 1)],
-        tutorName: randomName(),
-      };
-    });
-
-    const totalUnits = courses.reduce((a, c) => a + c.creditUnits, 0);
-    const weightedPoints = courses.reduce((a, c) => a + c.gradePoints * c.creditUnits, 0);
-    const gpa = parseFloat((weightedPoints / totalUnits).toFixed(2));
-    const earnedUnits = courses.filter((c) => c.grade !== "F").reduce((a, c) => a + c.creditUnits, 0);
-
-    const status =
-      gpa >= 4.5 ? "distinction" : gpa >= 2.4 ? "pass" : gpa >= 1.5 ? "probation" : "fail";
-
-    return {
-      studentId: s.id,
-      matricNumber: s.matricNumber,
-      studentName: s.fullName,
-      faculty: s.faculty,
-      department: s.department,
-      program: s.program,
-      level: s.level,
-      academicYear: s.academicYear,
-      semester: SEMESTERS[rnd(0, 1)],
-      courses,
-      semesterGPA: gpa,
-      cgpa: parseFloat((gpa * 0.9 + Math.random() * 0.5).toFixed(2)),
-      totalUnits,
-      earnedUnits,
-      status: status as any,
-    };
-  });
+function mapTutorRecord(t: Tutor): TutorRecord {
+  const fullName =
+    [t.user.first_name, t.user.last_name].filter(Boolean).join(" ") ||
+    t.user.username
+  return {
+    id: String(t.id),
+    staffId: t.staff_number,
+    fullName,
+    email: t.user.email,
+    phone: t.user.phone_number ?? "—",
+    faculty: t.faculty_name,
+    department: t.department_name,
+    designation: t.designation,
+    status: t.user.is_active ? "active" : "inactive",
+  }
 }
 
-// ─── Cached Seed ──────────────────────────────────────────────────────────────
-
-let _students: ReturnType<typeof generateStudents> | null = null;
-let _tutors: ReturnType<typeof generateTutors> | null = null;
-let _payments: PaymentRecord[] | null = null;
-let _grades: ReturnType<typeof generateGrades> | null = null;
-
-function getSeeds() {
-  if (!_students) _students = generateStudents(300);
-  if (!_tutors) _tutors = generateTutors(80);
-  if (!_payments) _payments = generatePayments(_students);
-  if (!_grades) _grades = generateGrades(_students);
-  return { students: _students, tutors: _tutors, payments: _payments, grades: _grades };
+function facultyNameParam(filter?: DirectorFilter): string | undefined {
+  return filter?.faculty && filter.faculty !== "all"
+    ? filter.faculty
+    : undefined
 }
 
-// ─── Service Methods ──────────────────────────────────────────────────────────
+function departmentNameParam(filter?: DirectorFilter): string | undefined {
+  return filter?.department && filter.department !== "all"
+    ? filter.department
+    : undefined
+}
+
+// ─── Fees composition (shared by Overview + Financial) ──────────────────────
+// Real: GET /fees/reports/outstanding (confirmed shape, grouped by fee type —
+// see payment_README.md). Unconfirmed: GET /fees/reports/summary's response
+// body has no documented shape anywhere (bruno/fee/Reports - Summary.bru has
+// no example). Both are queried in parallel so an unconfirmed/failing summary
+// call doesn't sink the whole tab — totalExpected/totalCollected fall back to
+// summing the fully-real Outstanding data if summary is unavailable or comes
+// back in an unexpected shape.
+
+async function fetchFeesSummaryData(filter?: DirectorFilter): Promise<{
+  totalExpected: number
+  totalCollected: number
+  totalOutstanding: number
+  byFeeType: FinancialSummary["byFeeType"]
+}> {
+  const params: Record<string, unknown> = {
+    facultyName: facultyNameParam(filter),
+    departmentName: departmentNameParam(filter),
+  }
+
+  const [summaryRes, outstandingRes] = await Promise.allSettled([
+    apiClient.get<{
+      data?: {
+        totalExpected?: string | number
+        totalCollected?: string | number
+      }
+    }>("/fees/reports/summary", { ...AUTH, params }),
+    apiClient.get<{
+      data: {
+        feeTypeId: number
+        feeTypeName: string
+        totalInvoiced: string
+        totalPaid: string
+        totalOutstanding: string
+        studentCount: number
+      }[]
+    }>("/fees/reports/outstanding", { ...AUTH, params }),
+  ])
+
+  const byFeeType: FinancialSummary["byFeeType"] =
+    outstandingRes.status === "fulfilled"
+      ? outstandingRes.value.data.map((r) => ({
+          feeTypeId: r.feeTypeId,
+          feeType: r.feeTypeName,
+          invoiced: Number(r.totalInvoiced),
+          paid: Number(r.totalPaid),
+          outstanding: Number(r.totalOutstanding),
+          studentCount: r.studentCount,
+        }))
+      : []
+
+  const totalOutstanding = byFeeType.reduce((a, f) => a + f.outstanding, 0)
+  const summaryData =
+    summaryRes.status === "fulfilled" ? summaryRes.value.data : undefined
+  const totalExpected =
+    summaryData?.totalExpected != null
+      ? Number(summaryData.totalExpected)
+      : byFeeType.reduce((a, f) => a + f.invoiced, 0)
+  const totalCollected =
+    summaryData?.totalCollected != null
+      ? Number(summaryData.totalCollected)
+      : byFeeType.reduce((a, f) => a + f.paid, 0)
+
+  return { totalExpected, totalCollected, totalOutstanding, byFeeType }
+}
 
 export const directorService = {
   // ── Dashboard Overview ────────────────────────────────────────────────────
 
   async fetchOverview(): Promise<DashboardOverview> {
-    // LIVE: const res = await apiClient.get<DashboardOverview>("/director/overview");
-    // LIVE: return res.data;
-    await simulateDelay(600);
-    const { students, tutors, payments } = getSeeds();
-    const totalRevenue = payments.reduce((a, p) => a + p.amountPaid, 0);
-    const pendingPayments = payments.filter((p) => p.status !== "paid").reduce((a, p) => a + p.balance, 0);
+    const [statsRes, facultiesRes, programsRes, graduatedRes, feesRes] =
+      await Promise.allSettled([
+        usersApi.getStats(),
+        facultiesApi.list(),
+        programsApi.list(),
+        usersApi.listStudents({ status: "GRADUATED", limit: 1 }),
+        fetchFeesSummaryData(),
+      ])
+
+    const stats = statsRes.status === "fulfilled" ? statsRes.value.data : null
+    const totalStudents = stats?.total_students ?? 0
+    const totalTutors = stats?.total_tutors ?? 0
+    const totalFaculties =
+      facultiesRes.status === "fulfilled"
+        ? facultiesRes.value.data.filter((f) => f.isActive).length
+        : 0
+    const activePrograms =
+      programsRes.status === "fulfilled"
+        ? programsRes.value.data.filter((p) => p.isActive).length
+        : 0
+    const graduatedCount =
+      graduatedRes.status === "fulfilled" ? graduatedRes.value.total : 0
+    const graduationRate =
+      totalStudents > 0
+        ? parseFloat(((graduatedCount / totalStudents) * 100).toFixed(1))
+        : 0
+    const totalRevenue =
+      feesRes.status === "fulfilled" ? feesRes.value.totalCollected : 0
+    const pendingPayments =
+      feesRes.status === "fulfilled" ? feesRes.value.totalOutstanding : 0
+
+    // No historical snapshot exists anywhere for any of these KPIs (see
+    // DashboardMetric's comment) — cards show the real current value only,
+    // no fabricated "vs last period" trend.
+    const metrics: DashboardMetric[] = [
+      { label: "Total Students", value: totalStudents, icon: "users" },
+      { label: "Total Tutors", value: totalTutors, icon: "book-open" },
+      {
+        label: "Total Revenue",
+        value: `₦${(totalRevenue / 1_000_000).toFixed(1)}M`,
+        icon: "banknote",
+      },
+      {
+        label: "Outstanding Fees",
+        value: `₦${(pendingPayments / 1_000_000).toFixed(1)}M`,
+        icon: "alert-circle",
+      },
+      {
+        label: "Active Programs",
+        value: activePrograms,
+        icon: "graduation-cap",
+      },
+      {
+        label: "Graduation Rate",
+        value: `${graduationRate}%`,
+        icon: "trending-up",
+      },
+    ]
+
     return {
-      totalStudents: students.length,
-      totalTutors: tutors.length,
+      totalStudents,
+      totalTutors,
       totalRevenue,
       pendingPayments,
-      activePrograms: 42,
-      graduationRate: 87.4,
-      metrics: [
-        { label: "Total Students", value: students.length, change: 5.2, changeLabel: "vs last session", icon: "users", trend: "up" },
-        { label: "Total Tutors", value: tutors.length, change: 3.1, changeLabel: "vs last session", icon: "book-open", trend: "up" },
-        { label: "Total Revenue", value: `₦${(totalRevenue / 1_000_000).toFixed(1)}M`, change: 12.5, changeLabel: "vs last session", icon: "banknote", trend: "up" },
-        { label: "Outstanding Fees", value: `₦${(pendingPayments / 1_000_000).toFixed(1)}M`, change: -8.3, changeLabel: "vs last session", icon: "alert-circle", trend: "down" },
-        { label: "Active Programs", value: 42, change: 2, changeLabel: "new programs", icon: "graduation-cap", trend: "up" },
-        { label: "Graduation Rate", value: "87.4%", change: 1.8, changeLabel: "vs last year", icon: "trending-up", trend: "up" },
-      ],
-    };
+      activePrograms,
+      totalFaculties,
+      graduationRate,
+      metrics,
+    }
   },
 
+  // Proposed GET /enrollments/trend?months= — see MISSING_BACKEND_APIS.md
+  // §2.8. No time-series aggregate exists anywhere in the Enrollment module
+  // (bruno/enrollment/*.bru is all point-in-time/filtered lists). 404s until
+  // the backend ships it.
   async fetchEnrollmentData(): Promise<EnrollmentDataPoint[]> {
-    // LIVE: const res = await apiClient.get<EnrollmentDataPoint[]>("/director/enrollment-trend");
-    // LIVE: return res.data;
-    await simulateDelay(400);
-    const months = ["Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
-    return months.map((month) => ({
-      month,
-      students: rnd(4500, 5500),
-      tutors: rnd(70, 90),
-      newEnrollments: rnd(80, 400),
-    }));
+    const res = await apiClient.get<{
+      data: { month: string; newEnrollments: number; totalActive: number }[]
+    }>("/enrollments/trend", { ...AUTH, params: { months: 12 } })
+    return res.data.map((d) => ({
+      month: d.month,
+      students: d.totalActive,
+      newEnrollments: d.newEnrollments,
+    }))
   },
 
+  // Proposed extension of GET /users/stats's `byFaculty` — see §2.8.
   async fetchFacultyDistribution(): Promise<FacultyDistribution[]> {
-    // LIVE: const res = await apiClient.get<FacultyDistribution[]>("/director/faculty-distribution");
-    // LIVE: return res.data;
-    await simulateDelay(300);
-    const { students } = getSeeds();
-    const total = students.length;
-    const map: Record<string, number> = {};
-    for (const f of FACULTIES) map[f] = 0;
-    students.forEach((s) => (map[s.faculty] = (map[s.faculty] || 0) + 1));
-    return FACULTIES.map((f) => ({
-      faculty: f,
-      students: map[f],
-      tutors: rnd(5, 20),
-      percentage: parseFloat(((map[f] / total) * 100).toFixed(1)),
-    }));
+    const stats = await usersApi.getStats()
+    const byFaculty = stats.data.by_faculty ?? []
+    const totalStudents = byFaculty.reduce((a, f) => a + f.students, 0)
+    return byFaculty.map((f) => ({
+      faculty: f.faculty_name,
+      students: f.students,
+      tutors: f.tutors,
+      percentage:
+        totalStudents > 0
+          ? parseFloat(((f.students / totalStudents) * 100).toFixed(1))
+          : 0,
+    }))
   },
 
   // ── Financial ─────────────────────────────────────────────────────────────
 
-  async fetchFinancialSummary(filter?: DirectorFilter): Promise<FinancialSummary> {
-    // LIVE: const res = await apiClient.get<FinancialSummary>("/director/financial-summary", { params: filter });
-    // LIVE: return res.data;
-    await simulateDelay(700);
-    const { payments } = getSeeds();
-    const filtered = filter?.faculty && filter.faculty !== "all"
-      ? payments.filter((p) => p.faculty === filter.faculty)
-      : payments;
+  async fetchFinancialSummary(
+    filter?: DirectorFilter
+  ): Promise<FinancialSummary> {
+    const { totalExpected, totalCollected, totalOutstanding, byFeeType } =
+      await fetchFeesSummaryData(filter)
+    const collectionRate =
+      totalExpected > 0
+        ? parseFloat(((totalCollected / totalExpected) * 100).toFixed(1))
+        : 0
 
-    const totalExpected = filtered.reduce((a, p) => a + p.amount, 0);
-    const totalCollected = filtered.reduce((a, p) => a + p.amountPaid, 0);
-
-    const byFaculty = FACULTIES.map((f) => {
-      const fps = payments.filter((p) => p.faculty === f);
-      const exp = fps.reduce((a, p) => a + p.amount, 0);
-      const col = fps.reduce((a, p) => a + p.amountPaid, 0);
-      return { faculty: f, expected: exp, collected: col, outstanding: exp - col };
-    });
-
-    const months = ["Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const monthlyTrend = months.map((m) => ({
-      month: m,
-      collected: rnd(8_000_000, 18_000_000),
-      expected: rnd(18_000_000, 25_000_000),
-    }));
+    // Proposed GET /fees/reports/collections-trend — see §2.8. No time-series
+    // aggregate exists anywhere in the Fee module today; degrades to an empty
+    // chart rather than sinking the whole tab if it 404s.
+    let monthlyTrend: FinancialSummary["monthlyTrend"] = []
+    try {
+      const res = await apiClient.get<{
+        data: { month: string; collected: number; expected: number }[]
+      }>("/fees/reports/collections-trend", { ...AUTH, params: { months: 12 } })
+      monthlyTrend = res.data
+    } catch {
+      monthlyTrend = []
+    }
 
     return {
       totalExpected,
       totalCollected,
-      totalOutstanding: totalExpected - totalCollected,
-      collectionRate: parseFloat(((totalCollected / totalExpected) * 100).toFixed(1)),
-      byFaculty,
+      totalOutstanding,
+      collectionRate,
+      byFeeType,
       monthlyTrend,
-    };
+    }
   },
 
-  async fetchPaymentRecords(filter?: DirectorFilter): Promise<{ records: PaymentRecord[]; total: number }> {
-    // LIVE: const res = await apiClient.get<{ records: PaymentRecord[]; total: number }>("/director/payments", { params: filter });
-    // LIVE: return res.data;
-    await simulateDelay(600);
-    const { payments } = getSeeds();
-    let records = [...payments];
-
-    if (filter?.faculty && filter.faculty !== "all")
-      records = records.filter((r) => r.faculty === filter.faculty);
-    if (filter?.level && filter.level !== "all")
-      records = records.filter((r) => r.level === filter.level);
-    if (filter?.semester && filter.semester !== "all")
-      records = records.filter((r) => r.semester === filter.semester);
-    if (filter?.status && filter.status !== "all")
-      records = records.filter((r) => r.status === filter.status);
-    if (filter?.search) {
-      const q = filter.search.toLowerCase();
-      records = records.filter(
-        (r) => r.studentName.toLowerCase().includes(q) || r.matricNumber.toLowerCase().includes(q)
-      );
+  // Real endpoint (GET /fees/invoices, fee_README.md), but the admin list
+  // response shape (student/faculty/department nesting) is only confirmed
+  // for the student-scoped `/fees/invoices/my` variant — see §2.8 for the
+  // exact shape requested. `facultyName`/`departmentName`/`level` filters are
+  // proposed additions alongside the confirmed `status`/`feeTypeId`/
+  // `sessionId`/`studentId`.
+  async fetchPaymentRecords(
+    filter?: DirectorFilter
+  ): Promise<{ records: PaymentRecord[]; total: number }> {
+    const params: Record<string, unknown> = {
+      facultyName: facultyNameParam(filter),
+      departmentName: departmentNameParam(filter),
+      level:
+        filter?.level && filter.level !== "all"
+          ? Number(filter.level)
+          : undefined,
+      search: filter?.search || undefined,
+      page: 1,
+      limit: 100,
     }
-    return { records: records.slice(0, 100), total: records.length };
+
+    const res = await apiClient.get<{
+      data: {
+        id: number
+        amount: string
+        amountPaid: string
+        dueDate: string
+        status: string
+        paidAt?: string | null
+        feeType?: { name: string }
+        session?: { name: string } | null
+        student?: {
+          id: number
+          matricNumber: string
+          facultyName?: string
+          departmentName?: string
+          programName?: string
+          level?: number
+          user?: { firstName: string | null; lastName: string | null }
+        }
+      }[]
+      meta: { total: number; page: number; limit: number }
+    }>("/fees/invoices", { ...AUTH, params })
+
+    const records: PaymentRecord[] = res.data.map((inv) => {
+      const student = inv.student
+      const fullName =
+        [student?.user?.firstName, student?.user?.lastName]
+          .filter(Boolean)
+          .join(" ") || "—"
+      const amount = Number(inv.amount)
+      const amountPaid = Number(inv.amountPaid)
+      return {
+        id: String(inv.id),
+        studentId: student ? String(student.id) : "",
+        studentName: fullName,
+        matricNumber: student?.matricNumber ?? "—",
+        faculty: student?.facultyName ?? "—",
+        department: student?.departmentName ?? "—",
+        program: student?.programName ?? "—",
+        level: student?.level ?? 0,
+        feeType: inv.feeType?.name ?? "—",
+        academicYear: inv.session?.name ?? "—",
+        amount,
+        amountPaid,
+        balance: amount - amountPaid,
+        status: mapInvoiceStatus(inv.status),
+        paymentDate: inv.paidAt ?? undefined,
+        dueDate: inv.dueDate,
+      }
+    })
+
+    return { records, total: res.meta.total }
   },
 
   // ── Statistical Reports ───────────────────────────────────────────────────
 
-  async fetchStatisticalReport(filter?: DirectorFilter): Promise<StatisticalReport> {
-    // LIVE: const res = await apiClient.get<StatisticalReport>("/director/statistical-report", { params: filter });
-    // LIVE: return res.data;
-    await simulateDelay(800);
-    const { students, tutors } = getSeeds();
+  async fetchStatisticalReport(
+    filter?: DirectorFilter
+  ): Promise<StatisticalReport> {
+    const facultyName = facultyNameParam(filter)
+    const departmentName = departmentNameParam(filter)
+    const level =
+      filter?.level && filter.level !== "all" ? Number(filter.level) : undefined
 
-    let filteredStudents = [...students];
-    let filteredTutors = [...tutors];
-
-    if (filter?.faculty && filter.faculty !== "all") {
-      filteredStudents = filteredStudents.filter((s) => s.faculty === filter.faculty);
-      filteredTutors = filteredTutors.filter((l) => l.faculty === filter.faculty);
+    const studentFilters: StudentQueryFilters = {
+      search: filter?.search || undefined,
+      level,
+      faculty_name: facultyName,
+      department_name: departmentName,
+      limit: 100,
     }
-    if (filter?.department && filter.department !== "all") {
-      filteredStudents = filteredStudents.filter((s) => s.department === filter.department);
-      filteredTutors = filteredTutors.filter((l) => l.department === filter.department);
-    }
-    if (filter?.level && filter.level !== "all") {
-      filteredStudents = filteredStudents.filter((s) => s.level === filter.level);
-    }
-    if (filter?.search) {
-      const q = filter.search.toLowerCase();
-      filteredStudents = filteredStudents.filter((s) => s.fullName.toLowerCase().includes(q) || s.matricNumber.toLowerCase().includes(q));
-      filteredTutors = filteredTutors.filter((l) => l.fullName.toLowerCase().includes(q));
+    const tutorFilters: UserQueryFilters = {
+      search: filter?.search || undefined,
+      faculty_name: facultyName,
+      department_name: departmentName,
+      limit: 50,
     }
 
-    const studentsByLevel: Record<string, number> = { "100": 0, "200": 0, "300": 0, "400": 0, "500": 0 };
-    filteredStudents.forEach((s) => (studentsByLevel[s.level] = (studentsByLevel[s.level] || 0) + 1));
+    const [studentsRes, tutorsRes, statsRes] = await Promise.allSettled([
+      usersApi.listStudents(studentFilters),
+      usersApi.listTutors(tutorFilters),
+      usersApi.getStats(),
+    ])
 
-    const male = filteredStudents.filter((s) => s.gender === "Male").length;
-    const female = filteredStudents.filter((s) => s.gender === "Female").length;
-
-    const designationMap: Record<string, number> = {};
-    filteredTutors.forEach((l) => {
-      designationMap[l.designation] = (designationMap[l.designation] || 0) + 1;
-    });
+    const students =
+      studentsRes.status === "fulfilled"
+        ? studentsRes.value.data.map(mapStudentRecord)
+        : []
+    const totalStudents =
+      studentsRes.status === "fulfilled" ? studentsRes.value.total : 0
+    const tutors =
+      tutorsRes.status === "fulfilled"
+        ? tutorsRes.value.data.map(mapTutorRecord)
+        : []
+    const totalTutors =
+      tutorsRes.status === "fulfilled" ? tutorsRes.value.total : 0
+    const stats = statsRes.status === "fulfilled" ? statsRes.value.data : null
 
     return {
-      students: filteredStudents.slice(0, 100) as any,
-      tutors: filteredTutors.slice(0, 50) as any,
-      totalStudents: filteredStudents.length,
-      totalTutors: filteredTutors.length,
-      studentsByLevel: studentsByLevel as any,
-      studentsByGender: { male, female },
-      tutorsByDesignation: designationMap,
-    };
+      students,
+      tutors,
+      totalStudents,
+      totalTutors,
+      // Institution-wide breakdowns (proposed /users/stats extension) — not
+      // re-scoped to the active filter, since no filtered-aggregate endpoint
+      // exists; see §2.8.
+      studentsByLevel: stats?.students_by_level ?? [],
+      studentsByGender: stats?.students_by_gender ?? { male: 0, female: 0 },
+      tutorsByDesignation: stats?.tutors_by_designation ?? [],
+    }
   },
 
   // ── Grade Reports ─────────────────────────────────────────────────────────
+  // Real (pending) endpoint — see sandbox/result/missing_grade_apis.readme.md
+  // §8. No bruno/director collection and no `.bru` file exist for this yet;
+  // wired against the designed contract so this starts working the moment
+  // the backend ships it. `faculty`/`department`/`program`/`semester` are
+  // sent as display-name strings (not FK ids) because DirectorFilterBar
+  // (shared with Overview/Financial/Statistical) only collects free-text/
+  // display values — see §8's note on that assumption.
 
   async fetchGradeReport(filter?: DirectorFilter): Promise<GradeReport> {
-    // LIVE: const res = await apiClient.get<GradeReport>("/director/grade-report", { params: filter });
-    // LIVE: return res.data;
-    await simulateDelay(700);
-    const { grades } = getSeeds();
-
-    let records = [...grades];
-
+    const params: Record<string, unknown> = {}
     if (filter?.faculty && filter.faculty !== "all")
-      records = records.filter((r) => r.faculty === filter.faculty);
+      params.facultyName = filter.faculty
+    if (filter?.department && filter.department !== "all")
+      params.departmentName = filter.department
+    if (filter?.program && filter.program !== "all")
+      params.programName = filter.program
     if (filter?.level && filter.level !== "all")
-      records = records.filter((r) => r.level === filter.level);
+      params.level = Number(filter.level)
     if (filter?.semester && filter.semester !== "all")
-      records = records.filter((r) => r.semester === filter.semester);
-    if (filter?.academicYear)
-      records = records.filter((r) => r.academicYear === filter.academicYear);
-    if (filter?.search) {
-      const q = filter.search.toLowerCase();
-      records = records.filter((r) => r.studentName.toLowerCase().includes(q) || r.matricNumber.toLowerCase().includes(q));
-    }
+      params.semesterName = filter.semester
+    if (filter?.academicYear) params.academicYear = filter.academicYear
+    if (filter?.status && filter.status !== "all") params.status = filter.status
+    if (filter?.search) params.search = filter.search
 
-    const avgGPA = parseFloat(
-      (records.reduce((a, r) => a + r.semesterGPA, 0) / (records.length || 1)).toFixed(2)
-    );
-
-    const gradeCountMap: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
-    records.forEach((r) =>
-      r.courses.forEach((c) => (gradeCountMap[c.grade] = (gradeCountMap[c.grade] || 0) + 1))
-    );
-    const totalGrades = Object.values(gradeCountMap).reduce((a, v) => a + v, 0);
-    const gradeDistribution = GRADES.map((g) => ({
-      grade: g,
-      count: gradeCountMap[g],
-      percentage: parseFloat(((gradeCountMap[g] / (totalGrades || 1)) * 100).toFixed(1)),
-    }));
-
-    const byFaculty = FACULTIES.map((f) => {
-      const fr = records.filter((r) => r.faculty === f);
-      return {
-        faculty: f,
-        averageGPA: fr.length ? parseFloat((fr.reduce((a, r) => a + r.semesterGPA, 0) / fr.length).toFixed(2)) : 0,
-        studentCount: fr.length,
-      };
-    });
+    const res = await apiClient.get<{
+      data: {
+        summary: {
+          averageGPA: number
+          passRate: number
+          distinctionRate: number
+          totalRecords: number
+        }
+        gradeDistribution: {
+          grade: string
+          count: number
+          percentage: number
+        }[]
+        byFaculty: {
+          faculty: string
+          studentCount: number
+          averageGPA: number
+        }[]
+        records: StudentGradeRecord[]
+      }
+      meta: { total: number; page: number; limit: number }
+    }>("/results/reports/director-grade-summary", { ...AUTH, params })
 
     return {
-      records: records.slice(0, 100) as any,
-      gradeDistribution,
-      averageGPA: avgGPA,
-      passRate: parseFloat(((records.filter((r) => r.status !== "fail").length / (records.length || 1)) * 100).toFixed(1)),
-      distinctionRate: parseFloat(((records.filter((r) => r.status === "distinction").length / (records.length || 1)) * 100).toFixed(1)),
-      byFaculty,
-    };
+      records: res.data.records,
+      gradeDistribution: res.data.gradeDistribution,
+      averageGPA: res.data.summary.averageGPA,
+      passRate: res.data.summary.passRate,
+      distinctionRate: res.data.summary.distinctionRate,
+      byFaculty: res.data.byFaculty,
+      pagination: res.meta,
+    }
   },
-};
-
-
+}

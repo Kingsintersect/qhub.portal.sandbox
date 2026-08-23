@@ -3,238 +3,302 @@
 // (derived from backend Prisma schema)
 // ──────────────────────────────────────────────
 
-export type Gender = "MALE" | "FEMALE";
-export type EntryMode = "UTME" | "DIRECT_ENTRY" | "TRANSFER";
-export type ModeOfStudy = "FULL_TIME" | "PART_TIME" | "SANDWICH" | "DISTANCE";
-export type StudentStatus = "ACTIVE" | "GRADUATED" | "WITHDRAWN" | "SUSPENDED" | "RUSTICATED" | "DEFERRED";
+export type Gender = "MALE" | "FEMALE"
+export type EntryMode = "UTME" | "DIRECT_ENTRY" | "TRANSFER"
+export type ModeOfStudy = "FULL_TIME" | "PART_TIME" | "SANDWICH" | "DISTANCE"
+export type StudentStatus =
+  | "ACTIVE"
+  | "GRADUATED"
+  | "WITHDRAWN"
+  | "SUSPENDED"
+  | "RUSTICATED"
+  | "DEFERRED"
 
 // ── User (core auth record) ─────────────────
 
 export interface User {
-   id: number;
-   email: string;
-   username: string;
-   first_name: string | null;
-   middle_name: string | null;
-   last_name: string | null;
-   phone_number: string | null;
-   avatar: string | null;
-   is_active: boolean;
-   is_verified: boolean;
-   last_login_at: string | null;
-   created_at: string;
-   updated_at: string;
-   roles: { id: number; name: string; slug: string }[];
+  id: number
+  email: string
+  username: string
+  first_name: string | null
+  middle_name: string | null
+  last_name: string | null
+  phone_number: string | null
+  avatar: string | null
+  is_active: boolean
+  is_verified: boolean
+  last_login_at: string | null
+  created_at: string
+  updated_at: string
+  roles: { id: number; name: string; slug: string }[]
 }
 
 // ── Student ─────────────────────────────────
 
 export interface Student {
-   id: number;
-   user_id: number;
-   matric_number: string;
-   program_id: number;
-   program_name: string;
-   department_name: string;
-   faculty_name: string;
-   current_level: number;
-   entry_mode: EntryMode;
-   mode_of_study: ModeOfStudy;
-   admission_date: string;
-   graduation_date: string | null;
-   status: StudentStatus;
-   current_cgpa: number | null;
-   date_of_birth: string;
-   gender: Gender;
-   nationality: string;
-   state_of_origin: string;
-   lga_of_origin: string;
-   permanent_address: string;
-   contact_address: string;
-   guardian_name: string;
-   guardian_phone: string;
-   guardian_email: string | null;
-   passport_photo: string | null;
-   created_at: string;
-   updated_at: string;
-   // Nested user info
-   user: Pick<User, "id" | "email" | "username" | "first_name" | "middle_name" | "last_name" | "phone_number" | "avatar" | "is_active">;
+  id: number
+  user_id: number
+  matric_number: string
+  program_id: number
+  program_name: string
+  department_name: string
+  faculty_name: string
+  current_level: number
+  current_level_id: number
+  entry_mode: EntryMode
+  mode_of_study: ModeOfStudy
+  admission_date: string
+  graduation_date: string | null
+  status: StudentStatus
+  current_cgpa: number | null
+  date_of_birth: string
+  gender: Gender
+  nationality: string
+  state_of_origin: string
+  lga_of_origin: string
+  permanent_address: string
+  contact_address: string
+  guardian_name: string
+  guardian_phone: string
+  guardian_email: string | null
+  passport_photo: string | null
+  created_at: string
+  updated_at: string
+  // Nested user info
+  user: Pick<
+    User,
+    | "id"
+    | "email"
+    | "username"
+    | "first_name"
+    | "middle_name"
+    | "last_name"
+    | "phone_number"
+    | "avatar"
+    | "is_active"
+  >
 }
 
 // ── Tutor ────────────────────────────────
 
 export interface Tutor {
-   id: number;
-   user_id: number;
-   staff_number: string;
-   department_id: number;
-   department_name: string;
-   faculty_name: string;
-   designation: string;
-   specialization: string | null;
-   office_location: string | null;
-   office_phone: string | null;
-   qualifications: string | null;
-   research_areas: string | null;
-   bio: string | null;
-   created_at: string;
-   updated_at: string;
-   user: Pick<User, "id" | "email" | "username" | "first_name" | "middle_name" | "last_name" | "phone_number" | "avatar" | "is_active">;
+  id: number
+  user_id: number
+  staff_number: string
+  department_id: number
+  department_name: string
+  faculty_name: string
+  designation: string
+  specialization: string | null
+  office_location: string | null
+  office_phone: string | null
+  qualifications: string | null
+  research_areas: string | null
+  bio: string | null
+  created_at: string
+  updated_at: string
+  user: Pick<
+    User,
+    | "id"
+    | "email"
+    | "username"
+    | "first_name"
+    | "middle_name"
+    | "last_name"
+    | "phone_number"
+    | "avatar"
+    | "is_active"
+  >
 }
 
 // ── Staff ───────────────────────────────────
 
 export interface Staff {
-   id: number;
-   user_id: number;
-   staff_number: string;
-   department_id: number | null;
-   department_name: string | null;
-   designation: string;
-   job_title: string;
-   office_location: string | null;
-   office_phone: string | null;
-   created_at: string;
-   updated_at: string;
-   user: Pick<User, "id" | "email" | "username" | "first_name" | "middle_name" | "last_name" | "phone_number" | "avatar" | "is_active">;
+  id: number
+  user_id: number
+  staff_number: string
+  department_id: number | null
+  department_name: string | null
+  designation: string
+  job_title: string
+  office_location: string | null
+  office_phone: string | null
+  created_at: string
+  updated_at: string
+  user: Pick<
+    User,
+    | "id"
+    | "email"
+    | "username"
+    | "first_name"
+    | "middle_name"
+    | "last_name"
+    | "phone_number"
+    | "avatar"
+    | "is_active"
+  >
 }
 
 // ── Payload types ───────────────────────────
 
 export interface CreateTutorPayload {
-   user_id: number;
-   first_name: string;
-   middle_name?: string;
-   last_name: string;
-   phone_number?: string;
-   staff_number: string;
-   department_id: number;
-   designation: string;
-   specialization?: string;
-   office_location?: string;
-   office_phone?: string;
-   date_of_birth?: string;
-   gender?: Gender;
-   nationality?: string;
-   state_of_origin?: string;
-   qualifications?: string;
-   research_areas?: string;
-   bio?: string;
+  user_id: number
+  first_name: string
+  middle_name?: string
+  last_name: string
+  phone_number?: string
+  staff_number: string
+  department_id: number
+  designation: string
+  specialization?: string
+  office_location?: string
+  office_phone?: string
+  date_of_birth?: string
+  gender?: Gender
+  nationality?: string
+  state_of_origin?: string
+  qualifications?: string
+  research_areas?: string
+  bio?: string
 }
 
 export interface CreateStaffPayload {
-   user_id: number;
-   first_name: string;
-   middle_name?: string;
-   last_name: string;
-   phone_number?: string;
-   staff_number: string;
-   department_id?: number;
-   designation: string;
-   job_title: string;
-   role_id: number;             // selected staff role (e.g. Staff, Registrar, HOD, Bursary)
-   office_location?: string;
-   office_phone?: string;
-   date_of_birth?: string;
-   gender?: Gender;
-   nationality?: string;
-   state_of_origin?: string;
+  user_id: number
+  first_name: string
+  middle_name?: string
+  last_name: string
+  phone_number?: string
+  staff_number: string
+  department_id?: number
+  designation: string
+  job_title: string
+  role_id: number // selected staff role (e.g. Staff, Registrar, HOD, Bursary)
+  office_location?: string
+  office_phone?: string
+  date_of_birth?: string
+  gender?: Gender
+  nationality?: string
+  state_of_origin?: string
 }
 
 export interface UpdateStudentPayload {
-   current_level?: number;
-   mode_of_study?: ModeOfStudy;
-   status?: StudentStatus;
-   contact_address?: string;
-   phone_number?: string;
+  current_level_id?: number
+  mode_of_study?: ModeOfStudy
+  status?: StudentStatus
+  contact_address?: string
+  phone_number?: string
 }
 
 export interface UpdateTutorPayload {
-   designation?: string;
-   specialization?: string;
-   office_location?: string;
-   office_phone?: string;
-   qualifications?: string;
-   research_areas?: string;
-   bio?: string;
+  designation?: string
+  specialization?: string
+  office_location?: string
+  office_phone?: string
+  qualifications?: string
+  research_areas?: string
+  bio?: string
 }
 
 export interface UpdateStaffPayload {
-   designation?: string;
-   job_title?: string;
-   office_location?: string;
-   office_phone?: string;
+  designation?: string
+  job_title?: string
+  office_location?: string
+  office_phone?: string
 }
 
 // ── Course Assignment ───────────────────────
 
-export type CourseType = "GENERAL" | "FACULTY" | "DEPARTMENTAL" | "ELECTIVE";
-export type CourseOfferingStatus = "PLANNED" | "OPEN" | "CLOSED" | "CANCELLED";
-export type TutorCourseRole = "primary" | "assistant" | "supervisor";
+export type CourseType = "GENERAL" | "FACULTY" | "DEPARTMENTAL" | "ELECTIVE"
+export type CourseOfferingStatus = "PLANNED" | "OPEN" | "CLOSED" | "CANCELLED"
+export type TutorCourseRole = "primary" | "assistant" | "tutorial"
 
 export interface Course {
-   id: number;
-   code: string;
-   title: string;
-   credit_units: number;
-   course_type: CourseType;
-   level_id: number;
-   department_name: string | null;
-   is_active: boolean;
+  id: number
+  code: string
+  title: string
+  credit_units: number
+  course_type: CourseType
+  level_id: number
+  department_name: string | null
+  is_active: boolean
 }
 
 export interface CourseOffering {
-   id: number;
-   course_id: number;
-   course_code: string;
-   course_title: string;
-   credit_units: number;
-   semester_name: string;
-   session_name: string;
-   status: CourseOfferingStatus;
+  id: number
+  course_id: number
+  course_code: string
+  course_title: string
+  credit_units: number
+  semester_name: string
+  session_name: string
+  status: CourseOfferingStatus
 }
 
 export interface TutorCourseAssignment {
-   id: number;
-   offering_id: number;
-   tutor_id: number;
-   role: TutorCourseRole;
-   created_at: string;
-   offering: CourseOffering;
+  id: number
+  offering_id: number
+  tutor_id: number
+  role: TutorCourseRole
+  created_at: string
+  offering: CourseOffering
 }
 
 export interface AssignCoursePayload {
-   tutor_id: number;
-   offering_id: number;
-   role?: TutorCourseRole;
+  tutor_id: number
+  offering_id: number
+  role?: TutorCourseRole
+}
+
+export interface UnassignCoursePayload {
+  tutor_id: number
+  offering_id: number
 }
 
 // ── Role eligible for staff/tutor assignment ─
 
 export interface EligibleRole {
-   id: number;
-   name: string;
-   slug: string;
-   description: string | null;
+  id: number
+  name: string
+  slug: string
+  description: string | null
 }
 
 export interface UserQueryFilters {
-   search?: string;
-   is_active?: boolean;
-   page?: number;
-   limit?: number;
+  search?: string
+  is_active?: boolean
+  page?: number
+  limit?: number
+  // Proposed — see MISSING_BACKEND_APIS.md §2.8 "Director module". Neither
+  // /users/students nor /users/lecturers documents a name-based faculty/
+  // department filter today (only programId/departmentId FKs); sent as-is
+  // so Director's tabs work the moment the backend adds support.
+  faculty_name?: string
+  department_name?: string
 }
 
 export interface StudentQueryFilters extends UserQueryFilters {
-   status?: StudentStatus;
-   program_id?: number;
-   level?: number;
+  status?: StudentStatus
+  program_id?: number
+  level?: number
 }
 
 export interface UserStats {
-   total_users: number;
-   total_students: number;
-   total_tutors: number;
-   total_staff: number;
-   active_users: number;
+  total_users: number
+  total_students: number
+  total_tutors: number
+  total_staff: number
+  active_users: number
+  // Proposed extension — see MISSING_BACKEND_APIS.md §2.8. Not part of the
+  // originally-proposed /users/stats shape; needed for Director's Overview
+  // and Statistical tabs so they don't have to page through and aggregate
+  // every student/tutor client-side.
+  by_faculty?: {
+    faculty_id: number
+    faculty_name: string
+    students: number
+    tutors: number
+  }[]
+  students_by_level?: { level: number; count: number }[]
+  students_by_gender?: { male: number; female: number }
+  tutors_by_designation?: { designation: string; count: number }[]
 }

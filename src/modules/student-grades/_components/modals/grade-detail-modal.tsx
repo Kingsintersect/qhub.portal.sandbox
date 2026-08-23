@@ -1,252 +1,356 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react"
+import { motion } from "framer-motion"
 import {
-   CheckCircle2, XCircle, BookOpen, User, Calendar, Hash,
-   ClipboardList, Loader2,
-} from "lucide-react";
-import Modal from "@/components/custom/Modal";
-import StatusBadge from "@/components/custom/StatusBadge";
-import type { Grade, GradeStatus } from "../../types/grades.types";
-import { gradesService } from "../../services/grades.service";
-import { useGradesStore } from "../../store/gradesStore";
+  CheckCircle2,
+  XCircle,
+  BookOpen,
+  User,
+  Calendar,
+  Hash,
+  ClipboardList,
+  Loader2,
+  Send,
+} from "lucide-react"
+import Modal from "@/components/custom/Modal"
+import StatusBadge from "@/components/custom/StatusBadge"
+import type { GradeStatus } from "../../types/grades.types"
+import { useGradesStore } from "../../store/gradesStore"
+import {
+  useSubmitGrade,
+  useApproveGrade,
+  useRejectGrade,
+} from "../../hooks/use-grades-mutations"
 
-type StatusVariant = "success" | "warning" | "destructive" | "info" | "default";
+type StatusVariant = "success" | "warning" | "destructive" | "info" | "default"
 
-const STATUS_BADGE_MAP: Record<GradeStatus, { label: string; variant: StatusVariant }> = {
-   PUBLISHED: { label: "Published", variant: "success" },
-   APPROVED: { label: "Approved", variant: "info" },
-   SUBMITTED: { label: "Submitted", variant: "warning" },
-   DRAFT: { label: "Draft", variant: "default" },
-};
-
-interface InfoRowProps { label: string; value: React.ReactNode }
-function InfoRow({ label, value }: InfoRowProps) {
-   return (
-      <div className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
-         <span className="text-xs text-muted-foreground">{label}</span>
-         <span className="text-xs font-medium text-foreground text-right max-w-48">{value}</span>
-      </div>
-   );
+const STATUS_BADGE_MAP: Record<
+  GradeStatus,
+  { label: string; variant: StatusVariant }
+> = {
+  PUBLISHED: { label: "Published", variant: "success" },
+  APPROVED: { label: "Approved", variant: "info" },
+  SUBMITTED: { label: "Submitted", variant: "warning" },
+  DRAFT: { label: "Draft", variant: "default" },
 }
 
-function GradeBar({ score, max, colour }: { score: number | null; max: number; colour: string }) {
-   const pct = score !== null ? Math.min((score / max) * 100, 100) : 0;
-   return (
-      <div className="space-y-1">
-         <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Score</span>
-            <span className="font-mono font-bold text-foreground">{score ?? "—"} / {max}</span>
-         </div>
-         <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div
-               className={`h-full ${colour} rounded-full`}
-               initial={{ width: 0 }}
-               animate={{ width: `${pct}%` }}
-               transition={{ duration: 0.8, ease: "easeOut" }}
-            />
-         </div>
+interface InfoRowProps {
+  label: string
+  value: React.ReactNode
+}
+function InfoRow({ label, value }: InfoRowProps) {
+  return (
+    <div className="flex items-center justify-between border-b border-border/50 py-2.5 last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="max-w-48 text-right text-xs font-medium text-foreground">
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function GradeBar({
+  score,
+  max,
+  colour,
+}: {
+  score: number | null
+  max: number
+  colour: string
+}) {
+  const pct = score !== null ? Math.min((score / max) * 100, 100) : 0
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">Score</span>
+        <span className="font-mono font-bold text-foreground">
+          {score ?? "—"} / {max}
+        </span>
       </div>
-   );
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <motion.div
+          className={`h-full ${colour} rounded-full`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  )
 }
 
 interface GradeDetailModalProps {
-   open: boolean;
-   onClose: () => void;
-   onGradeUpdated: () => Promise<void>;  // ← Make sure this matches
-   canManage?: boolean;  // ← ADD THIS
+  open: boolean
+  onClose: () => void
+  canManage?: boolean
 }
 
-export function GradeDetailModal({ open, onClose, onGradeUpdated, canManage = false }: GradeDetailModalProps) {  // ← ADD THIS
-   const { selectedGrade, updateGradeInStore, actionLoadingId, setActionLoadingId } = useGradesStore();
-   const [rejectRemarks, setRejectRemarks] = useState("");
-   const [showRejectForm, setShowRejectForm] = useState(false);
+export function GradeDetailModal({
+  open,
+  onClose,
+  canManage = false,
+}: GradeDetailModalProps) {
+  const { selectedGrade, updateGradeInStore } = useGradesStore()
+  const [rejectRemarks, setRejectRemarks] = useState("")
+  const [showRejectForm, setShowRejectForm] = useState(false)
 
-   if (!selectedGrade) return null;
-   const grade = selectedGrade;
+  const submitMutation = useSubmitGrade()
+  const approveMutation = useApproveGrade()
+  const rejectMutation = useRejectGrade()
 
-   const handleApprove = async () => {
-      setActionLoadingId(grade.id);
-      try {
-         const updated = await gradesService.approveGrade(grade.id);
-         updateGradeInStore(updated);
-         await onGradeUpdated();  // ← Call the refresh function
-      } finally {
-         setActionLoadingId(null);
-      }
-   };
+  if (!selectedGrade) return null
+  const grade = selectedGrade
 
-   const handleReject = async () => {
-      if (!rejectRemarks.trim()) return;
-      setActionLoadingId(grade.id);
-      try {
-         const updated = await gradesService.rejectGrade(grade.id, rejectRemarks.trim());
-         updateGradeInStore(updated);
-         await onGradeUpdated();  // ← Call the refresh function
-         setRejectRemarks("");
-         setShowRejectForm(false);
-      } finally {
-         setActionLoadingId(null);
-      }
-   };
+  const handleSubmit = async () => {
+    const result = await submitMutation.mutateAsync(grade.id)
+    updateGradeInStore({ ...grade, ...result })
+  }
 
-   const loading = actionLoadingId === grade.id;
-   // Only show approve/reject if user has manage permission AND grade is in SUBMITTED status
-   const canApprove = canManage && grade.status === "SUBMITTED";
-   const canReject = canManage && grade.status === "SUBMITTED";
+  const handleApprove = async () => {
+    const result = await approveMutation.mutateAsync({ id: grade.id })
+    updateGradeInStore({ ...grade, ...result })
+  }
 
-   const totalPct = grade.totalScore !== null ? Math.min((grade.totalScore / 100) * 100, 100) : 0;
-   const totalColour =
-      totalPct >= 70 ? "bg-emerald-500" :
-         totalPct >= 50 ? "bg-blue-500" :
-            totalPct >= 40 ? "bg-amber-500" :
-               "bg-red-500";
+  const handleReject = async () => {
+    if (!rejectRemarks.trim()) return
+    const result = await rejectMutation.mutateAsync({
+      id: grade.id,
+      remarks: rejectRemarks.trim(),
+    })
+    updateGradeInStore({ ...grade, ...result })
+    setRejectRemarks("")
+    setShowRejectForm(false)
+  }
 
-   return (
-      <Modal
-         open={open}
-         onClose={onClose}
-         size="lg"
-         title="Grade Details"
-         subtitle={`${grade.studentName} · ${grade.courseCode}`}
-         footer={
-            (canApprove || canReject) ? (
-               <div className="flex items-center gap-2 flex-wrap">
-                  {canReject && (
-                     <button
-                        onClick={() => setShowRejectForm((v) => !v)}
-                        disabled={loading}
-                        className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-destructive border border-destructive/30 rounded-xl hover:bg-destructive/10 transition disabled:opacity-50"
-                     >
-                        <XCircle className="w-3.5 h-3.5" />
-                        Reject
-                     </button>
-                  )}
-                  {canApprove && (
-                     <button
-                        onClick={handleApprove}
-                        disabled={loading}
-                        className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 ml-auto"
-                     >
-                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Approve Grade
-                     </button>
-                  )}
-               </div>
-            ) : null
-         }
-      >
-         <div className="p-5 space-y-5">
-            {/* Scores summary */}
-            <div className="grid grid-cols-3 gap-3">
-               {[
-                  { label: "CA Score", value: grade.caScore, max: 40, colour: "bg-blue-500" },
-                  { label: "Exam Score", value: grade.examScore, max: 60, colour: "bg-violet-500" },
-                  { label: "Total", value: grade.totalScore, max: 100, colour: totalColour },
-               ].map((s) => (
-                  <div key={s.label} className="bg-muted/30 rounded-xl p-3">
-                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">{s.label}</p>
-                     <GradeBar score={s.value} max={s.max} colour={s.colour} />
-                  </div>
-               ))}
-            </div>
+  const loading =
+    submitMutation.isPending ||
+    approveMutation.isPending ||
+    rejectMutation.isPending
+  // Only show submit if the user manages this grade and it's still a DRAFT
+  const canSubmit = canManage && grade.status === "DRAFT"
+  // Only show approve/reject if user has manage permission AND grade is in SUBMITTED status
+  const canApprove = canManage && grade.status === "SUBMITTED"
+  const canReject = canManage && grade.status === "SUBMITTED"
 
-            {/* Grade result */}
-            <div className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-3">
-               <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Letter Grade</p>
-                  <p className="text-3xl font-bold font-mono text-foreground">{grade.gradeLetter ?? "—"}</p>
-               </div>
-               <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Grade Points</p>
-                  <p className="text-3xl font-bold font-mono text-foreground">{grade.gradePoint?.toFixed(2) ?? "—"}</p>
-               </div>
-               <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Status</p>
-                  <StatusBadge {...STATUS_BADGE_MAP[grade.status]} dot />
-               </div>
-            </div>
+  const totalPct =
+    grade.totalScore !== null
+      ? Math.min((grade.totalScore / 100) * 100, 100)
+      : 0
+  const totalColour =
+    totalPct >= 70
+      ? "bg-emerald-500"
+      : totalPct >= 50
+        ? "bg-blue-500"
+        : totalPct >= 40
+          ? "bg-amber-500"
+          : "bg-red-500"
 
-            {/* Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-               <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                     <User className="w-3.5 h-3.5 text-muted-foreground" />
-                     <p className="text-xs font-semibold text-foreground">Student</p>
-                  </div>
-                  <InfoRow label="Name" value={grade.studentName} />
-                  <InfoRow label="Matric" value={<span className="font-mono">{grade.studentMatric}</span>} />
-                  <InfoRow label="Program" value={grade.programName} />
-               </div>
-               <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                     <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                     <p className="text-xs font-semibold text-foreground">Course</p>
-                  </div>
-                  <InfoRow label="Code" value={<span className="font-mono">{grade.courseCode}</span>} />
-                  <InfoRow label="Name" value={grade.courseName} />
-                  <InfoRow label="Units" value={grade.creditUnits} />
-               </div>
-               <div className="sm:col-span-2 mt-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                     <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                     <p className="text-xs font-semibold text-foreground">Period</p>
-                  </div>
-                  <InfoRow label="Semester" value={`${grade.semesterName} ${grade.academicYear}`} />
-                  <InfoRow label="Academic Year" value={grade.academicYear} />
-                  {grade.approvedByName && (
-                     <InfoRow label="Approved by" value={grade.approvedByName} />
-                  )}
-                  {grade.remarks && (
-                     <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl">
-                        <div className="flex items-center gap-1.5 mb-1">
-                           <ClipboardList className="w-3 h-3 text-amber-600" />
-                           <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase">Remarks</p>
-                        </div>
-                        <p className="text-xs text-foreground">{grade.remarks}</p>
-                     </div>
-                  )}
-               </div>
-            </div>
-
-            {/* Reject form - only show if user can manage */}
-            {showRejectForm && canReject && (
-               <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="border border-destructive/30 rounded-xl p-4 bg-destructive/5"
-               >
-                  <div className="flex items-center gap-1.5 mb-2">
-                     <Hash className="w-3.5 h-3.5 text-destructive" />
-                     <p className="text-xs font-semibold text-destructive">Rejection Reason</p>
-                  </div>
-                  <textarea
-                     value={rejectRemarks}
-                     onChange={(e) => setRejectRemarks(e.target.value)}
-                     rows={3}
-                     placeholder="Explain why this grade is being rejected…"
-                     className="w-full text-xs bg-background border border-border rounded-xl p-3 resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  <div className="flex gap-2 mt-2">
-                     <button
-                        onClick={() => { setShowRejectForm(false); setRejectRemarks(""); }}
-                        className="px-3 py-1.5 text-xs font-medium border border-border rounded-xl text-muted-foreground hover:text-foreground transition"
-                     >
-                        Cancel
-                     </button>
-                     <button
-                        onClick={handleReject}
-                        disabled={!rejectRemarks.trim() || loading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-destructive text-white rounded-xl hover:opacity-90 transition disabled:opacity-50"
-                     >
-                        {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                        Confirm Reject
-                     </button>
-                  </div>
-               </motion.div>
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="lg"
+      title="Grade Details"
+      subtitle={`${grade.studentName} · ${grade.courseCode}`}
+      footer={
+        canSubmit || canApprove || canReject ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {canSubmit && (
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="ml-auto flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Submit for Approval
+              </button>
             )}
-         </div>
-      </Modal>
-   );
+            {canReject && (
+              <button
+                onClick={() => setShowRejectForm((v) => !v)}
+                disabled={loading}
+                className="flex items-center gap-1.5 rounded-xl border border-destructive/30 px-4 py-2 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Reject
+              </button>
+            )}
+            {canApprove && (
+              <button
+                onClick={handleApprove}
+                disabled={loading}
+                className="ml-auto flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                Approve Grade
+              </button>
+            )}
+          </div>
+        ) : null
+      }
+    >
+      <div className="space-y-5 p-5">
+        {/* Scores summary */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            {
+              label: "CA Score",
+              value: grade.caScore,
+              max: 40,
+              colour: "bg-blue-500",
+            },
+            {
+              label: "Exam Score",
+              value: grade.examScore,
+              max: 60,
+              colour: "bg-violet-500",
+            },
+            {
+              label: "Total",
+              value: grade.totalScore,
+              max: 100,
+              colour: totalColour,
+            },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl bg-muted/30 p-3">
+              <p className="mb-2 text-[10px] tracking-wide text-muted-foreground uppercase">
+                {s.label}
+              </p>
+              <GradeBar score={s.value} max={s.max} colour={s.colour} />
+            </div>
+          ))}
+        </div>
+
+        {/* Grade result */}
+        <div className="flex items-center justify-between rounded-xl bg-muted/30 px-4 py-3">
+          <div>
+            <p className="mb-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
+              Letter Grade
+            </p>
+            <p className="font-mono text-3xl font-bold text-foreground">
+              {grade.gradeLetter ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="mb-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
+              Grade Points
+            </p>
+            <p className="font-mono text-3xl font-bold text-foreground">
+              {grade.gradePoint?.toFixed(2) ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="mb-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
+              Status
+            </p>
+            <StatusBadge {...STATUS_BADGE_MAP[grade.status]} dot />
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+          <div>
+            <div className="mb-2 flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-semibold text-foreground">Student</p>
+            </div>
+            <InfoRow label="Name" value={grade.studentName} />
+            <InfoRow
+              label="Matric"
+              value={<span className="font-mono">{grade.studentMatric}</span>}
+            />
+            <InfoRow label="Program" value={grade.programName} />
+          </div>
+          <div>
+            <div className="mb-2 flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-semibold text-foreground">Course</p>
+            </div>
+            <InfoRow
+              label="Code"
+              value={<span className="font-mono">{grade.courseCode}</span>}
+            />
+            <InfoRow label="Name" value={grade.courseName} />
+            <InfoRow label="Units" value={grade.creditUnits} />
+          </div>
+          <div className="mt-3 sm:col-span-2">
+            <div className="mb-2 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-semibold text-foreground">Period</p>
+            </div>
+            <InfoRow
+              label="Semester"
+              value={`${grade.semesterName} ${grade.academicYear}`}
+            />
+            <InfoRow label="Academic Year" value={grade.academicYear} />
+            {grade.approvedByName && (
+              <InfoRow label="Approved by" value={grade.approvedByName} />
+            )}
+            {grade.remarks && (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+                <div className="mb-1 flex items-center gap-1.5">
+                  <ClipboardList className="h-3 w-3 text-amber-600" />
+                  <p className="text-[10px] font-semibold text-amber-700 uppercase dark:text-amber-400">
+                    Remarks
+                  </p>
+                </div>
+                <p className="text-xs text-foreground">{grade.remarks}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Reject form - only show if user can manage */}
+        {showRejectForm && canReject && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <div className="mb-2 flex items-center gap-1.5">
+              <Hash className="h-3.5 w-3.5 text-destructive" />
+              <p className="text-xs font-semibold text-destructive">
+                Rejection Reason
+              </p>
+            </div>
+            <textarea
+              value={rejectRemarks}
+              onChange={(e) => setRejectRemarks(e.target.value)}
+              rows={3}
+              placeholder="Explain why this grade is being rejected…"
+              className="w-full resize-none rounded-xl border border-border bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRejectForm(false)
+                  setRejectRemarks("")
+                }}
+                className="rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={!rejectRemarks.trim() || loading}
+                className="flex items-center gap-1.5 rounded-xl bg-destructive px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Confirm Reject
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </Modal>
+  )
 }

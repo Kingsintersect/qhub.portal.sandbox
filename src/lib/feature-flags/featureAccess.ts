@@ -8,11 +8,11 @@ type RouteFeatureRule = {
 
 const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
   {
-    prefix: "/admin/installation/feature-registry",
+    prefix: "/admin/configurations/feature-registry",
     feature: "portal_settings",
   },
   {
-    prefix: "/admin/installation/feature-access",
+    prefix: "/admin/configurations/feature-access",
     feature: "portal_settings",
   },
   { prefix: "/admin/system/portal", feature: "portal_settings" },
@@ -83,7 +83,6 @@ const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
   { prefix: "/manager/finance", feature: "payment" },
   { prefix: "/admin/finance", feature: "payment" },
   { prefix: "/student/payments", feature: "payment" },
-  { prefix: "/admin/setup/fee-management", feature: "payment" },
 
   { prefix: "/manager/review-applications", feature: "admission" },
   { prefix: "/manager/academics/admissions", feature: "admission" },

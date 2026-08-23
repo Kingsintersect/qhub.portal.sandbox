@@ -7,7 +7,6 @@ import Sidebar from "@/components/layout/Sidebar"
 import Header from "@/components/layout/Header"
 import FeatureRouteGuard from "@/components/dashboard/FeatureRouteGuard"
 import { useAppStore, useAppHydrated, useSidebarStore } from "@/store"
-import { useSession, signOut } from "next-auth/react"
 
 export default function DashboardLayoutTemplate({
   children,
@@ -18,12 +17,6 @@ export default function DashboardLayoutTemplate({
   const hydrated = useAppHydrated()
   const { mobileOpen, setMobileOpen } = useSidebarStore()
   const router = useRouter()
-  const { data: session } = useSession()
-  useEffect(() => {
-    if (session?.error === "RefreshAccessTokenError") {
-      signOut({ callbackUrl: "/auth/signin" })
-    }
-  }, [session])
 
   useEffect(() => {
     if (hydrated && !isAuthenticated) {

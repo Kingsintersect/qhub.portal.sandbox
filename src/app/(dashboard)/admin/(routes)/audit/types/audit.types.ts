@@ -10,7 +10,7 @@ export type AuditAction =
   | "REJECT"
   | "ENROLL"
   | "PAYMENT"
-  | "SYNC";
+  | "SYNC"
 
 export type AuditEntityType =
   | "Student"
@@ -26,137 +26,137 @@ export type AuditEntityType =
   | "Document"
   | "User"
   | "Setting"
-  | "StudentEnrollment";
+  | "StudentEnrollment"
 
 export interface AuditUser {
-  firstName: string;
-  lastName: string;
-  email: string;
+  firstName: string | null
+  lastName: string | null
+  email: string | null
 }
 
 export interface AuditLog {
-  id: number;
-  userId: number;
-  user: AuditUser;
-  action: AuditAction;
-  entityType: AuditEntityType;
-  entityId: number;
-  oldValues: Record<string, unknown> | null;
-  newValues: Record<string, unknown> | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  createdAt: string;
+  id: number
+  userId: number
+  user: AuditUser
+  action: AuditAction
+  entityType: AuditEntityType
+  entityId: number
+  oldValues: Record<string, unknown> | null
+  newValues: Record<string, unknown> | null
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: string
 }
 
 export interface AuditLogDetail extends AuditLog {
-  academicYear?: string;
-  semester?: "First" | "Second";
-  program?: string;
+  academicYear?: string
+  semester?: "First" | "Second"
+  program?: string
 }
 
 // ─── Entity-specific audit log (lighter) ───────────────────────────────────
 
 export interface AuditEntityLog {
-  id: number;
-  userId: number;
-  user: Pick<AuditUser, "firstName" | "lastName">;
-  action: AuditAction;
-  oldValues: Record<string, unknown> | null;
-  newValues: Record<string, unknown> | null;
-  createdAt: string;
+  id: number
+  userId: number
+  user: Pick<AuditUser, "firstName" | "lastName">
+  action: AuditAction
+  oldValues: Record<string, unknown> | null
+  newValues: Record<string, unknown> | null
+  createdAt: string
 }
 
 // ─── API Query Params ───────────────────────────────────────────────────────
 
 export interface AuditQueryParams {
-  userId?: number;
-  action?: AuditAction | "";
-  entityType?: AuditEntityType | "";
-  entityId?: number;
-  startDate?: string;
-  endDate?: string;
-  page?: number;
-  limit?: number;
-  academicYear?: string;
-  semester?: "First" | "Second" | "";
-  program?: string;
-  search?: string;
+  userId?: number
+  action?: AuditAction | ""
+  entityType?: AuditEntityType | ""
+  entityId?: number
+  startDate?: string
+  endDate?: string
+  page?: number
+  limit?: number
+  academicYear?: string
+  semester?: "First" | "Second" | ""
+  program?: string
+  search?: string
 }
 
 // ─── API Response ───────────────────────────────────────────────────────────
 
 export interface AuditMeta {
-  total: number;
-  page: number;
-  limit: number;
+  total: number
+  page: number
+  limit: number
 }
 
 export interface AuditLogsResponse {
-  data: AuditLog[];
-  meta: AuditMeta;
+  data: AuditLog[]
+  meta: AuditMeta
 }
 
 export interface AuditEntityLogsResponse {
-  data: AuditEntityLog[];
+  data: AuditEntityLog[]
 }
 
 // ─── Stats / Chart Data ─────────────────────────────────────────────────────
 
 export interface AuditActionCount {
-  action: AuditAction;
-  count: number;
-  percentage: number;
+  action: AuditAction
+  count: number
+  percentage: number
 }
 
 export interface AuditEntityCount {
-  entityType: AuditEntityType;
-  count: number;
+  entityType: AuditEntityType
+  count: number
 }
 
 export interface AuditDailyActivity {
-  date: string;
-  count: number;
-  logins: number;
-  mutations: number;
+  date: string
+  count: number
+  logins: number
+  mutations: number
 }
 
 export interface AuditHourlyActivity {
-  hour: number;
-  count: number;
+  hour: number
+  count: number
 }
 
 export interface AuditStats {
-  totalLogs: number;
-  todayLogs: number;
-  uniqueUsers: number;
-  criticalActions: number;
-  actionBreakdown: AuditActionCount[];
-  entityBreakdown: AuditEntityCount[];
-  dailyActivity: AuditDailyActivity[];
-  hourlyActivity: AuditHourlyActivity[];
+  totalLogs: number
+  todayLogs: number
+  uniqueUsers: number
+  criticalActions: number
+  actionBreakdown: AuditActionCount[]
+  entityBreakdown: AuditEntityCount[]
+  dailyActivity: AuditDailyActivity[]
+  hourlyActivity: AuditHourlyActivity[]
 }
 
 // ─── Grouping ───────────────────────────────────────────────────────────────
 
 export interface AuditGroupKey {
-  academicYear: string;
-  semester: "First" | "Second";
-  program?: string;
+  academicYear: string
+  semester: "First" | "Second"
+  program?: string
 }
 
 export interface AuditGroup {
-  key: AuditGroupKey;
-  label: string;
-  logs: AuditLog[];
-  count: number;
+  key: AuditGroupKey
+  label: string
+  logs: AuditLog[]
+  count: number
 }
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 
-export type ExportFormat = "csv" | "excel" | "pdf";
+export type ExportFormat = "csv" | "excel" | "pdf"
 
 export interface ExportOptions {
-  format: ExportFormat;
-  filename?: string;
-  includeValues?: boolean;
+  format: ExportFormat
+  filename?: string
+  includeValues?: boolean
 }

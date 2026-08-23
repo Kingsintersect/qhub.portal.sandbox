@@ -1,6 +1,5 @@
-import { useCallback, useEffect } from "react";
-import { useDirectorStore } from "../store/director.store";
-import { DirectorFilter } from "../types/director.types";
+import { useEffect } from "react"
+import { useDirectorStore } from "../store/director.store"
 
 // ─── Overview Hook ────────────────────────────────────────────────────────────
 
@@ -12,11 +11,12 @@ export function useDirectorOverview() {
     loading,
     errors,
     fetchOverview,
-  } = useDirectorStore();
+  } = useDirectorStore()
 
   useEffect(() => {
-    if (!overview) fetchOverview();
-  }, []);
+    if (!overview) fetchOverview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     overview,
@@ -25,7 +25,7 @@ export function useDirectorOverview() {
     isLoading: !!loading["overview"],
     error: errors["overview"],
     refetch: fetchOverview,
-  };
+  }
 }
 
 // ─── Financial Hook ───────────────────────────────────────────────────────────
@@ -42,16 +42,12 @@ export function useDirectorFinancial() {
     setFilter,
     resetFilter,
     setPagination,
-  } = useDirectorStore();
-
-  const refresh = useCallback(
-    (f?: DirectorFilter) => fetchFinancialSummary(f),
-    []
-  );
+  } = useDirectorStore()
 
   useEffect(() => {
-    fetchFinancialSummary();
-  }, []);
+    fetchFinancialSummary()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     financialSummary,
@@ -63,8 +59,8 @@ export function useDirectorFinancial() {
     setFilter,
     resetFilter,
     setPagination,
-    refetch: refresh,
-  };
+    refetch: fetchFinancialSummary,
+  }
 }
 
 // ─── Statistical Hook ─────────────────────────────────────────────────────────
@@ -78,16 +74,12 @@ export function useDirectorStatistical() {
     fetchStatisticalReport,
     setFilter,
     resetFilter,
-  } = useDirectorStore();
-
-  const refresh = useCallback(
-    (f?: DirectorFilter) => fetchStatisticalReport(f),
-    []
-  );
+  } = useDirectorStore()
 
   useEffect(() => {
-    fetchStatisticalReport();
-  }, []);
+    fetchStatisticalReport()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     statisticalReport,
@@ -96,39 +88,9 @@ export function useDirectorStatistical() {
     error: errors["statistical"],
     setFilter,
     resetFilter,
-    refetch: refresh,
-  };
+    refetch: fetchStatisticalReport,
+  }
 }
 
-// ─── Grades Hook ──────────────────────────────────────────────────────────────
-
-export function useDirectorGrades() {
-  const {
-    gradeReport,
-    filter,
-    loading,
-    errors,
-    fetchGradeReport,
-    setFilter,
-    resetFilter,
-  } = useDirectorStore();
-
-  const refresh = useCallback(
-    (f?: DirectorFilter) => fetchGradeReport(f),
-    []
-  );
-
-  useEffect(() => {
-    fetchGradeReport();
-  }, []);
-
-  return {
-    gradeReport,
-    filter,
-    isLoading: !!loading["grades"],
-    error: errors["grades"],
-    setFilter,
-    resetFilter,
-    refetch: refresh,
-  };
-}
+// Grades hook now lives in ./use-director-grades.ts (React Query-backed) —
+// see sandbox/result/missing_grade_apis.readme.md §8.

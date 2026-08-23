@@ -1,16 +1,17 @@
 import {
+  AppWindowIcon,
   Banknote,
   BarChart,
   CalendarCheck2,
   ChartNetwork,
-  InspectionPanelIcon,
-  LandmarkIcon,
+  ClapperboardIcon,
+  ColumnsSettingsIcon,
   ListChecks,
   ListChevronsUpDown,
   NetworkIcon,
-  OctagonMinus,
   SchoolIcon,
-  TestTubeDiagonalIcon,
+  Settings2,
+  WifiSyncIcon,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -33,6 +34,10 @@ import {
   FolderOpen,
   UserCog,
   Globe,
+  Link2,
+  Award,
+  UserCheck,
+  CalendarCheck,
 } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
@@ -40,6 +45,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 export enum UserRole {
+  APPLICANT = "APPLICANT",
   GUEST = "GUEST",
   STUDENT = "STUDENT",
   TUTOR = "TUTOR",
@@ -85,21 +91,23 @@ const studentNav: NavGroup[] = [
         matchExactOnly: true,
         icon: FileText,
       },
-    ],
-  },
-  {
-    items: [
       {
-        title: "Reuseable Compoenets",
-        icon: OctagonMinus,
-        children: [
-          {
-            title: "Test Page",
-            href: "/student/test",
-            matchExactOnly: true,
-            icon: TestTubeDiagonalIcon,
-          },
-        ],
+        title: "My Documents",
+        href: "/student/documents",
+        matchExactOnly: true,
+        icon: FolderOpen,
+      },
+      {
+        title: "My Hostel",
+        href: "/student/hostel",
+        matchExactOnly: true,
+        icon: Building2,
+      },
+      {
+        title: "My Clearance",
+        href: "/student/clearance",
+        matchExactOnly: true,
+        icon: ListChecks,
       },
     ],
   },
@@ -125,6 +133,18 @@ const studentNav: NavGroup[] = [
         icon: ClipboardList,
       },
       {
+        title: "Course Registration",
+        href: "/student/enrollment",
+        matchExactOnly: true,
+        icon: UserCheck,
+      },
+      {
+        title: "My Attendance",
+        href: "/student/attendance",
+        matchExactOnly: true,
+        icon: CalendarCheck,
+      },
+      {
         title: "Results",
         href: "/student/results",
         matchExactOnly: true,
@@ -141,6 +161,29 @@ const studentNav: NavGroup[] = [
         href: "/student/profile",
         matchExactOnly: true,
         icon: UserCog,
+      },
+    ],
+  },
+  {
+    label: "Moodle LMS",
+    items: [
+      {
+        title: "Moodle Grades",
+        href: "/student/moodle/grades",
+        matchExactOnly: true,
+        icon: Award,
+      },
+      {
+        title: "Moodle Calendar",
+        href: "/student/moodle/calendar",
+        matchExactOnly: true,
+        icon: CalendarDays,
+      },
+      {
+        title: "Upcoming (Moodle)",
+        href: "/student/moodle/assessments/upcoming",
+        matchExactOnly: true,
+        icon: ClipboardList,
       },
     ],
   },
@@ -211,6 +254,12 @@ const tutorNav: NavGroup[] = [
         href: "/tutor/assessments",
         matchExactOnly: true,
         icon: ClipboardList,
+      },
+      {
+        title: "Attendance",
+        href: "/tutor/attendance",
+        matchExactOnly: true,
+        icon: CalendarCheck,
       },
       {
         title: "Timetable",
@@ -378,6 +427,12 @@ const adminNav: NavGroup[] = [
         icon: GraduationCap,
       },
       {
+        title: "Academic Structure",
+        href: "/manager/academics/academic-structure",
+        matchExactOnly: true,
+        icon: NetworkIcon,
+      },
+      {
         title: "Courses",
         href: "/manager/academics/courses-management",
         matchExactOnly: true,
@@ -416,6 +471,24 @@ const adminNav: NavGroup[] = [
             matchExactOnly: true,
             icon: UserCog,
           },
+          {
+            title: "Documents",
+            href: "/manager/documents",
+            matchExactOnly: true,
+            icon: FileText,
+          },
+          {
+            title: "Hostels",
+            href: "/manager/hostels",
+            matchExactOnly: true,
+            icon: Building2,
+          },
+          {
+            title: "Clearance",
+            href: "/manager/clearance",
+            matchExactOnly: true,
+            icon: ListChecks,
+          },
         ],
       },
     ],
@@ -423,18 +496,6 @@ const adminNav: NavGroup[] = [
   {
     label: "Finance",
     items: [
-      {
-        title: "Financial Summary",
-        href: "/manager/finance/summary",
-        matchExactOnly: true,
-        icon: LandmarkIcon,
-      },
-      {
-        title: "Financial Transactions",
-        href: "/manager/finance/transactions",
-        matchExactOnly: true,
-        icon: Banknote,
-      },
       {
         title: "Fee Management",
         href: "/manager/finance/fees",
@@ -464,6 +525,12 @@ const adminNav: NavGroup[] = [
         matchExactOnly: true,
         icon: ListChecks,
       },
+      {
+        title: "Grading Schemes",
+        href: "/manager/grades/grading-schemes",
+        matchExactOnly: true,
+        icon: Settings2,
+      },
     ],
   },
   {
@@ -478,6 +545,12 @@ const adminNav: NavGroup[] = [
       {
         title: "Announcements",
         href: "/manager/announcements",
+        matchExactOnly: true,
+        icon: Bell,
+      },
+      {
+        title: "Notifications",
+        href: "/manager/notification",
         matchExactOnly: true,
         icon: Bell,
       },
@@ -510,26 +583,103 @@ const superAdminNav: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "Installation",
-        icon: InspectionPanelIcon,
+        title: "Configurations",
+        icon: AppWindowIcon,
         children: [
           {
-            title: "Installation",
-            href: "/admin/installation/config",
+            title: "Application Config",
+            href: "/admin/configurations/app-config",
             matchExactOnly: true,
-            icon: InspectionPanelIcon,
+            icon: ColumnsSettingsIcon,
+          },
+          {
+            title: "Roles & Permissions",
+            href: "/admin/configurations/roles",
+            matchExactOnly: true,
+            icon: ShieldCheck,
+          },
+          {
+            title: "Admission Config",
+            href: "/admin/configurations/admission-config",
+            matchExactOnly: true,
+            icon: ClapperboardIcon,
           },
           {
             title: "Features Registry",
-            href: "/admin/installation/feature-registry",
+            href: "/admin/configurations/feature-registry",
             matchExactOnly: true,
             icon: Globe,
           },
           {
             title: "Features Access",
-            href: "/admin/installation/feature-access",
+            href: "/admin/configurations/feature-access",
             matchExactOnly: true,
             icon: Settings,
+          },
+          {
+            title: "Clearance Types",
+            href: "/admin/configurations/clearance-types",
+            matchExactOnly: true,
+            icon: ListChecks,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Synchronize LMS",
+    items: [
+      {
+        title: "Moodle Syncronizer",
+        icon: WifiSyncIcon,
+        children: [
+          {
+            title: "Overview",
+            href: "/admin/moodle-sync",
+            matchExactOnly: true,
+            icon: WifiSyncIcon,
+          },
+          {
+            title: "Categories",
+            href: "/admin/moodle-sync/categories",
+            matchExactOnly: true,
+            icon: Building2,
+          },
+          {
+            title: "Users",
+            href: "/admin/moodle-sync/users",
+            matchExactOnly: true,
+            icon: Users,
+          },
+          {
+            title: "Courses",
+            href: "/admin/moodle-sync/courses",
+            matchExactOnly: true,
+            icon: BookOpen,
+          },
+          {
+            title: "Enrollments",
+            href: "/admin/moodle-sync/enrollments",
+            matchExactOnly: true,
+            icon: Link2,
+          },
+          {
+            title: "Assessments",
+            href: "/admin/moodle-sync/assessments",
+            matchExactOnly: true,
+            icon: ClipboardList,
+          },
+          {
+            title: "Grades",
+            href: "/admin/moodle-sync/grades",
+            matchExactOnly: true,
+            icon: Award,
+          },
+          {
+            title: "Calendar & Zoom",
+            href: "/admin/moodle-sync/calendar",
+            matchExactOnly: true,
+            icon: CalendarDays,
           },
         ],
       },
@@ -555,6 +705,12 @@ const superAdminNav: NavGroup[] = [
         href: "/admin/academics/course-structure",
         matchExactOnly: true,
         icon: GraduationCap,
+      },
+      {
+        title: "Academic Structure",
+        href: "/admin/academics/academic-structure",
+        matchExactOnly: true,
+        icon: NetworkIcon,
       },
       {
         title: "Courses",
@@ -598,27 +754,27 @@ const superAdminNav: NavGroup[] = [
           },
         ],
       },
+      {
+        title: "Enrollment",
+        href: "/admin/enrollment",
+        matchExactOnly: true,
+        icon: UserCheck,
+      },
     ],
   },
   {
-    label: "User Management",
+    label: "Account Operations",
     items: [
       {
-        title: "Roles & Permissions",
-        href: "/admin/users/roles",
+        title: "Summary",
+        href: "/admin/users/summary",
         matchExactOnly: true,
-        icon: ShieldCheck,
+        icon: Users,
       },
       {
-        title: "User Management",
+        title: "Account Administration",
         icon: UserCog,
         children: [
-          {
-            title: "Summary",
-            href: "/admin/users/summary",
-            matchExactOnly: true,
-            icon: Users,
-          },
           {
             title: "Students",
             href: "/admin/users/students",
@@ -639,23 +795,23 @@ const superAdminNav: NavGroup[] = [
           },
         ],
       },
+      {
+        title: "Documents",
+        href: "/admin/documents",
+        matchExactOnly: true,
+        icon: FileText,
+      },
+      {
+        title: "Hostels",
+        href: "/admin/hostels",
+        matchExactOnly: true,
+        icon: Building2,
+      },
     ],
   },
   {
     label: "Finance",
     items: [
-      {
-        title: "Financial Summary",
-        href: "/admin/finance/summary",
-        matchExactOnly: true,
-        icon: LandmarkIcon,
-      },
-      {
-        title: "Financial Transactions",
-        href: "/admin/finance/transactions",
-        matchExactOnly: true,
-        icon: Banknote,
-      },
       {
         title: "Fee Management",
         href: "/admin/finance/fees",
@@ -685,6 +841,12 @@ const superAdminNav: NavGroup[] = [
         matchExactOnly: true,
         icon: ListChecks,
       },
+      {
+        title: "Grading Schemes",
+        href: "/admin/grades/grading-schemes",
+        matchExactOnly: true,
+        icon: Settings2,
+      },
     ],
   },
   {
@@ -707,6 +869,12 @@ const superAdminNav: NavGroup[] = [
   {
     label: "Communications",
     items: [
+      {
+        title: "Announcements",
+        href: "/admin/announcements",
+        matchExactOnly: true,
+        icon: Bell,
+      },
       {
         title: "Notifications",
         href: "/admin/notification",
@@ -766,7 +934,7 @@ const bursaryNav: NavGroup[] = [
     items: [
       {
         title: "Dashboard",
-        href: "/admin/setup/fee-management",
+        href: "/admin/finance/fees",
         matchExactOnly: true,
         icon: LayoutDashboard,
       },
@@ -777,7 +945,7 @@ const bursaryNav: NavGroup[] = [
     items: [
       {
         title: "Fee Management",
-        href: "/admin/setup/fee-management",
+        href: "/admin/finance/fees",
         matchExactOnly: true,
         icon: CreditCard,
       },
@@ -791,6 +959,19 @@ const bursaryNav: NavGroup[] = [
         href: "/admin/settings",
         matchExactOnly: true,
         icon: Settings,
+      },
+    ],
+  },
+]
+
+const applicantNav: NavGroup[] = [
+  {
+    items: [
+      {
+        title: "Dashboard",
+        href: "/admission/application-form",
+        matchExactOnly: true,
+        icon: LayoutDashboard,
       },
     ],
   },
@@ -825,6 +1006,12 @@ const staffNav: NavGroup[] = [
         href: "/manager/departments",
         matchExactOnly: true,
         icon: Building2,
+      },
+      {
+        title: "Clearance",
+        href: "/manager/clearance",
+        matchExactOnly: true,
+        icon: ListChecks,
       },
     ],
   },
@@ -887,6 +1074,7 @@ const guestNav: NavGroup[] = [
 /* ------------------------------------------------------------------ */
 
 export const navConfig: Record<UserRole, NavGroup[]> = {
+  APPLICANT: applicantNav,
   GUEST: guestNav,
   STUDENT: studentNav,
   TUTOR: tutorNav,
@@ -901,13 +1089,14 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
+  [UserRole.APPLICANT]: "/admission/application-form",
   [UserRole.STUDENT]: "/student/dashboard",
   [UserRole.GUEST]: "/guest/dashboard",
   [UserRole.TUTOR]: "/tutor/dashboard",
   [UserRole.STAFF]: "/manager/dashboard",
   [UserRole.HOD]: "/tutor/dashboard",
   [UserRole.DEAN]: "/manager/dashboard",
-  [UserRole.BURSARY]: "/admin/setup/fee-management",
+  [UserRole.BURSARY]: "/admin/finance/fees",
   [UserRole.DIRECTOR]: "/director/dashboard",
   [UserRole.ADMIN]: "/manager/dashboard",
   [UserRole.SUPER_ADMIN]: "/admin/dashboard",
