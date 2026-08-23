@@ -36,21 +36,21 @@ export function useOperationsDashboardData() {
   const collections = useCollectionsSummary()
   const assessmentSync = useAssessmentSyncStatus()
 
-  const totalStudents = stats.data?.data.total_students ?? null
-  const totalTutors = stats.data?.data.total_tutors ?? null
-  const activeUsers = stats.data?.data.active_users ?? null
-  const departmentCount = departments.data?.data.length ?? null
-  const pendingApplicationCount = pendingApplications.data?.meta.total ?? null
+  const totalStudents = stats.data?.data?.total_students ?? null
+  const totalTutors = stats.data?.data?.total_tutors ?? null
+  const activeUsers = stats.data?.data?.active_users ?? null
+  const departmentCount = departments.data?.data?.length ?? null
+  const pendingApplicationCount = pendingApplications.data?.meta?.total ?? null
   const totalOutstanding =
-    collections.data?.totals.totalOutstanding != null
+    collections.data?.totals?.totalOutstanding != null
       ? Number(collections.data.totals.totalOutstanding)
       : null
   const totalInvoiced =
-    collections.data?.totals.totalInvoiced != null
+    collections.data?.totals?.totalInvoiced != null
       ? Number(collections.data.totals.totalInvoiced)
       : null
   const totalPaid =
-    collections.data?.totals.totalPaid != null
+    collections.data?.totals?.totalPaid != null
       ? Number(collections.data.totals.totalPaid)
       : null
   const collectionRate =
@@ -58,8 +58,8 @@ export function useOperationsDashboardData() {
       ? Math.round((totalPaid / totalInvoiced) * 100)
       : null
   const unsyncedAssessments =
-    assessmentSync.data?.summary.byStatus.PENDING != null &&
-    assessmentSync.data?.summary.byStatus.FAILED != null
+    assessmentSync.data?.summary?.byStatus?.PENDING != null &&
+    assessmentSync.data?.summary?.byStatus?.FAILED != null
       ? assessmentSync.data.summary.byStatus.PENDING +
         assessmentSync.data.summary.byStatus.FAILED
       : null
