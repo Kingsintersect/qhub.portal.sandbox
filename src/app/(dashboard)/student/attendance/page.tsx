@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { CalendarCheck, ShieldOff } from "lucide-react"
+import { CalendarCheck } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { MyAttendanceSummary } from "@/modules/enrollment/components/my-attendance-summary"
 
@@ -9,14 +9,7 @@ export default function StudentAttendancePage() {
   return (
     <PermissionGate
       require={{ resource: "attendance", action: "view.own" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view your attendance.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         <motion.div

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { motion } from "framer-motion"
-import { BookOpen, Link2, ShieldOff } from "lucide-react"
+import { BookOpen, Link2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { AssessmentFilters } from "@/modules/moodle-sync/components/assessments/assessment-filters"
@@ -34,14 +34,7 @@ export default function AdminAssessmentsPage() {
   return (
     <PermissionGate
       require={{ resource: "assessments", action: "view.all" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view all assessments.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         {/* Header */}

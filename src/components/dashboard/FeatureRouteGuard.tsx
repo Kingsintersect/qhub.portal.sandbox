@@ -1,11 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { roleDashboardPath } from "@/config/nav.config"
+import { usePathname } from "next/navigation"
 import { canAccessPath } from "@/lib/feature-flags/featureAccess"
 import { useFeatureFlags } from "@/hooks/useFeatureFlags"
 import { useAppStore } from "@/store"
+import { PermissionDeniedScreen } from "@/lib/permissions/PermissionDeniedScreen"
 
 export default function FeatureRouteGuard({
   children,
@@ -15,19 +14,17 @@ export default function FeatureRouteGuard({
   instanceId?: string
 }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { user } = useAppStore()
   const { data, isLoading } = useFeatureFlags(instanceId)
 
   const allowed = canAccessPath(pathname, data?.flags)
 
-  useEffect(() => {
-    if (isLoading || !user || allowed) return
-    router.replace(roleDashboardPath[user.role])
-  }, [allowed, isLoading, router, user])
+  if (isLoading || !user) return <>{children}</>
 
-  if (!isLoading && !allowed) {
-    return null
+  if (!allowed) {
+    return (
+      <PermissionDeniedScreen message="This feature isn't available for your account." />
+    )
   }
 
   return <>{children}</>

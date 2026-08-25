@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Download, FileText, ShieldOff } from "lucide-react"
+import { Download, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -173,14 +173,7 @@ export default function StudentResultHistoryPage() {
   return (
     <PermissionGate
       require={{ resource: "results", action: "view.own" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view your grade report.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6">
         <section className="overflow-hidden rounded-3xl border border-primary/20 bg-linear-to-br from-primary/15 via-background to-amber-500/10 p-6">

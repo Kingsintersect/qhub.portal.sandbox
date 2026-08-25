@@ -48,14 +48,7 @@ export default function GradeReportsPage() {
   return (
     <PermissionGate
       require={{ resource: "results", action: "view.all" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-2 py-24 text-muted-foreground">
-          <AlertTriangle size={32} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view grade reports.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <>
         {/* Header */}

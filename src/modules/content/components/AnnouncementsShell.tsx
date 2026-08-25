@@ -1,6 +1,5 @@
 "use client"
 
-import { ShieldOff } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import DataTable, { type Column } from "@/components/custom/DataTable"
 import StatusBadge from "@/components/custom/StatusBadge"
@@ -23,14 +22,7 @@ export function AnnouncementsShell() {
   return (
     <PermissionGate
       require={{ resource: "announcements", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-          <ShieldOff size={32} className="mb-3 opacity-40" />
-          <p className="text-sm">
-            You don&apos;t have access to Announcements.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <Tabs

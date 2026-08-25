@@ -41,7 +41,7 @@ export function useTutorDashboardData() {
   return {
     assignedCourseCount: courses.length,
     todaysSessions,
-    unreadNotifications: unreadRes?.data.unreadCount ?? null,
+    unreadNotifications: unreadRes?.data?.unreadCount ?? null,
     isLoading: coursesLoading || timetableLoading || unreadLoading,
   }
 }

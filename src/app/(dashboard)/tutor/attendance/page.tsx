@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { CalendarCheck, ShieldOff } from "lucide-react"
+import { CalendarCheck } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { AttendanceRecorder } from "@/modules/enrollment/components/attendance-recorder"
 
@@ -9,14 +9,7 @@ export default function TutorAttendancePage() {
   return (
     <PermissionGate
       require={{ resource: "attendance", action: "record" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to record attendance.
-          </p>
-        </div>
-      }
+      denyBehavior="modal"
     >
       <div className="space-y-6 p-6">
         <motion.div
