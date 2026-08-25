@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import Sidebar from "@/components/layout/Sidebar"
 import Header from "@/components/layout/Header"
 import FeatureRouteGuard from "@/components/dashboard/FeatureRouteGuard"
+import { PlatformNoticeBanner } from "@/modules/announcements/components/PlatformNoticeBanner"
 import { useAppStore, useAppHydrated, useSidebarStore } from "@/store"
 
 export default function DashboardLayoutTemplate({
@@ -70,6 +71,12 @@ export default function DashboardLayoutTemplate({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
           >
+            {/* Notices from the QHub team. Above the page rather than inside
+                it, and outside the feature guard, because a maintenance window
+                or an incident applies to whoever is signed in — whatever role
+                they hold and whichever module they happen to be using. */}
+            <PlatformNoticeBanner />
+
             <FeatureRouteGuard>{children}</FeatureRouteGuard>
           </motion.div>
         </main>

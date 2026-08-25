@@ -72,7 +72,6 @@ const NAV: Array<{
     label: "Announcements",
     Icon: Megaphone,
     permission: "announcements.manage",
-    comingSoon: true,
   },
   {
     href: "/platform/billing",
