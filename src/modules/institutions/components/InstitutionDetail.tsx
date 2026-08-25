@@ -21,6 +21,8 @@ import { useUpdateInstitutionStatus } from "@/modules/institutions/hooks/use-ins
 import { useInstitution } from "@/modules/institutions/hooks/use-institutions"
 import { InstitutionStatusBadge } from "@/modules/institutions/components/InstitutionStatusBadge"
 import { InstitutionObservabilityPanel } from "@/modules/platform-observability/components/InstitutionObservabilityPanel"
+import { CourseImportPanel } from "@/modules/platform-operations/components/CourseImportPanel"
+import { DirectoryPanel } from "@/modules/platform-operations/components/DirectoryPanel"
 
 export function InstitutionDetail({
   institutionId,
@@ -111,6 +113,13 @@ export function InstitutionDetail({
       </div>
 
       <InstitutionObservabilityPanel institutionId={institution.id} />
+
+      <DirectoryPanel institutionId={institution.id} />
+
+      <CourseImportPanel
+        institutionId={institution.id}
+        institutionName={institution.name}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

@@ -319,6 +319,24 @@ export class ApiClient {
         meta: requestConfig._requestMeta?.meta,
       }
 
+      // FormData must set its own Content-Type, because the boundary is
+      // generated with the body. The client defaults to application/json, and
+      // leaving that in place makes the server parse a multipart upload as
+      // JSON — the file simply is not there, and validation reports it missing.
+      if (
+        typeof FormData !== "undefined" &&
+        requestConfig.data instanceof FormData
+      ) {
+        const headers = AxiosHeaders.from(
+          requestConfig.headers as
+            | AxiosHeaders
+            | Record<string, string>
+            | undefined
+        )
+        headers.delete("Content-Type")
+        requestConfig.headers = headers
+      }
+
       if (requestConfig._accessToken) {
         const token = this.pickAuthToken()
         if (token) {
