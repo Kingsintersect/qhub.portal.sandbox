@@ -1,14 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import {
-  ShieldOff,
-  LayoutGrid,
-  List,
-  Search,
-  GraduationCap,
-  Filter,
-} from "lucide-react"
+import { LayoutGrid, List, Search, GraduationCap, Filter } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { Button } from "@/components/ui/button"
 import {
@@ -102,14 +95,7 @@ export default function MyTimetablePage() {
   return (
     <PermissionGate
       require={{ resource: "timetable", action: "view.own" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view your timetable.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6">
         <section className="overflow-hidden rounded-3xl border border-primary/20 bg-linear-to-br from-primary/15 via-background to-cyan-500/10 p-6">

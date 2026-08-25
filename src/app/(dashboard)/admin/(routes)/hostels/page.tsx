@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Building2, ShieldOff } from "lucide-react"
+import { Building2 } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { HostelAdminPanel } from "@/modules/hostel/components/admin/hostel-admin-panel"
 
@@ -9,12 +9,7 @@ export default function AdminHostelsPage() {
   return (
     <PermissionGate
       require={{ resource: "hostels", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">You do not have permission to view hostels.</p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <motion.div

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { UserCheck, Plus, Layers, ShieldOff } from "lucide-react"
+import { UserCheck, Plus, Layers } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { Button } from "@/components/ui/button"
 import { useEnrollments } from "@/modules/enrollment/hooks/use-enrollments"
@@ -28,14 +28,7 @@ export default function AdminEnrollmentPage() {
   return (
     <PermissionGate
       require={{ resource: "enrollment", action: "view.all" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view enrollment records.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         <motion.div

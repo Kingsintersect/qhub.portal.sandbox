@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowLeft, ShieldOff, Building2 } from "lucide-react"
+import { ArrowLeft, Building2 } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { CategoryTree } from "@/modules/moodle-sync/components/categories/category-tree"
 import { CategoryPullPanel } from "@/modules/moodle-sync/components/categories/category-pull-panel"
@@ -13,14 +13,7 @@ export default function MoodleSyncCategoriesPage() {
   return (
     <PermissionGate
       require={{ resource: "moodle-sync", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view Moodle category sync.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <motion.div

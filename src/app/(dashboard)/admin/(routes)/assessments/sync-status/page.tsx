@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { ArrowLeft, ShieldOff } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { SyncStatusTable } from "@/modules/moodle-sync/components/assessments/sync-status-table"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
@@ -10,14 +10,7 @@ export default function AdminAssessmentsSyncStatusPage() {
   return (
     <PermissionGate
       require={{ resource: "assessments", action: "sync" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to manage assessment sync.
-          </p>
-        </div>
-      }
+      denyBehavior="modal"
     >
       <div className="space-y-6 p-6">
         {/* Header */}

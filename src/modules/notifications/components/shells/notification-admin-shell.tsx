@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bell, ShieldOff } from "lucide-react"
+import { Bell } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import {
   NotificationAdminTabs,
@@ -16,14 +16,7 @@ export function NotificationAdminShell() {
   return (
     <PermissionGate
       require={{ resource: "notifications", action: "manage" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-          <ShieldOff size={32} className="mb-3 opacity-40" />
-          <p className="text-sm">
-            You don&apos;t have access to Notifications management.
-          </p>
-        </div>
-      }
+      denyBehavior="modal"
     >
       <div className="space-y-6">
         <div className="flex items-center gap-3">

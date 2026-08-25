@@ -4,6 +4,7 @@ import { FormProvider } from "react-hook-form"
 import { AnimatePresence, motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { useAdmissionForm } from "./hooks/useAdmissionForm"
 import FormStepIndicator from "./components/FormStepIndicator"
 import FormNavigation from "./components/FormNavigation"
@@ -130,98 +131,103 @@ export default function AdmissionApplicationFormPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Header */}
-      <motion.div
-        className="mb-8 text-center"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Admission Application Form
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Complete all steps below to submit your application. Your progress is
-          automatically saved.
-        </p>
-      </motion.div>
-
-      {/* Progress Bar */}
-      <motion.div
-        className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
+    <PermissionGate
+      require={{ resource: "my-application", action: "submit" }}
+      denyBehavior="modal"
+    >
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        {/* Header */}
         <motion.div
-          className="h-full rounded-full bg-primary"
-          initial={{ width: 0 }}
-          animate={{
-            width: `${((currentStepPosition + 1) / totalSteps) * 100}%`,
-          }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="mb-8 text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Admission Application Form
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Complete all steps below to submit your application. Your progress
+            is automatically saved.
+          </p>
+        </motion.div>
+
+        {/* Progress Bar */}
+        <motion.div
+          className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <motion.div
+            className="h-full rounded-full bg-primary"
+            initial={{ width: 0 }}
+            animate={{
+              width: `${((currentStepPosition + 1) / totalSteps) * 100}%`,
+            }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        </motion.div>
+        <p className="mb-6 text-right text-xs text-muted-foreground">
+          Step {currentStepPosition + 1} of {totalSteps}
+        </p>
+
+        {/* Step Indicator */}
+        <FormStepIndicator
+          currentStep={currentStep}
+          activeSteps={activeSteps}
+          completedSteps={completedSteps}
+          onStepClick={goToStep}
         />
-      </motion.div>
-      <p className="mb-6 text-right text-xs text-muted-foreground">
-        Step {currentStepPosition + 1} of {totalSteps}
-      </p>
 
-      {/* Step Indicator */}
-      <FormStepIndicator
-        currentStep={currentStep}
-        activeSteps={activeSteps}
-        completedSteps={completedSteps}
-        onStepClick={goToStep}
-      />
+        {/* Form Content */}
+        <FormProvider {...form}>
+          <form onSubmit={(e) => e.preventDefault()}>
+            <Card className="mt-6">
+              <CardContent className="min-h-100 overflow-hidden p-6 sm:p-8">
+                <AnimatePresence mode="wait" custom={direction}>
+                  <motion.div
+                    key={currentStep}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{
+                      duration: 0.35,
+                      ease: [0.25, 0.46, 0.45, 0.94],
+                    }}
+                  >
+                    <StepRenderer
+                      step={currentStep}
+                      activeSteps={activeSteps}
+                      completedSteps={completedSteps}
+                      onEditStep={goToStep}
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              </CardContent>
 
-      {/* Form Content */}
-      <FormProvider {...form}>
-        <form onSubmit={(e) => e.preventDefault()}>
-          <Card className="mt-6">
-            <CardContent className="min-h-100 overflow-hidden p-6 sm:p-8">
-              <AnimatePresence mode="wait" custom={direction}>
-                <motion.div
-                  key={currentStep}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{
-                    duration: 0.35,
-                    ease: [0.25, 0.46, 0.45, 0.94],
-                  }}
-                >
-                  <StepRenderer
-                    step={currentStep}
-                    activeSteps={activeSteps}
-                    completedSteps={completedSteps}
-                    onEditStep={goToStep}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </CardContent>
+              {/* Navigation */}
+              <div className="px-6 pb-6 sm:px-8">
+                <FormNavigation
+                  currentStep={currentStep}
+                  currentStepPosition={currentStepPosition}
+                  totalSteps={totalSteps}
+                  isSubmitting={isSubmitting}
+                  onNext={nextStep}
+                  onPrev={prevStep}
+                  onSubmit={submitForm}
+                  onSave={saveProgress}
+                />
+              </div>
+            </Card>
+          </form>
+        </FormProvider>
 
-            {/* Navigation */}
-            <div className="px-6 pb-6 sm:px-8">
-              <FormNavigation
-                currentStep={currentStep}
-                currentStepPosition={currentStepPosition}
-                totalSteps={totalSteps}
-                isSubmitting={isSubmitting}
-                onNext={nextStep}
-                onPrev={prevStep}
-                onSubmit={submitForm}
-                onSave={saveProgress}
-              />
-            </div>
-          </Card>
-        </form>
-      </FormProvider>
-
-      {/* Success Modal */}
-      <SuccessModal isOpen={isSubmitted} />
-    </div>
+        {/* Success Modal */}
+        <SuccessModal isOpen={isSubmitted} />
+      </div>
+    </PermissionGate>
   )
 }

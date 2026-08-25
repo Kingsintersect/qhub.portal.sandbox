@@ -483,6 +483,11 @@
         "description": "View own admission application status"
       },
       {
+        "resource": "my-application",
+        "action": "submit",
+        "description": "Submit or update own admission application"
+      },
+      {
         "resource": "my-courses",
         "action": "view",
         "description": "View own enrolled courses"
