@@ -66,7 +66,6 @@ const NAV: Array<{
     label: "Support",
     Icon: Ticket,
     permission: "tickets.read",
-    comingSoon: true,
   },
   {
     href: "/platform/announcements",
