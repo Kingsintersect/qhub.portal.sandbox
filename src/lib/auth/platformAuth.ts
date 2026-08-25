@@ -82,7 +82,26 @@ export const loginWithPlatformBackend = async (payload: {
  * against a tenant database, and on the platform host no tenant is bound, so it
  * 500s.
  */
+let platformRefreshInFlight: Promise<string | null> | null = null
+
 export const refreshWithPlatformBackend = async (): Promise<string | null> => {
+  // Single-flight. Refresh tokens are single-use — rotating one revokes it — so
+  // two requests 401ing at the same moment would fire two refreshes, and the
+  // second would present a token the first had just revoked. That is not
+  // theoretical: it took out the institutions list while the dashboard beside
+  // it loaded fine, because they raced.
+  if (platformRefreshInFlight) {
+    return platformRefreshInFlight
+  }
+
+  platformRefreshInFlight = performPlatformRefresh().finally(() => {
+    platformRefreshInFlight = null
+  })
+
+  return platformRefreshInFlight
+}
+
+const performPlatformRefresh = async (): Promise<string | null> => {
   const refreshToken = getStoredRefreshToken()
 
   if (!refreshToken) {
