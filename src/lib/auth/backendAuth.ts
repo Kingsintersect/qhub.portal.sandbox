@@ -44,6 +44,13 @@ export type BackendAuthResponse = BackendAuthTokens & {
 export type BackendLoginPayload = {
   identifier: string
   password: string
+  /**
+   * The institution's host, e.g. unilag.qhub.ng. Carried explicitly because
+   * this runs inside NextAuth's authorize() on the SERVER, where the shared
+   * apiClient has no window to derive a hostname from — and the backend picks
+   * the institution purely from the host the request arrives on.
+   */
+  apiBaseUrl?: string
 }
 
 export type BackendRegisterPayload = {
@@ -205,10 +212,14 @@ export const normalizeBackendAuthUser = (
 // active, so a multi-role user (e.g. TUTOR + HOD) sees the union of both
 // regardless of which role they're switched to. That's a backend modeling
 // choice, not something the frontend works around.
-const fetchMyPermissions = async (accessToken: string): Promise<string[]> => {
+const fetchMyPermissions = async (
+  accessToken: string,
+  apiBaseUrl?: string
+): Promise<string[]> => {
   try {
     const me = await apiClient.get<{ permissions?: string[] }>("/auth/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
+      ...(apiBaseUrl ? { baseURL: apiBaseUrl } : {}),
     })
     return me.permissions ?? []
   } catch {
@@ -221,10 +232,14 @@ export const loginWithBackend = async (
 ): Promise<
   NormalizedBackendAuthUser & { accessToken: string; refreshToken: string }
 > => {
-  const response = await apiClient.post<BackendAuthResponse>("/auth/login", {
-    emailOrUsername: payload.identifier,
-    password: payload.password,
-  })
+  const response = await apiClient.post<BackendAuthResponse>(
+    "/auth/login",
+    {
+      emailOrUsername: payload.identifier,
+      password: payload.password,
+    },
+    payload.apiBaseUrl ? { baseURL: payload.apiBaseUrl } : {}
+  )
 
   const normalizedUser = normalizeBackendAuthUser(response)
   const accessToken = pickToken(response)
@@ -234,7 +249,7 @@ export const loginWithBackend = async (
     throw new Error("Invalid authentication response from backend.")
   }
 
-  const permissions = await fetchMyPermissions(accessToken)
+  const permissions = await fetchMyPermissions(accessToken, payload.apiBaseUrl)
 
   return {
     ...normalizedUser,
@@ -363,4 +378,19 @@ export const logoutFromBackend = async (): Promise<void> => {
   }
 }
 
-apiClient.setRefreshHandler(async () => refreshWithBackend())
+/**
+ * Which refresh endpoint to use is decided per call, from the host — not from
+ * React state.
+ *
+ * A platform session and a tenant session refresh against different endpoints,
+ * and this handler is registered at module load, long before any session
+ * resolves. Deciding here means the choice cannot depend on an effect having
+ * already run, which is exactly the kind of ordering bug that only shows up
+ * once a token expires.
+ */
+apiClient.setRefreshHandler(async () => {
+  const { isPlatformHost, refreshWithPlatformBackend } =
+    await import("@/lib/auth/platformAuth")
+
+  return isPlatformHost() ? refreshWithPlatformBackend() : refreshWithBackend()
+})

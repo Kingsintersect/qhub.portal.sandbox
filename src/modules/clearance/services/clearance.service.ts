@@ -12,7 +12,7 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/clearance/*.bru (the sole source of truth
-// for this module — see CLAUDE.md §13). Every endpoint here returns its
+// for this module — see CONVENTIONS.md §13). Every endpoint here returns its
 // resource FLAT, with no `{ data: ... }` envelope — confirmed by every
 // bruno file's post-response script reading `res.body?.id` directly, never
 // `res.body?.data?.id`, and by clearance_README.md's example bodies, which

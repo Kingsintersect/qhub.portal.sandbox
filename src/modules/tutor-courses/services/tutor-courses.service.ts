@@ -4,9 +4,9 @@
 //   1. usersApi.getTutorCourses(lecturerId) — GET /courses/offerings?lecturerId=
 //   2. timetableService.getSchedulesByOffering(offeringId) — GET /timetable/schedules/offering/:id
 //   3. academicCalendarService.getCurrent() — for the current semester's display name
-// See CLAUDE.md §13 / MISSING_BACKEND_APIS.md — no backend work needed here,
+// See CONVENTIONS.md §13 / MISSING_BACKEND_APIS.md — no backend work needed here,
 // this was previously a fully separate, fully mock implementation living
-// under app/(dashboard)/tutor/courses/ instead of a module (CLAUDE.md §4
+// under app/(dashboard)/tutor/courses/ instead of a module (CONVENTIONS.md §4
 // violation), now consolidated onto the same real data every other schedule
 // screen in this app uses.
 

@@ -1,10 +1,26 @@
+import { resolveApiBaseUrl } from "@/lib/tenant/api-origin"
+
+/*
+| Fallback branding.
+|
+| These are no longer the institution's identity — that comes per-request from
+| GET /tenant/public via useTenant(). They remain as the defaults used when no
+| tenant is resolved: the platform host, and the case where the branding
+| lookup fails and a page still has to render something.
+*/
 export const SUPPORT_EMAIL = "support.odl@school.edu.ng"
 export const SUPPORT_PHONE = "+2347044914032"
 export const UNIVERSITY_NAME = "University of Lagos"
 export const UNIVERSITY_LOGO_URL = "/logo/logo.jpg"
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL + "/api/v1" ||
-  "http://localhost:3030/api/v1"
+/**
+ * The API base for the institution this request belongs to.
+ *
+ * Was previously `process.env.X + "/api/v1" || fallback` — string concatenation
+ * is always truthy, so that fallback could never run and an unset variable
+ * yielded "undefined/api/v1". Resolution now lives in resolveApiBaseUrl(),
+ * which derives the host so each institution talks to its own API.
+ */
+export const API_BASE_URL = resolveApiBaseUrl()
 
 export const ADMISSION_PORTAL_URL = "https://admission.unilag.edu.ng"
 export const PAYMENT_GATEWAY_URL = "https://payments.unilag.edu.ng"

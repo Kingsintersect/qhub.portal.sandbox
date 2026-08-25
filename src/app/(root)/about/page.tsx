@@ -6,6 +6,7 @@ import { ShieldCheck, Lightbulb, Users, HeartHandshake } from "lucide-react"
 import Footer from "@/components/navigation/Footer"
 import SectionHeading from "@/components/SectionHeading"
 import { UNIVERSITY_NAME } from "@/config/global.config"
+import { useInstitutionName } from "@/lib/tenant/tenant-context"
 
 const stats = [
   { label: "Years of Excellence", value: "60+" },
@@ -95,6 +96,8 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function AboutPage() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
   return (
     <div>
       {/* Hero */}
@@ -130,7 +133,7 @@ export default function AboutPage() {
             {...fadeUp(0.16)}
             className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg"
           >
-            {`For over six decades ${UNIVERSITY_NAME} has been a beacon of academic excellence, producing graduates who lead in every sector of society. We are driven by curiosity, guided by integrity and committed to service.`}
+            {`For over six decades ${institutionName} has been a beacon of academic excellence, producing graduates who lead in every sector of society. We are driven by curiosity, guided by integrity and committed to service.`}
           </motion.p>
         </div>
       </section>

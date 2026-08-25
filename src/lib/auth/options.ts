@@ -2,6 +2,8 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { UserRole } from "@/config/nav.config"
 import { loginWithBackend } from "@/lib/auth/backendAuth"
+import { loginWithPlatformBackend } from "@/lib/auth/platformAuth"
+import { resolveApiBaseUrl } from "@/lib/tenant/api-origin"
 
 const normalizeRoles = (roles: string[] | undefined): UserRole[] => {
   if (!roles?.length) return []
@@ -11,6 +13,27 @@ const normalizeRoles = (roles: string[] | undefined): UserRole[] => {
     .filter((role): role is UserRole =>
       (Object.values(UserRole) as string[]).includes(role)
     )
+}
+
+/**
+ * Hostname (port stripped) from a NextAuth request's headers.
+ *
+ * `x-forwarded-host` wins when present: behind a proxy or load balancer the
+ * `host` header is the internal one, and the institution's real subdomain is
+ * the forwarded value.
+ */
+const hostFromHeaders = (
+  headers: Record<string, unknown> | undefined
+): string | null => {
+  if (!headers) return null
+
+  const raw =
+    (headers["x-forwarded-host"] as string | undefined) ??
+    (headers["host"] as string | undefined)
+
+  if (!raw) return null
+
+  return raw.split(",")[0].trim().split(":")[0].toLowerCase() || null
 }
 
 export const authOptions: NextAuthOptions = {
@@ -27,15 +50,29 @@ export const authOptions: NextAuthOptions = {
         identifier: { label: "Email or Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const password = String(credentials?.password ?? "")
         const identifier = String(credentials?.identifier ?? "").trim()
         if (!identifier || !password) {
           return null
         }
 
+        // Which institution is being signed in to. This runs on the server, so
+        // the host has to come from the request rather than window.location —
+        // the backend resolves the tenant from it, and getting it wrong would
+        // mean authenticating against the wrong institution's user table.
+        const host = hostFromHeaders(req?.headers)
+
+        if (!host) {
+          return null
+        }
+
         try {
-          const user = await loginWithBackend({ identifier, password })
+          const user = await loginWithBackend({
+            identifier,
+            password,
+            apiBaseUrl: resolveApiBaseUrl(host),
+          })
           //  console.log("user", user)
           //  const updatedUser = elevateToSuperAdmin(user)
           //  console.log(updatedUser)
@@ -59,6 +96,68 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+
+    // Platform staff. A distinct provider rather than a branch inside the one
+    // above: these accounts live in the central database, carry no roles or
+    // permissions, and authenticate against a different API surface. Keeping
+    // them separate means a tenant sign-in can never accidentally return a
+    // platform account, or the reverse.
+    CredentialsProvider({
+      id: "platform-credentials",
+      name: "Platform",
+      credentials: {
+        identifier: { label: "Email or Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials, req) {
+        const password = String(credentials?.password ?? "")
+        const identifier = String(credentials?.identifier ?? "").trim()
+        if (!identifier || !password) {
+          return null
+        }
+
+        const host = hostFromHeaders(req?.headers)
+
+        if (!host) {
+          return null
+        }
+
+        try {
+          const user = await loginWithPlatformBackend({
+            identifier,
+            password,
+            apiBaseUrl: resolveApiBaseUrl(host),
+          })
+
+          return {
+            id: user.id,
+            name:
+              [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+              user.username,
+            email: user.email,
+            username: user.username,
+            // Platform accounts have no institution role. GUEST is the inert
+            // value of the tenant-side enum; isPlatform is what actually
+            // distinguishes them, and the proxy gates on that.
+            role: UserRole.GUEST,
+            availableRoles: [],
+            roles: [],
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatar: null,
+            // Carried through from the API so the console can hide what this
+            // account cannot do. Hardcoding [] here left every platform
+            // account looking unprivileged to its own UI.
+            permissions: user.permissions,
+            isPlatform: true,
+          }
+        } catch {
+          return null
+        }
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
@@ -74,6 +173,7 @@ export const authOptions: NextAuthOptions = {
         token.lastName = user.lastName
         token.avatar = user.avatar
         token.permissions = user.permissions
+        token.isPlatform = user.isPlatform ?? false
         return token
       }
 
@@ -110,6 +210,8 @@ export const authOptions: NextAuthOptions = {
           (token.avatar as string | null | undefined) ?? null
         session.user.permissions =
           (token.permissions as string[] | undefined) ?? []
+        session.user.isPlatform =
+          (token.isPlatform as boolean | undefined) ?? false
       }
 
       return session

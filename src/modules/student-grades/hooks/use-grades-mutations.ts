@@ -12,7 +12,7 @@ import type {
 // Grade actions ripple across the list, transcript, and every analytics
 // endpoint at once (a single approve/publish changes counts everywhere) — so
 // each mutation invalidates the whole `grades` key namespace rather than a
-// narrower slice, still going through the typed factory per CLAUDE.md.
+// narrower slice, still going through the typed factory per CONVENTIONS.md.
 
 function useInvalidateGrades() {
   const qc = useQueryClient()

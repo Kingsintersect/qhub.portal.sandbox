@@ -18,7 +18,7 @@ const AUTH = { access_token: true }
 // ── Academic Sessions ───────────────────────
 
 // Real backend contract per bruno/academic (the sole source of truth — see
-// CLAUDE.md §13). AcademicSession and Semester have NO delete endpoint by
+// CONVENTIONS.md §13). AcademicSession and Semester have NO delete endpoint by
 // design — academic_README.md: "retire a session/semester by leaving
 // isActive = false, never by deleting the row." No delete() method exists
 // here for either resource; don't add one without a matching real endpoint.

@@ -1,7 +1,7 @@
 // ─── Timetable Service ──────────────────────────────────────────────────────
 //
 // Real backend contract per bruno/timetable/*.bru and sandbox/timetable/
-// timetable_README.md (source of truth — see CLAUDE.md §13). This module's
+// timetable_README.md (source of truth — see CONVENTIONS.md §13). This module's
 // `/timetable/schedules` surface was chosen as canonical for ClassSchedule
 // CRUD over the Course module's `/courses/offerings/:id/schedules` (which
 // courseOfferingApi.ts already uses) because it's the richer, more detailed

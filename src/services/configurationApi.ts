@@ -14,7 +14,7 @@ import type {
 const AUTH = { access_token: true }
 
 // Real backend contract per bruno/configuration/*.bru (source of truth — see
-// CLAUDE.md §13). List is the only endpoint wrapped in `{data, meta}` — every other
+// CONVENTIONS.md §13). List is the only endpoint wrapped in `{data, meta}` — every other
 // endpoint here returns its setting FLAT, confirmed by each .bru file's docs block
 // ("Returns the flat setting object" / "Response is the flat setting object, not
 // wrapped in data") and by Create's post-response script reading `res.body?.id`

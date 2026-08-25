@@ -19,6 +19,13 @@ export type TokenPersistence = "memory" | "local" | "session"
 
 export type RequestOptions = {
   access_token?: boolean
+  /**
+   * Per-request origin override. Needed on the server, where the singleton's
+   * base URL cannot know which institution's host a request belongs to —
+   * NextAuth's `authorize` runs server-side and must target the tenant the
+   * user is signing in to.
+   */
+  baseURL?: string
   headers?: Record<string, string>
   params?: Record<string, unknown>
   timeout?: number
@@ -451,6 +458,7 @@ export class ApiClient {
       url,
       method,
       data,
+      baseURL: opts.baseURL ?? this.axios.defaults.baseURL,
       params: opts.params,
       headers,
       responseType: opts.responseType,

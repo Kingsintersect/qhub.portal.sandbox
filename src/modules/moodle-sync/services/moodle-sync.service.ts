@@ -23,7 +23,7 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/moodle-sync/*.bru (the sole source of truth
-// for this module — see CLAUDE.md §13). List/detail GETs are wrapped in a
+// for this module — see CONVENTIONS.md §13). List/detail GETs are wrapped in a
 // `{ data: ... }` envelope (confirmed by every List .bru's
 // `res.body.data[0].id` post-response script); push/pull actions that return
 // a single sync record respond with the raw object (confirmed by the Push

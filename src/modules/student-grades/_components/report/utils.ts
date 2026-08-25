@@ -147,8 +147,16 @@ export function buildReportStudentInfo(
   }
 }
 
-export function getInstitutionSubtitle() {
-  return `${UNIVERSITY_NAME} 5.00 grading system`
+/**
+ * @param institutionName  Pass the resolved tenant's name (useTenant()?.name).
+ *                         Defaults to the build-time fallback so the signature
+ *                         stays compatible, but a caller in a tenant context
+ *                         should always supply it.
+ */
+export function getInstitutionSubtitle(
+  institutionName: string = UNIVERSITY_NAME
+) {
+  return `${institutionName} 5.00 grading system`
 }
 
 export function formatSemesterLabel(semesterName: string) {

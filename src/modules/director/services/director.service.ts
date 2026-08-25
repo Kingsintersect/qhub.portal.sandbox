@@ -3,7 +3,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Real backend contract per bruno/{user,academic,fee,enrollment}/*.bru and
  * sandbox/MISSING_BACKEND_APIS.md §2.8 (the sole source of truth — see
- * CLAUDE.md §13). No `bruno/director/` collection exists, so this module
+ * CONVENTIONS.md §13). No `bruno/director/` collection exists, so this module
  * composes real endpoints from the User, Academic, and Fee modules wherever
  * possible instead of inventing bespoke Director endpoints — per §2.8's own
  * recommendation. A handful of genuine aggregates (enrollment trend, revenue

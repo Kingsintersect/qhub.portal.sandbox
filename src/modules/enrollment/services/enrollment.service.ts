@@ -1,7 +1,7 @@
 // ─── Enrollment Service ─────────────────────────────────────────────────────
 //
 // Real backend contract per bruno/enrollment/*.bru and sandbox/enrollment/
-// enrollment_README.md (source of truth — see CLAUDE.md §13). This is a
+// enrollment_README.md (source of truth — see CONVENTIONS.md §13). This is a
 // from-scratch build — no prior frontend code touched `/enrollments` at all.
 //
 // Response nesting differs per endpoint and none of it is confirmed by an

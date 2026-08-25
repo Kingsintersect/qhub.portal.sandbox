@@ -15,6 +15,12 @@ declare module "next-auth" {
       lastName: string | null
       avatar?: string | null
       permissions: string[]
+      /**
+       * True for platform staff, who administer institutions and belong to
+       * none of them. Their session carries no roles or permissions — those
+       * are per-institution concepts.
+       */
+      isPlatform?: boolean
     }
     error?: string
   }
@@ -31,6 +37,7 @@ declare module "next-auth" {
     lastName: string | null
     permissions: string[]
     avatar?: string | null
+    isPlatform?: boolean
   }
 }
 
@@ -47,5 +54,6 @@ declare module "next-auth/jwt" {
     lastName?: string | null
     avatar?: string | null
     permissions?: string[]
+    isPlatform?: boolean
   }
 }

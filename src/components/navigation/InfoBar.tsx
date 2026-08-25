@@ -10,6 +10,7 @@ import {
   SUPPORT_PHONE,
   UNIVERSITY_NAME,
 } from "@/config/global.config"
+import { useInstitutionName } from "@/lib/tenant/tenant-context"
 
 const Divider = ({ className }: { className?: string }) => (
   <span
@@ -50,6 +51,8 @@ const BarLink = ({
 )
 
 export default function InfoBar() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
   return (
     <motion.div
       initial={{ y: -12, opacity: 0 }}
@@ -87,7 +90,7 @@ export default function InfoBar() {
 
             <p className="hidden min-w-0 truncate text-xs text-white/80 lg:block">
               <span className="font-semibold text-white">
-                {UNIVERSITY_NAME}
+                {institutionName}
               </span>
               {" — 2026 entry, scholarships available"}
             </p>

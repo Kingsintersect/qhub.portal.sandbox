@@ -5,7 +5,7 @@ import {
 } from "@/lib/clients/apiClient"
 
 // Real backend contract per bruno/academic and bruno/course (the sole source
-// of truth for this feature — see CLAUDE.md §13). `curriculumSemester` does
+// of truth for this feature — see CONVENTIONS.md §13). `curriculumSemester` does
 // NOT exist on the real Course model yet — see
 // sandbox/course/missing_curriculum_apis.readme.md for the exact schema/DTO
 // addition this feature is waiting on. Every course will read back

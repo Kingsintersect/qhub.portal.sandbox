@@ -18,7 +18,7 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/fee/*.bru (the sole source of truth for
-// this module — see CLAUDE.md §13). Every route lives under /fees; response
+// this module — see CONVENTIONS.md §13). Every route lives under /fees; response
 // envelopes match what each .bru file documents, unwrapped here so callers
 // keep receiving the plain shape they already expect.
 const BASE = "/fees"

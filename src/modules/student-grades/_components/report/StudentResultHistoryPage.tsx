@@ -13,6 +13,10 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { UNIVERSITY_LOGO_URL, UNIVERSITY_NAME } from "@/config/global.config"
+import {
+  useInstitutionLogo,
+  useInstitutionName,
+} from "@/lib/tenant/tenant-context"
 import { useAppStore } from "@/store"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
 import { useStudentTranscript } from "../../hooks/use-grades-data"
@@ -39,6 +43,9 @@ function getCurrentAcademicYearLabel(date = new Date()) {
 }
 
 export default function StudentResultHistoryPage() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
+  const institutionLogo = useInstitutionLogo(UNIVERSITY_LOGO_URL)
   const user = useAppStore((state) => state.user)
   const { studentId } = useMyStudentId()
   const { transcript, loading } = useStudentTranscript(studentId)
@@ -143,8 +150,8 @@ export default function StudentResultHistoryPage() {
     try {
       setIsDownloading(true)
       await generateResultPdf({
-        institutionName: UNIVERSITY_NAME,
-        institutionLogoUrl: UNIVERSITY_LOGO_URL,
+        institutionName,
+        institutionLogoUrl: institutionLogo,
         semester: selectedSemester.semesterName,
         academicYear: selectedAcademicYear,
         student: studentInfo,
@@ -296,8 +303,8 @@ export default function StudentResultHistoryPage() {
           reportCourses.length > 0 && (
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-lg">
               <StudentHeader
-                institutionName={UNIVERSITY_NAME}
-                institutionLogoUrl={UNIVERSITY_LOGO_URL}
+                institutionName={institutionName}
+                institutionLogoUrl={institutionLogo}
                 semester={selectedSemester.semesterName}
                 academicYear={selectedAcademicYear}
                 summary={reportSummary}
@@ -318,7 +325,7 @@ export default function StudentResultHistoryPage() {
               <ReportFooter
                 semester={selectedSemester.semesterName}
                 academicYear={selectedAcademicYear}
-                institutionName={UNIVERSITY_NAME}
+                institutionName={institutionName}
               />
             </div>
           )}

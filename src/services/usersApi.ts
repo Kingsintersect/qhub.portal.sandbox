@@ -28,7 +28,7 @@ import type {
 } from "@/types/school"
 
 // Real backend contract per bruno/user/*.bru and sandbox/user/user_README.md (source of
-// truth — see CLAUDE.md §13). The backend uses camelCase field names throughout
+// truth — see CONVENTIONS.md §13). The backend uses camelCase field names throughout
 // (firstName, isActive, departmentId, ...) while this module's existing frontend types
 // stay snake_case to avoid touching every consuming component — each function below maps
 // the real response onto those types. Two things are NOT confirmed by an example response

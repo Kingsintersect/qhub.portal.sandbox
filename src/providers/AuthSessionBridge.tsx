@@ -22,6 +22,21 @@ export default function AuthSessionBridge({
   const { isAuthenticated, logout, setUser } = useAppStore()
 
   useEffect(() => {
+    // Platform staff: store the token so apiClient can authenticate against
+    // the platform API, but skip the tenant store entirely — role, permissions
+    // and dashboard routing are institution concepts a platform account has
+    // none of. Handled explicitly so this stays deliberate rather than
+    // depending on GUEST/empty-permissions happening to be inert.
+    if (status === "authenticated" && session?.user?.isPlatform) {
+      if (session.user.accessToken) {
+        storeAccessToken(session.user.accessToken)
+      }
+      if (session.user.refreshToken) {
+        storeRefreshToken(session.user.refreshToken)
+      }
+      return
+    }
+
     if (status === "authenticated" && session?.user?.role) {
       const role = session.user.role as UserRole
       const availableRoles = session.user.availableRoles?.length

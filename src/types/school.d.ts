@@ -43,7 +43,7 @@ export type CreateSemesterPayload = Omit<Semester, "id">
 
 // ── Course Structure ────────────────────────
 
-// Real backend contract per bruno/academic — see CLAUDE.md §13. Faculty,
+// Real backend contract per bruno/academic — see CONVENTIONS.md §13. Faculty,
 // Department, and Program all use numeric auto-increment ids and camelCase
 // fields matching sandbox/schema.prisma exactly. `departments`/`programs`/
 // `lecturers` are only populated when fetched via the single-resource GET
@@ -241,7 +241,7 @@ export interface CreateCurriculumLevelPayload {
 
 // ── Course Management ───────────────────────
 // Real backend contract per bruno/course and sandbox/course/course_README.md
-// (source of truth — see CLAUDE.md §13). `curriculum_semester` mirrors
+// (source of truth — see CONVENTIONS.md §13). `curriculum_semester` mirrors
 // curriculumApi.ts's already-real handling of the not-yet-shipped
 // `curriculumSemester` field (see missing_curriculum_apis.readme.md) — it
 // will always read back null until the backend ships it.
@@ -393,7 +393,7 @@ export type UpdateSchedulePayload = Partial<
 
 // ── Admissions ──────────────────────────────
 // Real backend contract per sandbox/admission/missing_admission_cycle_apis.readme.md
-// (source of truth — see CLAUDE.md §13). Named `AdmissionCycleStatus`, not
+// (source of truth — see CONVENTIONS.md §13). Named `AdmissionCycleStatus`, not
 // `AdmissionStatus`, to avoid colliding with schema.prisma's unrelated
 // `AdmissionStatus` enum (OFFERED/ACCEPTED/DECLINED/EXPIRED) on the Admission
 // (offer) model — a different concept entirely from an admission cycle/window.

@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import Footer from "@/components/navigation/Footer"
 import { UNIVERSITY_NAME } from "@/config/global.config"
+import { useInstitutionName } from "@/lib/tenant/tenant-context"
 
 const stats = [
   { value: "₦4.2B+", label: "Research Grants Secured", icon: FlaskConical },
@@ -124,6 +125,8 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function ResearchPage() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
   return (
     <div>
       {/* Hero */}
@@ -155,7 +158,7 @@ export default function ResearchPage() {
             {...fadeUp(0.16)}
             className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg"
           >
-            {`Research at ${UNIVERSITY_NAME} spans every discipline, from biomedical science to the humanities. Our scholars collaborate with governments, industry and civil society to produce knowledge that makes a difference.`}
+            {`Research at ${institutionName} spans every discipline, from biomedical science to the humanities. Our scholars collaborate with governments, industry and civil society to produce knowledge that makes a difference.`}
           </motion.p>
         </div>
       </section>

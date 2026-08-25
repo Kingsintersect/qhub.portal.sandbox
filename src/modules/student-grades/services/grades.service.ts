@@ -1,7 +1,7 @@
 // ─── Grades Service ───────────────────────────────────────────────────────────
 //
 // Real backend contract per bruno/result/*.bru (the sole source of truth for
-// this module — see CLAUDE.md §13). Response wrapping is NOT uniform across
+// this module — see CONVENTIONS.md §13). Response wrapping is NOT uniform across
 // this module — each method's comment cites what's actually confirmed:
 //   - GradeScale Create and Grade Create/Publish are confirmed `{data: ...}`
 //     (bru post-response scripts read `res.body.data.id`; Publish's docs

@@ -5,7 +5,7 @@ import apiClient, {
 import type { CoursePrerequisite } from "@/types/school"
 
 // Real backend contract per bruno/course (Prerequisite - List/Add/Remove)
-// and sandbox/course/course_README.md — source of truth, see CLAUDE.md §13.
+// and sandbox/course/course_README.md — source of truth, see CONVENTIONS.md §13.
 const AUTH = { access_token: true } as const
 
 export const prerequisitesApi = {

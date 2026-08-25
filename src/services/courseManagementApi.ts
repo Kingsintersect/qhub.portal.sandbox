@@ -12,7 +12,7 @@ import type {
 } from "@/types/school"
 
 // Real backend contract per bruno/course and sandbox/course/course_README.md
-// (source of truth — see CLAUDE.md §13). Every endpoint here returns its
+// (source of truth — see CONVENTIONS.md §13). Every endpoint here returns its
 // resource wrapped in `{data: ...}`, confirmed by Course - Create.bru's
 // post-response script reading `res.body?.data?.id`. The backend uses
 // camelCase field names throughout; this module's frontend types stay

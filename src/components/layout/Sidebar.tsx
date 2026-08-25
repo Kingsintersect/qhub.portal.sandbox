@@ -20,6 +20,7 @@ import { filterNavGroupsByFeatureFlags } from "@/lib/feature-flags/featureAccess
 import { useAppStore, useSidebarStore } from "@/store"
 import Logo from "@/components/branding/Logo"
 import { UNIVERSITY_NAME } from "@/config/global.config"
+import { useInstitutionName } from "@/lib/tenant/tenant-context"
 
 const roleMeta: Record<string, { label: string; cls: string }> = {
   STUDENT: {
@@ -264,6 +265,8 @@ function Group({ group, collapsed }: { group: NavGroup; collapsed: boolean }) {
 }
 
 export default function Sidebar() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
   const { user } = useAppStore()
   const { collapsed, toggle } = useSidebarStore()
   const { data: featureFlagsResponse } = useFeatureFlags("default")
@@ -341,7 +344,7 @@ export default function Sidebar() {
               className="overflow-hidden"
             >
               <p className="text-sm leading-tight font-bold whitespace-nowrap text-sidebar-foreground">
-                {UNIVERSITY_NAME}
+                {institutionName}
               </p>
               <p className="text-[10px] whitespace-nowrap text-muted-foreground">
                 Portal Workspace

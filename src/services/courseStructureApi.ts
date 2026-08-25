@@ -17,7 +17,7 @@ import type {
 } from "@/types/school"
 
 // Real backend contract per bruno/academic (the sole source of truth for
-// this module — see CLAUDE.md §13). GET list/detail and Create are
+// this module — see CONVENTIONS.md §13). GET list/detail and Create are
 // confirmed `{data: ...}`-wrapped (Create via every .bru file's
 // `res.body.data.id` post-response script); Update has no example body in
 // bruno but is treated the same way, matching Create for the same

@@ -41,25 +41,34 @@ export function useOperationsDashboardData() {
   const activeUsers = stats.data?.data.active_users ?? null
   const departmentCount = departments.data?.data.length ?? null
   const pendingApplicationCount = pendingApplications.data?.meta.total ?? null
+  // `?.` guarded only `data`, so once a response arrived without a `totals`
+  // object these threw rather than falling back to null — a blank dashboard.
+  // GET /fees/reports/summary currently returns a flat
+  // { invoiceCount, totalInvoiced, totalCollected } with no `totals` and no
+  // `totalOutstanding` at all, so that is every response. Guarding the whole
+  // path degrades those tiles to "…" instead of taking the page down.
   const totalOutstanding =
-    collections.data?.totals.totalOutstanding != null
+    collections.data?.totals?.totalOutstanding != null
       ? Number(collections.data.totals.totalOutstanding)
       : null
   const totalInvoiced =
-    collections.data?.totals.totalInvoiced != null
+    collections.data?.totals?.totalInvoiced != null
       ? Number(collections.data.totals.totalInvoiced)
       : null
   const totalPaid =
-    collections.data?.totals.totalPaid != null
+    collections.data?.totals?.totalPaid != null
       ? Number(collections.data.totals.totalPaid)
       : null
   const collectionRate =
     totalInvoiced && totalInvoiced > 0 && totalPaid != null
       ? Math.round((totalPaid / totalInvoiced) * 100)
       : null
+  // Same unguarded-path problem, and this endpoint
+  // (GET /moodle-sync/assessments/sync-status) is not registered on the API at
+  // all — it 404s, so `data` is always undefined here.
   const unsyncedAssessments =
-    assessmentSync.data?.summary.byStatus.PENDING != null &&
-    assessmentSync.data?.summary.byStatus.FAILED != null
+    assessmentSync.data?.summary?.byStatus?.PENDING != null &&
+    assessmentSync.data?.summary?.byStatus?.FAILED != null
       ? assessmentSync.data.summary.byStatus.PENDING +
         assessmentSync.data.summary.byStatus.FAILED
       : null

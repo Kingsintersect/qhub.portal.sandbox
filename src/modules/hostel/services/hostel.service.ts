@@ -21,7 +21,7 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/hostel/*.bru (the sole source of truth for
-// this module — see CLAUDE.md §13). GET endpoints are wrapped in a
+// this module — see CONVENTIONS.md §13). GET endpoints are wrapped in a
 // `{ data: ... }` envelope (Allocations - List additionally carries `meta`)
 // — confirmed by every GET .bru file's docs block. Mutation endpoints
 // (POST/PATCH/DELETE) return the flat resource — confirmed explicitly by

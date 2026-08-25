@@ -1,8 +1,8 @@
-# Claude Instructions – University Portal Frontend
+# Engineering Conventions – University Portal Frontend
 
-> This file is Claude Code's persistent project memory. It is loaded automatically at the
-> start of every session run from this repo (or a subdirectory of it). Keep it specific —
-> vague instructions get followed loosely, specific ones get followed consistently.
+> The engineering conventions for this repository — stack, folder structure, RBAC
+> protocol and styling rules. Referenced throughout the source by section number.
+> Keep it specific: vague conventions get followed loosely, specific ones consistently.
 
 ---
 

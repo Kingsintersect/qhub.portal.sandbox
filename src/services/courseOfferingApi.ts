@@ -18,7 +18,7 @@ import type {
 
 // Real backend contract per bruno/course (Offering/Offering Lecturer/Schedule
 // collections) and sandbox/course/course_README.md — source of truth, see
-// CLAUDE.md §13. Every endpoint returns `{data: ...}`; the backend uses
+// CONVENTIONS.md §13. Every endpoint returns `{data: ...}`; the backend uses
 // camelCase, this module's frontend types stay snake_case, mapped here.
 const AUTH = { access_token: true } as const
 

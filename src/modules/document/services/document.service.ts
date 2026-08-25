@@ -12,7 +12,7 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/document/*.bru (the sole source of truth
-// for this module — see CLAUDE.md §13). GET endpoints are wrapped in a
+// for this module — see CONVENTIONS.md §13). GET endpoints are wrapped in a
 // `{ data: ... }` envelope (List additionally carries `meta`, confirmed by
 // document_README.md's example bodies); mutation endpoints (POST/PATCH)
 // return the flat resource/result — confirmed for Upload by the bruno file's

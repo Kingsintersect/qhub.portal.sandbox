@@ -20,6 +20,7 @@ import Footer from "@/components/navigation/Footer"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { OUR_PROGRAMS, UNIVERSITY_NAME } from "@/config/global.config"
+import { useInstitutionName } from "@/lib/tenant/tenant-context"
 import {
   Drawer,
   DrawerClose,
@@ -195,6 +196,8 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function AdmissionsPage() {
+  // Branding follows the institution this host belongs to.
+  const institutionName = useInstitutionName(UNIVERSITY_NAME)
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     null
   )
@@ -264,7 +267,7 @@ export default function AdmissionsPage() {
             {...fadeUp(0.16)}
             className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg"
           >
-            {`Joining ${UNIVERSITY_NAME} is the first step towards a world-class education. We welcome applications from talented students of all backgrounds — here is everything you need to know.`}
+            {`Joining ${institutionName} is the first step towards a world-class education. We welcome applications from talented students of all backgrounds — here is everything you need to know.`}
           </motion.p>
 
           {/* <motion.p {...fadeUp(0.16)} className="text-base sm:text-lg leading-relaxed max-w-2xl mx-auto text-white/80">
