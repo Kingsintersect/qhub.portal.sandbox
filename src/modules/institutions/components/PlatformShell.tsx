@@ -78,7 +78,6 @@ const NAV: Array<{
     label: "Billing",
     Icon: Wallet,
     permission: "billing.read",
-    comingSoon: true,
   },
 ]
 
