@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { ClipboardCheck, ShieldOff } from "lucide-react"
+import { ClipboardCheck } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { ClearanceReviewQueue } from "@/modules/clearance/components/staff/clearance-review-queue"
 
@@ -9,14 +9,7 @@ export default function ManagerClearancePage() {
   return (
     <PermissionGate
       require={{ resource: "clearance", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view clearance requests.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <motion.div

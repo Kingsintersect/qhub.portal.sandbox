@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, ShieldOff, Tags } from "lucide-react"
+import { ArrowLeft, Tags } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { FeeTypeForm } from "@/modules/fee-management/components/admin/fee-type-form"
@@ -18,14 +18,7 @@ export default function NewFeeTypePage() {
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "manage" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to create fee types.
-          </p>
-        </div>
-      }
+      denyBehavior="modal"
     >
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         {/* Header */}

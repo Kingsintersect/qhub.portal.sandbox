@@ -8,7 +8,6 @@ import {
   BarChart3,
   FileText,
   Loader2,
-  ShieldOff,
   Tags,
   TrendingUp,
 } from "lucide-react"
@@ -135,14 +134,7 @@ export function FeeManagementOverview({
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view fee management.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-8 p-6">
         {/* ── Header ─────────────────────────────────────────────────── */}

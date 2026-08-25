@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { Clock, ShieldOff } from "lucide-react"
+import { Clock } from "lucide-react"
 import { AssessmentBrowseList } from "@/modules/moodle-sync/components/assessments/assessment-browse-list"
 import { useUpcomingAssessments } from "@/modules/moodle-sync/hooks/use-sync-assessments"
 import { AssessmentFilters } from "@/modules/moodle-sync/components/assessments/assessment-filters"
@@ -41,14 +41,7 @@ export default function UpcomingAssessmentsPage() {
   return (
     <PermissionGate
       require={{ resource: "assessments", action: "view.own" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view assessments.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">

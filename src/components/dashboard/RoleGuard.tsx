@@ -1,11 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LogIn } from "lucide-react"
-import { UserRole, roleDashboardPath } from "@/config/nav.config"
+import { UserRole } from "@/config/nav.config"
 import { useAppStore, useAppHydrated } from "@/store"
+import { PermissionDeniedScreen } from "@/lib/permissions/PermissionDeniedScreen"
 import type { Permission } from "@/types/roles"
 
 /* ------------------------------------------------------------------ */
@@ -71,7 +70,6 @@ export default function RoleGuard({
 }: RoleGuardProps) {
   const { user } = useAppStore()
   const hydrated = useAppHydrated()
-  const router = useRouter()
 
   const allowedRoles = Array.isArray(role) ? role : [role]
 
@@ -85,12 +83,6 @@ export default function RoleGuard({
         : hasAnyPermission(user?.permissions, requiredPermissions)
 
   const granted = roleOk && permOk
-
-  useEffect(() => {
-    if (hydrated && user && !granted && !fallback) {
-      router.replace(roleDashboardPath[user.role])
-    }
-  }, [hydrated, user, granted, fallback, router])
 
   if (!hydrated) return null
 
@@ -124,7 +116,11 @@ export default function RoleGuard({
   }
 
   if (!granted) {
-    return fallback ? <>{fallback}</> : null
+    return fallback ? (
+      <>{fallback}</>
+    ) : (
+      <PermissionDeniedScreen message="You don't have permission to access this section." />
+    )
   }
 
   return <>{children}</>

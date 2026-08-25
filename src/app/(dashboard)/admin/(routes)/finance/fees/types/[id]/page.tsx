@@ -58,14 +58,7 @@ export default function EditFeeTypePage({ params }: Props) {
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view this fee type.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         {/* Header */}

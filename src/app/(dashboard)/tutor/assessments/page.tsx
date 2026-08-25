@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { motion } from "framer-motion"
-import { BookOpen, ShieldOff } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import { AssessmentFilters } from "@/modules/moodle-sync/components/assessments/assessment-filters"
 import { AssessmentBrowseList } from "@/modules/moodle-sync/components/assessments/assessment-browse-list"
 import { useAssessmentsList } from "@/modules/moodle-sync/hooks/use-sync-assessments"
@@ -32,14 +32,7 @@ export default function TutorAssessmentsPage() {
   return (
     <PermissionGate
       require={{ resource: "assessments", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view course assessments.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         {/* Header */}

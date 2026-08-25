@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const user = await loginWithBackend({ identifier, password })
-          //  console.log("user", user)
+          console.log("user", user)
           //  const updatedUser = elevateToSuperAdmin(user)
           //  console.log(updatedUser)
           return {

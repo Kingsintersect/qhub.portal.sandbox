@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { BarChart3, ShieldOff } from "lucide-react"
+import { BarChart3 } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { CollectionsReport } from "@/modules/fee-management/components/admin/collections-report"
 
@@ -9,14 +9,7 @@ export default function ManagerCollectionsReportPage() {
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view financial reports.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         <motion.div

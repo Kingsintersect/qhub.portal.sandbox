@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Plus, ShieldOff, Tags } from "lucide-react"
+import { Plus, Tags } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { FeeTypeTable } from "@/modules/fee-management/components/admin/fee-type-table"
@@ -29,14 +29,7 @@ export default function AdminFeeTypesPage() {
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view fee types.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         {/* Header */}

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { FileText, ShieldOff } from "lucide-react"
+import { FileText } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { InvoiceAdminTable } from "@/modules/fee-management/components/admin/invoice-admin-table"
 import { InvoiceDetailDrawer } from "@/modules/fee-management/components/admin/invoice-detail-drawer"
@@ -15,14 +15,7 @@ export default function ManagerInvoicesPage() {
   return (
     <PermissionGate
       require={{ resource: "fee-management", action: "view" }}
-      fallback={
-        <div className="flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-          <ShieldOff size={40} className="opacity-40" />
-          <p className="text-sm">
-            You do not have permission to view invoices.
-          </p>
-        </div>
-      }
+      denyBehavior="screen"
     >
       <div className="space-y-6 p-6">
         {/* Header */}

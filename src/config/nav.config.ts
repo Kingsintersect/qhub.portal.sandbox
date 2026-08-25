@@ -969,7 +969,7 @@ const applicantNav: NavGroup[] = [
     items: [
       {
         title: "Dashboard",
-        href: "/admission/application-form",
+        href: "/process-admission",
         matchExactOnly: true,
         icon: LayoutDashboard,
       },
@@ -1089,7 +1089,7 @@ export const navConfig: Record<UserRole, NavGroup[]> = {
 
 /** Maps each role to its dashboard base path */
 export const roleDashboardPath: Record<UserRole, string> = {
-  [UserRole.APPLICANT]: "/admission/application-form",
+  [UserRole.APPLICANT]: "/process-admission",
   [UserRole.STUDENT]: "/student/dashboard",
   [UserRole.GUEST]: "/guest/dashboard",
   [UserRole.TUTOR]: "/tutor/dashboard",
