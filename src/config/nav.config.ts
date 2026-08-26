@@ -1101,3 +1101,15 @@ export const roleDashboardPath: Record<UserRole, string> = {
   [UserRole.ADMIN]: "/manager/dashboard",
   [UserRole.SUPER_ADMIN]: "/admin/dashboard",
 }
+
+/**
+ * Where to send a user immediately after signing in. Only STUDENT and
+ * APPLICANT go through the admission flow — every other role lands on its
+ * own dashboard via `roleDashboardPath`.
+ */
+export function resolvePostSignInPath(role: UserRole): string {
+  if (role === UserRole.APPLICANT || role === UserRole.STUDENT) {
+    return "/process-admission"
+  }
+  return roleDashboardPath[role]
+}

@@ -4,14 +4,17 @@
 /*  Full CRUD on the step definitions that drive:                      */
 /*    - src/app/(admission)/(routes)/process-admission/page.tsx        */
 /*    - src/app/(admission)/(routes)/admission-application-form/       */
-/*  Real backend contract per sandbox/admission/admission_features_    */
-/*  workflow.md — no bruno collection exists for this yet (a genuinely */
-/*  new, additive endpoint set), so this is built directly against     */
-/*  that doc's spec. Until the backend ships it, every call here 404s  */
-/*  and the consuming pages surface that as a normal failed query —    */
-/*  no client-side mock fallback, per this module's "don't fake it"    */
-/*  convention (see admissionSetupApi.ts for the matching approach on  */
-/*  Admission Cycles).                                                 */
+/*  Backend contract per sandbox/admission/admission_features_         */
+/*  workflow.md — confirmed live 2026-08-26 (create/list/patch/delete   */
+/*  round-tripped directly against the backend, with cleanup) to match  */
+/*  the spec exactly EXCEPT the two boolean fields, which the backend   */
+/*  names `isRequired`/`isActive` on both read and write (not           */
+/*  `required`/`enabled`). Everything else — `group`, `key`, `order`,   */
+/*  `label`, `description`, `icon` — is unrenamed on both directions.   */
+/*  `group` is a real, required, filterable column now (an earlier      */
+/*  deployment had it missing from GET responses and the `?group=`      */
+/*  filter as a no-op — both since fixed; see that doc for the dated    */
+/*  history if this ever needs revisiting).                             */
 /* ------------------------------------------------------------------ */
 
 import apiClient, {
@@ -28,13 +31,51 @@ import type {
 
 const AUTH = { access_token: true } as const
 
+/** Actual live shape of one row from GET/POST/PATCH /admissions/config/steps — see the module docblock above. */
+interface RawAdmissionStep {
+  id: number
+  group: AdmissionStepGroup
+  key: string
+  order: number
+  label: string
+  description: string
+  icon: string
+  isRequired: boolean
+  isActive: boolean
+}
+
+function fromRaw(raw: RawAdmissionStep): AdmissionStepDefinition {
+  return {
+    id: raw.id,
+    group: raw.group,
+    key: raw.key,
+    order: raw.order,
+    label: raw.label,
+    description: raw.description,
+    icon: raw.icon,
+    required: raw.isRequired,
+    enabled: raw.isActive,
+  }
+}
+
+function toRawPayload(
+  payload: CreateAdmissionStepPayload | UpdateAdmissionStepPayload
+): Record<string, unknown> {
+  const { required, enabled, ...rest } = payload
+  return {
+    ...rest,
+    ...(required !== undefined ? { isRequired: required } : {}),
+    ...(enabled !== undefined ? { isActive: enabled } : {}),
+  }
+}
+
 export const admissionStepsApi = {
   async list(group?: AdmissionStepGroup): Promise<AdmissionStepDefinition[]> {
-    const res = await apiClient.get<{ data: AdmissionStepDefinition[] }>(
+    const res = await apiClient.get<{ data: RawAdmissionStep[] }>(
       "/admissions/config/steps",
       { ...AUTH, params: { group } }
     )
-    return res.data
+    return res.data.map(fromRaw)
   },
 
   /** Composes both groups into the shape process-admission / useAdmissionForm consume. */
@@ -49,26 +90,27 @@ export const admissionStepsApi = {
   async create(
     payload: CreateAdmissionStepPayload
   ): Promise<AdmissionStepDefinition> {
-    const res = await apiClient.post<{ data: AdmissionStepDefinition }>(
+    const res = await apiClient.post<{ data: RawAdmissionStep }>(
       "/admissions/config/steps",
-      payload,
+      toRawPayload(payload),
       AUTH
     )
-    return res.data
+    return fromRaw(res.data)
   },
 
   async update(
     id: number,
     payload: UpdateAdmissionStepPayload
   ): Promise<AdmissionStepDefinition> {
-    const res = await apiClient.patch<{ data: AdmissionStepDefinition }>(
+    const res = await apiClient.patch<{ data: RawAdmissionStep }>(
       `/admissions/config/steps/${id}`,
-      payload,
+      toRawPayload(payload),
       AUTH
     )
-    return res.data
+    return fromRaw(res.data)
   },
 
+  /** Backend refuses (400) to delete the last remaining step in a group. */
   async remove(id: number): Promise<{ message: string }> {
     return apiClient.delete<{ message: string }>(
       `/admissions/config/steps/${id}`,
@@ -80,12 +122,12 @@ export const admissionStepsApi = {
     group: AdmissionStepGroup,
     orderedIds: number[]
   ): Promise<AdmissionStepDefinition[]> {
-    const res = await apiClient.post<{ data: AdmissionStepDefinition[] }>(
+    const res = await apiClient.post<{ data: RawAdmissionStep[] }>(
       "/admissions/config/steps/reorder",
       { group, orderedIds },
       AUTH
     )
-    return res.data
+    return res.data.map(fromRaw)
   },
 }
 
