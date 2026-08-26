@@ -13,7 +13,10 @@ import {
 } from "../../hooks/useAdmissionQueries"
 import { admissionKeys } from "../../services/admissionService"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
-import { getEnabledStepKeys } from "@/lib/admissionConfig"
+import {
+  DEFAULT_ADMISSION_STEPS,
+  getEnabledStepKeys,
+} from "@/lib/admissionConfig"
 import {
   AdmissionStepIndicator,
   ApplicationPaymentSection,
@@ -109,7 +112,15 @@ export default function ProcessAdmissionPage() {
         >
           <AdmissionStepIndicator
             currentStep={currentStep}
-            stepDefinitions={admissionConfig?.processSteps ?? []}
+            stepDefinitions={
+              // GET /admissions/config/steps (the admin-customizable Step
+              // Registry) isn't built on the backend yet and 404s — fall
+              // back to the default step list so the indicator still
+              // renders something instead of an empty bar. Swaps to the
+              // real, admin-configured steps automatically once shipped.
+              admissionConfig?.processSteps ??
+              DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
+            }
           />
         </motion.div>
 

@@ -119,17 +119,22 @@ export default function AdmissionConfigPage() {
         })
         toast.success("Step updated")
       } else {
-        const existingKeys =
+        const groupItems =
           (formModal.group === "PROCESS"
             ? processQuery.data
-            : formQuery.data
-          )?.map((s) => s.key) ?? []
-        const key = slugifyKey(values.label, existingKeys)
+            : formQuery.data) ?? []
+        const key = slugifyKey(
+          values.label,
+          groupItems.map((s) => s.key)
+        )
+        const order =
+          groupItems.reduce((max, s) => Math.max(max, s.order), 0) + 1
         await createMutation.mutateAsync({
           ...values,
           description: values.description ?? "",
           group: formModal.group,
           key,
+          order,
         })
         toast.success("Step created")
       }

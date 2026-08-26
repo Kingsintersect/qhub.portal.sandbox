@@ -117,8 +117,14 @@ export const admissionService = {
   /* ---------- Student Data ---------- */
   async fetchStudentAdmission(): Promise<AdmissionStudent> {
     // Real API: GET /admission/student — Bruno: admission/Admission - Student Aggregate.bru
-    // Student Admission Progress spec §3. Composed server-side; returns AdmissionStudent directly.
-    return apiClient.get<AdmissionStudent>("/admission/student", AUTH)
+    // Student Admission Progress spec §3. Composed server-side. Confirmed live 2026-08-25:
+    // wrapped in a `data` envelope like every other endpoint in this backend (the doc's
+    // "returns AdmissionStudent directly" was never actually true) — unwrap it here.
+    const { data } = await apiClient.get<{ data: AdmissionStudent }>(
+      "/admission/student",
+      AUTH
+    )
+    return data
   },
 
   /* ---------- Initiate Application Payment ---------- */

@@ -13,6 +13,7 @@ import ThemeToggle from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { passwordSchema } from "@/lib/validations/zod"
+import { resolvePostSignInPath } from "@/config/nav.config"
 
 const signInFormSchema = z.object({
   identifier: z.string().min(1, "Email or username is required"),
@@ -22,7 +23,7 @@ const signInFormSchema = z.object({
 function SignInFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
 
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -44,10 +45,10 @@ function SignInFormContent() {
   }, [searchParams])
 
   useEffect(() => {
-    if (status === "authenticated") {
-      router.replace(callbackUrl || "/process-admission")
+    if (status === "authenticated" && session?.user?.role) {
+      router.replace(callbackUrl || resolvePostSignInPath(session.user.role))
     }
-  }, [callbackUrl, router, status])
+  }, [callbackUrl, router, status, session])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -67,13 +68,11 @@ function SignInFormContent() {
     setSubmitting(true)
 
     const identifier = parsed.data.identifier
-    const nextUrl = callbackUrl || "/process-admission"
 
     const result = await signIn("credentials", {
       identifier,
       password,
       redirect: false,
-      callbackUrl: nextUrl,
     })
 
     setSubmitting(false)
@@ -85,7 +84,8 @@ function SignInFormContent() {
       return
     }
 
-    router.replace(result.url ?? nextUrl)
+    // Successful sign-in updates the session; the effect above does the
+    // role-aware redirect once `status` flips to "authenticated".
   }
 
   return (

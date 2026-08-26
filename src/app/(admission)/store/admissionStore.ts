@@ -3,7 +3,6 @@
 /* ------------------------------------------------------------------ */
 
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
 import type {
   AdmissionStudent,
   FeeSchedule,
@@ -73,48 +72,44 @@ function deriveStep(
   return 5
 }
 
-export const useAdmissionStore = create<AdmissionState>()(
-  persist(
-    (set, get) => ({
+// `student`/`fees` are server data that already lives in React Query's cache
+// (see useAdmissionQueries.ts) — this store just mirrors the latest fetch for
+// synchronous access elsewhere (e.g. deriveStep). It must NOT persist to
+// localStorage: this flow runs on shared/kiosk-style browsers (a school lab,
+// a cybercafé) where one account's admission progress persisting into the
+// next person's session — including a fabricated "payment paid" status from
+// the dev-only simulate buttons — is a real cross-account data leak, not
+// just a stale-cache annoyance.
+export const useAdmissionStore = create<AdmissionState>()((set, get) => ({
+  student: null,
+  fees: null,
+  currentStep: 0,
+  enabledStepKeys: getEnabledStepKeys(
+    DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
+  ),
+
+  setStudent: (student) => {
+    set({ student })
+    // Recompute step whenever student data changes
+    set({ currentStep: deriveStep(student, get().enabledStepKeys) })
+  },
+
+  setFees: (fees) => set({ fees }),
+
+  setStepConfig: (enabledKeys) => {
+    set({ enabledStepKeys: enabledKeys })
+    set({ currentStep: deriveStep(get().student, enabledKeys) })
+  },
+
+  computeStep: () => {
+    const { student, enabledStepKeys } = get()
+    set({ currentStep: deriveStep(student, enabledStepKeys) })
+  },
+
+  reset: () =>
+    set({
       student: null,
       fees: null,
       currentStep: 0,
-      enabledStepKeys: getEnabledStepKeys(
-        DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
-      ),
-
-      setStudent: (student) => {
-        set({ student })
-        // Recompute step whenever student data changes
-        set({ currentStep: deriveStep(student, get().enabledStepKeys) })
-      },
-
-      setFees: (fees) => set({ fees }),
-
-      setStepConfig: (enabledKeys) => {
-        set({ enabledStepKeys: enabledKeys })
-        set({ currentStep: deriveStep(get().student, enabledKeys) })
-      },
-
-      computeStep: () => {
-        const { student, enabledStepKeys } = get()
-        set({ currentStep: deriveStep(student, enabledStepKeys) })
-      },
-
-      reset: () =>
-        set({
-          student: null,
-          fees: null,
-          currentStep: 0,
-        }),
     }),
-    {
-      name: "qhub-admission",
-      partialize: (state) => ({
-        student: state.student,
-        fees: state.fees,
-        currentStep: state.currentStep,
-      }),
-    }
-  )
-)
+}))
