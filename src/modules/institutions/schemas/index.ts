@@ -37,6 +37,16 @@ export const institutionSchema = z.object({
   slug: z.string(),
   status: institutionStatusSchema,
   plan: z.string().nullable(),
+  // Null unless downtime is announced for this institution.
+  maintenance: z
+    .object({
+      message: z.string().nullable(),
+      startsAt: z.string().nullable(),
+      endsAt: z.string().nullable(),
+      active: z.boolean(),
+    })
+    .nullable()
+    .optional(),
   logoUrl: z.string().nullable(),
   supportEmail: z.string().nullable(),
   supportPhone: z.string().nullable(),

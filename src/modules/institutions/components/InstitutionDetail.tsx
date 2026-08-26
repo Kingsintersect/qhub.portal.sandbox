@@ -23,6 +23,8 @@ import { InstitutionStatusBadge } from "@/modules/institutions/components/Instit
 import { InstitutionObservabilityPanel } from "@/modules/platform-observability/components/InstitutionObservabilityPanel"
 import { CourseImportPanel } from "@/modules/platform-operations/components/CourseImportPanel"
 import { DirectoryPanel } from "@/modules/platform-operations/components/DirectoryPanel"
+import { FeatureControlPanel } from "@/modules/platform-controls/components/FeatureControlPanel"
+import { MaintenancePanel } from "@/modules/platform-controls/components/MaintenancePanel"
 
 export function InstitutionDetail({
   institutionId,
@@ -113,6 +115,13 @@ export function InstitutionDetail({
       </div>
 
       <InstitutionObservabilityPanel institutionId={institution.id} />
+
+      <MaintenancePanel
+        institutionId={institution.id}
+        notice={institution.maintenance ?? null}
+      />
+
+      <FeatureControlPanel institutionId={institution.id} />
 
       <DirectoryPanel institutionId={institution.id} />
 
