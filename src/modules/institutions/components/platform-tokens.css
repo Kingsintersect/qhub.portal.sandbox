@@ -1,0 +1,152 @@
+/*
+ * The estate console's design tokens, lifted verbatim from the design
+ * draft.
+ *
+ * Scoped to `.qhub-console` rather than :root on purpose — the institution
+ * portals in this same app have their own visual system, and putting these on
+ * the document would repaint them. Every console surface takes its colours
+ * from here and never hardcodes a hex, which is what keeps the eleven modules
+ * looking like one product.
+ *
+ * Both themes are complete sets. The console follows the app's theme class,
+ * so a token defined in only one of these blocks would render one theme's text
+ * on the other theme's ground.
+ */
+
+.qhub-console {
+  --bg: #e8ebef;
+  --card: #ffffff;
+  --panel: #f5f7fa;
+  --panel-open: #fbfcfe;
+  --row-hover: #fafbfd;
+  --row-open: #f6f9fd;
+  --txt: #151c26;
+  --txt2: #48525e;
+  --txt3: #7a8490;
+  --txt4: #a4acb6;
+  --icon: #6d7883;
+  --icon2: #98a2ac;
+  --icon3: #87919c;
+  --icon-strong: #3b4551;
+  --dots: #b2bac4;
+  --line: #edf0f4;
+  --line2: #f3f5f8;
+  --line-strong: #dfe4ea;
+  --divider: #d1d8e0;
+  --tree-line: #cdd5de;
+  --scroll: #c9d1da;
+  --grid-line: #eceff3;
+  --grid-line2: #f0f3f7;
+  --crosshair: #b4bdc7;
+  --marker-fill: #ffffff;
+  --surface-solid: #ffffff;
+  --drawer-edge: transparent;
+  --accent: #1d5fbf;
+  --accent-hover: #174c99;
+  --accent-link-hover: #144689;
+  --accent-soft: #e8effa;
+  --accent-soft-hover: #dce7f6;
+  --accent-brd: #c9d9f0;
+  --good-bg: #e6eef9;
+  --donut-track: #e4e9ef;
+  --series2: #e8853d;
+  --series3: #c7cfd8;
+  --bar: #f0b27e;
+  --neg: #b4553c;
+  --neg-bg: #f9ebe6;
+  --warn: #8a6a22;
+  --warn-bg: #f6efdd;
+  --img-ph: #e3e8ee;
+  --avatar: #d3dae3;
+  --logo-tile: #151c26;
+  --logo-mark: #9cc2f7;
+  --ghost-hover: #f6f8f6;
+  --nav-hover: rgba(255, 255, 255, 0.55);
+  --shadow-sm: 0 1px 2px rgba(22, 34, 28, 0.06);
+  --shadow-nav:
+    0 1px 2px rgba(22, 34, 28, 0.06), 0 6px 18px rgba(22, 34, 28, 0.05);
+  --shadow-card:
+    0 1px 2px rgba(22, 34, 28, 0.06), 0 10px 26px rgba(22, 34, 28, 0.04);
+  --shadow-pop:
+    0 2px 6px rgba(22, 34, 28, 0.08), 0 12px 30px rgba(22, 34, 28, 0.1);
+  --glow: linear-gradient(transparent, transparent);
+
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--font-geist), Geist, "Helvetica Neue", sans-serif;
+}
+
+.dark .qhub-console,
+[data-theme="dark"] .qhub-console {
+  --bg: #0a0c10;
+  --card: rgba(255, 255, 255, 0.045);
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-open: rgba(88, 151, 242, 0.05);
+  --row-hover: rgba(255, 255, 255, 0.03);
+  --row-open: rgba(88, 151, 242, 0.07);
+  --txt: #eceff3;
+  --txt2: #b2bac4;
+  --txt3: #89929d;
+  --txt4: #6c7480;
+  --icon: #98a099;
+  --icon2: #7c847d;
+  --icon3: #79817a;
+  --icon-strong: #c6cdc6;
+  --dots: #5e655f;
+  --line: rgba(255, 255, 255, 0.08);
+  --line2: rgba(255, 255, 255, 0.05);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --divider: rgba(255, 255, 255, 0.14);
+  --tree-line: #2e333b;
+  --scroll: #292d34;
+  --grid-line: rgba(255, 255, 255, 0.07);
+  --grid-line2: rgba(255, 255, 255, 0.04);
+  --crosshair: #6a7280;
+  --marker-fill: #0f1218;
+  --surface-solid: #14181e;
+  --drawer-edge: rgba(255, 255, 255, 0.22);
+  --accent: #5897f2;
+  --accent-hover: #4381db;
+  --accent-link-hover: #82b0f6;
+  --accent-soft: rgba(88, 151, 242, 0.16);
+  --accent-soft-hover: rgba(88, 151, 242, 0.24);
+  --accent-brd: rgba(88, 151, 242, 0.4);
+  --good-bg: rgba(88, 151, 242, 0.16);
+  --donut-track: rgba(255, 255, 255, 0.1);
+  --series2: #f09a55;
+  --series3: #555d68;
+  --bar: #c97f3e;
+  --neg: #e08464;
+  --neg-bg: rgba(224, 132, 100, 0.14);
+  --warn: #d3a84e;
+  --warn-bg: rgba(211, 168, 78, 0.14);
+  --img-ph: rgba(255, 255, 255, 0.06);
+  --avatar: #2a2f38;
+  --logo-tile: #16294a;
+  --logo-mark: #9cc2f7;
+  --ghost-hover: rgba(255, 255, 255, 0.06);
+  --nav-hover: rgba(255, 255, 255, 0.05);
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-nav:
+    0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.5);
+  --shadow-card:
+    0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.35);
+  --shadow-pop:
+    0 0 0 1px rgba(255, 255, 255, 0.09), 0 22px 44px rgba(0, 0, 0, 0.65);
+}
+
+.qhub-console ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.qhub-console ::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border-radius: 8px;
+}
+
+/* Mono for refs, amounts, identifiers and timestamps — product rule 4. */
+.qhub-mono {
+  font-family: var(--font-mono), "Geist Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}

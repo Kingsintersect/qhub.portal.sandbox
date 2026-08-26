@@ -5,10 +5,14 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, type ReactNode } from "react"
 import { signOut, useSession } from "next-auth/react"
 import {
+  Bell,
   Building2,
+  FileBarChart,
+  ListChecks,
   LogOut,
   Megaphone,
   ScrollText,
+  Settings,
   Ticket,
   Users,
   Wallet,
@@ -18,6 +22,8 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
+import { NotificationBell } from "@/modules/platform-notifications/components/NotificationBell"
+import "@/modules/institutions/components/platform-tokens.css"
 
 const SIGNIN_PATH = "/platform/signin"
 
@@ -88,6 +94,34 @@ const NAV: Array<{
     Icon: Wallet,
     permission: "billing.read",
   },
+  {
+    href: "/platform/tasks",
+    label: "My tasks",
+    Icon: ListChecks,
+    permission: "tasks.read",
+  },
+  {
+    href: "/platform/reports",
+    label: "Reports",
+    Icon: FileBarChart,
+    permission: "reports.read",
+  },
+  {
+    href: "/platform/notifications",
+    label: "Notifications",
+    Icon: Bell,
+    // Ungated: a notification belongs to one account and there is no view
+    // here of anybody else's.
+    permission: null,
+  },
+  {
+    href: "/platform/settings",
+    label: "Settings",
+    Icon: Settings,
+    // Your own password, MFA and sessions. Needing a grant to change your own
+    // password would be the wrong shape.
+    permission: null,
+  },
 ]
 
 /**
@@ -115,7 +149,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   }, [status, isPlatformUser, isSigninPage, router])
 
   if (isSigninPage) {
-    return <main className="min-h-dvh bg-background">{children}</main>
+    return <main className="qhub-console min-h-dvh">{children}</main>
   }
 
   if (status === "loading" || !isPlatformUser) {
@@ -134,7 +168,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     item.exact ? pathname === item.href : pathname.startsWith(item.href)
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="qhub-console min-h-dvh">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
           <Link
@@ -216,6 +250,16 @@ export function PlatformShell({ children }: { children: ReactNode }) {
             {item.label}
           </Link>
         ))}
+      </div>
+
+      {/* Top bar. The bell lives here rather than in the sidebar so it is in
+          the same place on every screen — an alert you have to go looking for
+          is one you find late. */}
+      <div
+        className="sticky top-0 z-30 hidden items-center justify-end gap-1 border-b px-6 py-2 lg:ml-60 lg:flex"
+        style={{ borderColor: "var(--line)", background: "var(--card)" }}
+      >
+        <NotificationBell />
       </div>
 
       <main className="px-4 py-8 sm:px-6 lg:ml-60 lg:px-8">
