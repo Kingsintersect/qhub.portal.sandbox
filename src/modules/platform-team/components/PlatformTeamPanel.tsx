@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
+import { RolesPanel } from "@/modules/platform-team/components/RolesPanel"
 import {
   useCreatePlatformUser,
   usePlatformRoles,
@@ -41,7 +42,6 @@ import type { CreatePlatformUserPayload } from "@/modules/platform-team/types"
 export function PlatformTeamPanel() {
   const { can } = usePlatformPermissions()
   const users = usePlatformUsers()
-  const roles = usePlatformRoles()
   const updateUser = useUpdatePlatformUser()
 
   const canManage = can("team.manage")
@@ -151,33 +151,10 @@ export function PlatformTeamPanel() {
         </table>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Roles</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {roles.data?.map((role) => (
-            <div key={role.id} className="rounded-lg border border-border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-foreground">
-                  {role.name}
-                </span>
-                {role.isSuperuser && (
-                  <Badge variant="outline" className="text-xs">
-                    full access
-                  </Badge>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {role.description}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {role.isSuperuser
-                  ? "Bypasses every permission check."
-                  : `${role.permissions.length} permission${role.permissions.length === 1 ? "" : "s"}`}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Replaces a read-only list of roles and permission counts. The API
+          behind role editing already existed and was enforced; nothing in the
+          console called it, so `roles.manage` was a grant nobody could use. */}
+      <RolesPanel />
     </div>
   )
 }

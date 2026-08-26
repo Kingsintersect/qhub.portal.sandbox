@@ -45,6 +45,30 @@ export const platformTeamService = {
       )
     ).data,
 
+  createRole: async (payload: {
+    name: string
+    description: string
+    permissionIds?: number[]
+  }) =>
+    apiClient.post<{ data: PlatformRole }, typeof payload>(
+      "/platform/roles",
+      payload,
+      AUTH
+    ),
+
+  updateRole: async (
+    roleId: number,
+    payload: { name?: string; description?: string }
+  ) =>
+    apiClient.patch<{ data: PlatformRole }, typeof payload>(
+      `/platform/roles/${roleId}`,
+      payload,
+      AUTH
+    ),
+
+  deleteRole: (roleId: number) =>
+    apiClient.delete<void>(`/platform/roles/${roleId}`, AUTH),
+
   updateRolePermissions: async (
     roleId: number,
     permissionIds: number[]

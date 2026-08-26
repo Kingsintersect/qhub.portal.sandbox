@@ -24,6 +24,10 @@ export const platformRoleSchema = z.object({
   isSystem: z.boolean(),
   isSuperuser: z.boolean(),
   permissions: z.array(z.string()),
+  // Ids so the matrix can check boxes without matching on name, and the member
+  // count so the console knows whether a role is safe to delete.
+  permissionIds: z.array(z.number()).default([]),
+  memberCount: z.number().default(0),
 })
 
 export const platformPermissionSchema = z.object({

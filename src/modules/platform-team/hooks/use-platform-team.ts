@@ -88,6 +88,67 @@ export function useUpdatePlatformUser() {
   })
 }
 
+export function useCreateRole() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: {
+      name: string
+      description: string
+      permissionIds?: number[]
+    }) => platformTeamService.createRole(payload),
+    onSuccess: () => {
+      toast.success("Role created")
+      queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not create that role", {
+        description: errorMessage(error, "Try again."),
+      }),
+  })
+}
+
+export function useUpdateRole() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      roleId,
+      ...payload
+    }: {
+      roleId: number
+      name?: string
+      description?: string
+    }) => platformTeamService.updateRole(roleId, payload),
+    onSuccess: () => {
+      toast.success("Role updated")
+      queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
+    },
+    onError: (error) =>
+      // The API refuses renaming a built-in role and says why; that reason is
+      // more useful than a generic failure.
+      toast.error("Could not update that role", {
+        description: errorMessage(error, "The change was not applied."),
+      }),
+  })
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (roleId: number) => platformTeamService.deleteRole(roleId),
+    onSuccess: () => {
+      toast.success("Role deleted")
+      queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not delete that role", {
+        description: errorMessage(error, "Try again."),
+      }),
+  })
+}
+
 export function useUpdateRolePermissions() {
   const queryClient = useQueryClient()
 
