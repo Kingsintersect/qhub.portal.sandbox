@@ -2,28 +2,32 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { signOut, useSession } from "next-auth/react"
+import { useTheme } from "next-themes"
 import {
   Activity,
   Bell,
   Building2,
   FileBarChart,
   ListChecks,
-  LogOut,
   Megaphone,
+  Moon,
   ScrollText,
+  Search,
   Settings,
+  Sun,
   Ticket,
   Users,
   Wallet,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import { NotificationBell } from "@/modules/platform-notifications/components/NotificationBell"
+import {
+  useNavCounts,
+  type NavCounts,
+} from "@/modules/platform-nav/use-nav-counts"
 import "@/modules/institutions/components/platform-tokens.css"
 
 const SIGNIN_PATH = "/platform/signin"
@@ -38,80 +42,102 @@ const SIGNIN_PATH = "/platform/signin"
 const UNAUTHENTICATED_PATHS = [SIGNIN_PATH, "/platform/set-password"]
 
 /**
- * Navigation for the platform console.
+ * Shown in the sidebar footer.
  *
- * A sidebar rather than a top bar, matching the institution portal so the two
- * read as one product — and because the console is growing past what a row of
- * links comfortably holds.
- *
- * `permission: null` means always visible. Everything else is hidden when the
- * signed-in account lacks the grant; the API refuses independently, so this
- * only avoids offering a dead end.
+ * Read from the build rather than typed in, so it cannot drift into claiming
+ * a version that is not deployed.
  */
-const NAV: Array<{
+const CONSOLE_VERSION =
+  process.env.NEXT_PUBLIC_CONSOLE_VERSION ?? "estate console"
+
+type NavItem = {
   href: string
   label: string
   Icon: typeof Building2
+  /** Null means every signed-in staff member sees it. */
   permission: string | null
   exact?: boolean
-  comingSoon?: boolean
-}> = [
+  /** Which nav count feeds this item's badge, if any. */
+  badge?: keyof NavCounts
+  /**
+   * What the number means. Red for something wrong, amber for something
+   * waiting, accent for something merely scheduled — the tone is the first
+   * thing read and it should not have to be decoded.
+   */
+  tone?: "neg" | "warn" | "accent"
+}
+
+const NAV: NavItem[] = [
   {
     href: "/platform",
     label: "Institutions",
     Icon: Building2,
     permission: null,
     exact: true,
-  },
-  {
-    href: "/platform/team",
-    label: "Team",
-    Icon: Users,
-    permission: "team.read",
-  },
-  {
-    href: "/platform/audit",
-    label: "Audit trail",
-    Icon: ScrollText,
-    permission: "audit.read",
-  },
-  // Declared now so the shape of the console is visible; each becomes a real
-  // link as its phase lands, rather than appearing from nowhere.
-  {
-    href: "/platform/tickets",
-    label: "Support",
-    Icon: Ticket,
-    permission: "tickets.read",
-  },
-  {
-    href: "/platform/announcements",
-    label: "Announcements",
-    Icon: Megaphone,
-    permission: "announcements.manage",
-  },
-  {
-    href: "/platform/billing",
-    label: "Billing",
-    Icon: Wallet,
-    permission: "billing.read",
+    badge: "institutions",
+    tone: "neg",
   },
   {
     href: "/platform/operations",
     label: "Operations",
     Icon: Activity,
     permission: "incidents.manage",
+    badge: "operations",
+    tone: "neg",
+  },
+  {
+    href: "/platform/tickets",
+    label: "Tickets",
+    Icon: Ticket,
+    permission: "tickets.read",
+    badge: "tickets",
+    tone: "warn",
+  },
+  {
+    href: "/platform/announcements",
+    label: "Announcements",
+    Icon: Megaphone,
+    permission: "announcements.manage",
+    badge: "announcements",
+    tone: "warn",
+  },
+  {
+    href: "/platform/billing",
+    label: "Billing",
+    Icon: Wallet,
+    permission: "billing.read",
+    badge: "billing",
+    tone: "neg",
   },
   {
     href: "/platform/tasks",
     label: "My tasks",
     Icon: ListChecks,
     permission: "tasks.read",
+    badge: "tasks",
+    tone: "warn",
   },
   {
     href: "/platform/reports",
     label: "Reports",
     Icon: FileBarChart,
     permission: "reports.read",
+    badge: "reports",
+    tone: "accent",
+  },
+  {
+    href: "/platform/team",
+    label: "Roles & permissions",
+    Icon: Users,
+    permission: "team.read",
+    badge: "team",
+    tone: "neg",
+  },
+  {
+    href: "/platform/audit",
+    label: "Audit log",
+    Icon: ScrollText,
+    permission: "audit.read",
   },
   {
     href: "/platform/notifications",
@@ -132,11 +158,14 @@ const NAV: Array<{
 ]
 
 /**
- * Chrome and access gate for the platform console.
+ * The estate console shell.
  *
- * Gates on `isPlatform` rather than on a role: an institution's admin — even a
- * SUPER_ADMIN — has no standing here, and role values are per-institution
- * concepts that say nothing about platform access.
+ * Sticky 246px sidebar and a fluid main column, per the design. The nav is
+ * filtered by permission rather than hidden behind disabled links — a control
+ * you can see but not use teaches nothing except that the tool is lying.
+ *
+ * `isPlatform` is what admits somebody here, not a role: institution roles are
+ * per-institution concepts and say nothing about platform access.
  */
 export function PlatformShell({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
@@ -144,25 +173,38 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { can } = usePlatformPermissions()
 
-  const isSigninPage = UNAUTHENTICATED_PATHS.includes(pathname)
+  const isUnauthenticatedRoute = UNAUTHENTICATED_PATHS.includes(pathname)
   const isPlatformUser = session?.user?.isPlatform === true
 
+  // Only once there is a session to count against — otherwise the request
+  // fires on the sign-in screen and 401s on every render.
+  const { data: counts } = useNavCounts(
+    isPlatformUser && !isUnauthenticatedRoute
+  )
+
   useEffect(() => {
-    if (status === "loading" || isSigninPage) return
+    if (status === "loading" || isUnauthenticatedRoute) return
 
     if (!isPlatformUser) {
       router.replace(SIGNIN_PATH)
     }
-  }, [status, isPlatformUser, isSigninPage, router])
+  }, [status, isPlatformUser, isUnauthenticatedRoute, router])
 
-  if (isSigninPage) {
+  if (isUnauthenticatedRoute) {
     return <main className="qhub-console min-h-dvh">{children}</main>
   }
 
   if (status === "loading" || !isPlatformUser) {
     return (
-      <div className="min-h-dvh bg-background p-6">
-        <Skeleton className="h-10 w-56" />
+      <div className="qhub-console min-h-dvh" style={{ padding: 22 }}>
+        <div
+          style={{
+            height: 44,
+            width: 240,
+            background: "var(--img-ph)",
+            borderRadius: 12,
+          }}
+        />
       </div>
     )
   }
@@ -171,160 +213,519 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     (item) => item.permission === null || can(item.permission)
   )
 
-  const isActive = (item: (typeof NAV)[number]) =>
+  const isActive = (item: NavItem) =>
     item.exact ? pathname === item.href : pathname.startsWith(item.href)
 
   return (
-    <div className="qhub-console min-h-dvh">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
-          <Link
-            href="/platform"
-            className="flex items-center gap-2.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+    <div
+      className="qhub-console"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        gap: 20,
+        alignItems: "flex-start",
+        padding: 22,
+      }}
+    >
+      <aside
+        style={{
+          position: "sticky",
+          top: 22,
+          width: 246,
+          flex: "0 0 246px",
+          height: "calc(100vh - 44px)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 26,
+          padding: "6px 4px",
+        }}
+      >
+        <Link
+          href="/platform"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 11,
+            padding: "6px 10px",
+            color: "inherit",
+            textDecoration: "none",
+          }}
+        >
+          <span
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: "var(--logo-tile)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="size-4" aria-hidden="true" />
+            <svg
+              style={{ stroke: "var(--logo-mark)" }}
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              strokeWidth="1.6"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
+            </svg>
+          </span>
+          <span>
+            <span
+              style={{
+                display: "block",
+                fontSize: 15,
+                fontWeight: 600,
+                letterSpacing: "-0.01em",
+                color: "var(--txt)",
+              }}
+            >
+              QHub
             </span>
-            <span>
-              <span className="block text-sm leading-tight font-bold text-sidebar-foreground">
-                QHUB Platform
-              </span>
-              <span className="block text-[10px] text-muted-foreground">
-                Estate console
-              </span>
+            <span
+              style={{ display: "block", fontSize: 11.5, color: "var(--txt3)" }}
+            >
+              Institutions manager
             </span>
-          </Link>
-        </div>
+          </span>
+        </Link>
 
         <nav
-          className="flex-1 space-y-0.5 overflow-y-auto p-2"
-          aria-label="Platform sections"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
+            whiteSpace: "nowrap",
+            overflowY: "auto",
+          }}
+          aria-label="Console sections"
         >
           {items.map((item) => (
-            <NavLink key={item.href} {...item} active={isActive(item)} />
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(item)}
+              count={item.badge ? counts?.[item.badge] : undefined}
+            />
           ))}
         </nav>
 
-        <div className="shrink-0 border-t border-sidebar-border p-2">
-          <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-              {initialsOf(
-                session?.user?.username ?? session?.user?.email ?? "?"
-              )}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-xs font-medium text-sidebar-foreground">
-                {session?.user?.username ?? "Platform"}
-              </span>
-              <span className="block truncate text-[10px] text-muted-foreground">
-                {session?.user?.email}
-              </span>
-            </span>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start"
-            onClick={() => signOut({ callbackUrl: SIGNIN_PATH })}
+        <div
+          style={{
+            marginTop: "auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "0 8px",
+          }}
+        >
+          <ThemeToggle />
+          <span
+            style={{
+              fontSize: 11.5,
+              color: "var(--icon2)",
+              whiteSpace: "nowrap",
+            }}
           >
-            <LogOut className="mr-2 size-4" aria-hidden="true" />
-            Sign out
-          </Button>
+            {CONSOLE_VERSION}
+          </span>
         </div>
       </aside>
 
-      {/* Narrow screens get the nav as a scrolling strip rather than a hidden
-          drawer — this is an operator tool, and a hamburger adds a tap between
-          them and the thing they came for. */}
-      <div className="sticky top-0 z-30 flex items-center gap-1 overflow-x-auto border-b border-border bg-background px-3 py-2 lg:hidden">
-        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-          <Building2 className="size-3.5" aria-hidden="true" />
-        </span>
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.comingSoon ? "#" : item.href}
-            aria-disabled={item.comingSoon}
-            className={cn(
-              "shrink-0 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap",
-              isActive(item)
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground",
-              item.comingSoon && "pointer-events-none opacity-50"
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Top bar. The bell lives here rather than in the sidebar so it is in
-          the same place on every screen — an alert you have to go looking for
-          is one you find late. */}
-      <div
-        className="sticky top-0 z-30 hidden items-center justify-end gap-1 border-b px-6 py-2 lg:ml-60 lg:flex"
-        style={{ borderColor: "var(--line)", background: "var(--card)" }}
+      <main
+        style={{
+          flex: "1 1 auto",
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
       >
-        <NotificationBell />
-      </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              flex: "1 1 auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              background: "var(--card)",
+              borderRadius: 999,
+              padding: "9px 10px",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <span
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                background: "var(--panel)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+              }}
+            >
+              <Search
+                size={16}
+                style={{ color: "var(--icon)" }}
+                aria-hidden="true"
+              />
+            </span>
+            {/*
+              Wired to the institutions list, which is the only searchable
+              index the API exposes today. Deliberately not a dead control:
+              it goes somewhere real rather than pretending to search
+              incidents and admins that have no search endpoint.
+            */}
+            <input
+              placeholder="Search institutions…"
+              aria-label="Search institutions"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const q = (e.target as HTMLInputElement).value.trim()
+                  router.push(
+                    q ? `/platform?q=${encodeURIComponent(q)}` : "/platform"
+                  )
+                }
+              }}
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                fontFamily: "inherit",
+                fontSize: 14.5,
+                color: "var(--txt)",
+                width: "100%",
+              }}
+            />
+            <kbd
+              style={{
+                fontSize: 11.5,
+                color: "var(--txt4)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 7,
+                padding: "3px 7px",
+                marginRight: 6,
+                fontFamily: "inherit",
+                flex: "0 0 auto",
+              }}
+            >
+              ⌘K
+            </kbd>
+          </div>
 
-      <main className="px-4 py-8 sm:px-6 lg:ml-60 lg:px-8">
-        <div className="mx-auto max-w-6xl">{children}</div>
+          <NotificationBell />
+
+          <AccountMenu
+            username={session?.user?.username ?? "Platform"}
+            email={session?.user?.email ?? undefined}
+          />
+        </div>
+
+        {children}
       </main>
     </div>
   )
 }
 
 function NavLink({
-  href,
-  label,
-  Icon,
+  item,
   active,
-  comingSoon,
+  count,
 }: {
-  href: string
-  label: string
-  Icon: typeof Building2
+  item: NavItem
   active: boolean
-  comingSoon?: boolean
+  count?: number
 }) {
-  const className = cn(
-    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
-    active
-      ? "bg-sidebar-primary/10 font-medium text-sidebar-foreground"
-      : "text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
-  )
+  const { Icon } = item
 
-  // Not yet built. Rendered as inert text rather than a link so it cannot lead
-  // to a 404, and labelled so it reads as forthcoming rather than broken.
-  if (comingSoon) {
-    return (
-      <span
-        className={cn(className, "cursor-default opacity-50")}
-        aria-disabled="true"
-      >
-        <Icon className="size-4 shrink-0" aria-hidden="true" />
-        {label}
-        <span className="ml-auto text-[10px] tracking-wide uppercase">
-          soon
-        </span>
-      </span>
-    )
-  }
+  // Zero is not shown. A badge reading 0 is a control asking for attention it
+  // does not need, and once people learn to ignore those they ignore the ones
+  // that matter.
+  const showBadge = typeof count === "number" && count > 0
+
+  const badgeTone =
+    item.tone === "neg"
+      ? { c: "var(--neg)", bg: "var(--neg-bg)" }
+      : item.tone === "warn"
+        ? { c: "var(--warn)", bg: "var(--warn-bg)" }
+        : { c: "var(--accent)", bg: "var(--accent-soft)" }
 
   return (
     <Link
-      href={href}
+      href={item.href}
       aria-current={active ? "page" : undefined}
-      className={className}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 11,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: active ? "var(--card)" : "transparent",
+        boxShadow: active ? "var(--shadow-nav)" : "none",
+        fontSize: 14.5,
+        fontWeight: active ? 600 : 500,
+        color: active ? "var(--txt)" : "var(--txt2)",
+        textDecoration: "none",
+      }}
     >
-      <Icon className="size-4 shrink-0" aria-hidden="true" />
-      {label}
+      <Icon
+        size={17}
+        style={{
+          color: active ? "var(--accent)" : "var(--icon2)",
+          flex: "0 0 auto",
+        }}
+        aria-hidden="true"
+      />
+      {item.label}
+      {showBadge && (
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: 11,
+            fontWeight: 600,
+            color: badgeTone.c,
+            background: badgeTone.bg,
+            padding: "2px 8px",
+            borderRadius: 999,
+          }}
+        >
+          {count}
+        </span>
+      )}
     </Link>
   )
 }
 
+/**
+ * Light and dark, persisted.
+ *
+ * Rendered only once mounted: next-themes cannot know the stored choice on the
+ * server, so painting a guess first produces a flash of the wrong state.
+ */
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme()
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        padding: 4,
+        background: "var(--card)",
+        borderRadius: 999,
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      <ThemeButton
+        label="Light"
+        active={resolvedTheme === "light"}
+        onClick={() => setTheme("light")}
+      >
+        <Sun size={16} aria-hidden="true" />
+      </ThemeButton>
+      <ThemeButton
+        label="Dark"
+        active={resolvedTheme === "dark"}
+        onClick={() => setTheme("dark")}
+      >
+        <Moon size={15} aria-hidden="true" />
+      </ThemeButton>
+    </div>
+  )
+}
+
+function ThemeButton({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 999,
+        background: active ? "var(--accent-soft)" : "transparent",
+        color: active ? "var(--accent)" : "var(--icon2)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "none",
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+/**
+ * The avatar, and the menu behind it.
+ *
+ * Two items, per the design: your own settings, and the way out. Closing on
+ * an outside click matters more here than elsewhere — this sits over the
+ * content on every screen.
+ */
+function AccountMenu({
+  username,
+  email,
+}: {
+  username: string
+  email?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+
+    document.addEventListener("mousedown", onDown)
+    document.addEventListener("keydown", onEsc)
+
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      document.removeEventListener("keydown", onEsc)
+    }
+  }, [open])
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flex: "0 0 auto" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`Account menu for ${username}`}
+        aria-expanded={open}
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 999,
+          background: "var(--card)",
+          boxShadow: "var(--shadow-sm)",
+          color: "var(--txt)",
+          display: "grid",
+          placeItems: "center",
+          fontSize: 12.5,
+          fontWeight: 600,
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {initialsOf(username)}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 10px)",
+            right: 0,
+            zIndex: 250,
+            minWidth: 220,
+            background: "var(--surface-solid)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: 16,
+            boxShadow: "var(--shadow-pop)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: "1px solid var(--line2)",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt)" }}>
+              {username}
+            </div>
+            {email && (
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--txt4)",
+                  marginTop: 2,
+                  wordBreak: "break-all",
+                }}
+              >
+                {email}
+              </div>
+            )}
+          </div>
+
+          <Link
+            href="/platform/settings"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            style={{
+              display: "block",
+              padding: "11px 16px",
+              fontSize: 13,
+              color: "var(--txt2)",
+              textDecoration: "none",
+            }}
+          >
+            Settings
+          </Link>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => signOut({ callbackUrl: SIGNIN_PATH })}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "11px 16px",
+              fontSize: 13,
+              color: "var(--txt2)",
+              background: "none",
+              border: "none",
+              borderTop: "1px solid var(--line2)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function initialsOf(value: string): string {
-  return value.slice(0, 2).toUpperCase()
+  const parts = value
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+
+  return (parts[0][0] + parts[1][0]).toUpperCase()
 }
