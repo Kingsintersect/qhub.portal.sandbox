@@ -29,11 +29,14 @@ export function NotificationKindBadge({ kind }: { kind: NotificationKind }) {
     <span
       className="qhub-mono"
       style={{
+        flex: "0 0 auto",
         color: t.tone,
         background: t.bg,
-        fontSize: 9.5,
-        letterSpacing: ".06em",
-        padding: "3px 6px",
+        fontSize: 8.5,
+        fontWeight: 600,
+        letterSpacing: ".08em",
+        padding: "3px 7px",
+        borderRadius: 6,
         whiteSpace: "nowrap",
       }}
     >

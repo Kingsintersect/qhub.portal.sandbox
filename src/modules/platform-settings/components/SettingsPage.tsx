@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 import QRCode from "qrcode"
 
 import {
@@ -27,22 +28,43 @@ const MIN_PASSWORD = 8
  * where the account is signed in, and what interrupts you.
  */
 export function SettingsPage() {
+  const { data: session } = useSession()
+
+  const identity = {
+    username: session?.user?.username ?? "",
+    email: session?.user?.email ?? "",
+    role: (session?.user?.roles?.[0] ?? "").toString().toLowerCase(),
+  }
+
   return (
-    <div style={{ padding: "26px 30px", maxWidth: 860 }}>
-      <h1
-        style={{
-          fontSize: 21,
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          color: "var(--txt)",
-          margin: 0,
-        }}
-      >
-        Settings
-      </h1>
-      <p style={{ fontSize: 13, color: "var(--txt3)", marginTop: 5 }}>
-        Your account. Nothing here affects any institution.
-      </p>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        maxWidth: 860,
+      }}
+    >
+      <div>
+        <h1
+          style={{
+            fontSize: 20,
+            fontWeight: 600,
+            letterSpacing: "-0.015em",
+            color: "var(--txt)",
+            margin: 0,
+          }}
+        >
+          Settings
+        </h1>
+        {/* The draft's subtitle is who you are signed in as, not a sentence
+            about the page. */}
+        <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 3 }}>
+          {[identity.username, identity.email, identity.role]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      </div>
 
       <div
         style={{
@@ -66,36 +88,43 @@ export function SettingsPage() {
 function Card({
   title,
   description,
+  action,
   children,
 }: {
   title: string
   description?: string
+  /** Sits at the far right of the heading row, as the draft places it. */
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <section
       style={{
         background: "var(--card)",
+        borderRadius: 20,
         boxShadow: "var(--shadow-card)",
-        padding: "20px 22px",
+        padding: "20px 24px",
       }}
     >
-      <h2
-        style={{
-          fontSize: 15,
-          fontWeight: 600,
-          color: "var(--txt)",
-          margin: 0,
-        }}
-      >
-        {title}
-      </h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <h2
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: "var(--txt)",
+            margin: 0,
+          }}
+        >
+          {title}
+        </h2>
+        {action}
+      </div>
       {description && (
         <p
           style={{
-            fontSize: 12.5,
-            color: "var(--txt3)",
-            marginTop: 4,
+            fontSize: 12,
+            color: "var(--txt4)",
+            marginTop: 6,
             lineHeight: 1.55,
           }}
         >
@@ -111,7 +140,7 @@ const label: React.CSSProperties = {
   fontSize: 11,
   letterSpacing: ".07em",
   color: "var(--txt4)",
-  marginBottom: 6,
+  marginBottom: 7,
 }
 
 const field: React.CSSProperties = {
@@ -119,10 +148,24 @@ const field: React.CSSProperties = {
   boxSizing: "border-box",
   background: "var(--panel)",
   border: "1px solid var(--line-strong)",
-  padding: "10px 12px",
-  fontSize: 13.5,
+  borderRadius: 10,
+  padding: "10px 13px",
+  fontSize: 13,
   color: "var(--txt)",
   outline: "none",
+  fontFamily: "inherit",
+}
+
+/** The draft's outlined secondary control. */
+const ghostButton: React.CSSProperties = {
+  border: "1px solid var(--line-strong)",
+  borderRadius: 9,
+  background: "transparent",
+  color: "var(--txt2)",
+  fontSize: 12,
+  fontWeight: 500,
+  padding: "7px 13px",
+  cursor: "pointer",
   fontFamily: "inherit",
 }
 
@@ -149,9 +192,10 @@ function Primary({
             ? "var(--neg)"
             : "var(--accent)",
         color: disabled ? "var(--txt4)" : "#fff",
-        fontSize: 13,
+        fontSize: 12.5,
         fontWeight: 500,
-        padding: "10px 16px",
+        padding: "11px 16px",
+        borderRadius: 10,
         border: "none",
         cursor: disabled ? "default" : "pointer",
         fontFamily: "inherit",
@@ -167,8 +211,8 @@ function Primary({
 function PasswordSection() {
   const [current, setCurrent] = useState("")
   const [next, setNext] = useState("")
-  const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
 
   const change = useChangePassword()
 
@@ -177,91 +221,118 @@ function PasswordSection() {
       setError(`Choose a password of at least ${MIN_PASSWORD} characters.`)
       return
     }
-    if (next !== confirm) {
-      setError("Those two passwords do not match.")
-      return
-    }
 
     setError(null)
     change.mutate(
       {
         currentPassword: current,
         password: next,
-        passwordConfirmation: confirm,
+        // The draft asks for the new password once. The API requires a
+        // confirmation field, so the same value is sent for it rather than
+        // adding a third box the design does not have.
+        passwordConfirmation: next,
       },
       {
         onSuccess: () => {
           setCurrent("")
           setNext("")
-          setConfirm("")
+          setDone(true)
         },
       }
     )
   }
 
+  const ready = current.length > 0 && next.length >= MIN_PASSWORD
+
   return (
-    <Card
-      title="Password"
-      description="Changing it signs out every other session on this account — including any you have forgotten about."
-    >
-      <div style={{ display: "grid", gap: 12, maxWidth: 400 }}>
+    <Card title="Password">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 150px",
+          gap: 10,
+          alignItems: "end",
+        }}
+      >
         <div>
-          <div style={label}>CURRENT PASSWORD</div>
+          <div style={label}>CURRENT</div>
           <input
             type="password"
             value={current}
-            onChange={(e) => setCurrent(e.target.value)}
+            onChange={(e) => {
+              setCurrent(e.target.value)
+              setDone(false)
+            }}
             autoComplete="current-password"
             aria-label="Current password"
             style={field}
           />
         </div>
         <div>
-          <div style={label}>NEW PASSWORD</div>
+          <div style={label}>NEW · MIN {MIN_PASSWORD} CHARACTERS</div>
           <input
             type="password"
             value={next}
-            onChange={(e) => setNext(e.target.value)}
-            placeholder="At least 8 characters"
+            onChange={(e) => {
+              setNext(e.target.value)
+              setDone(false)
+            }}
+            onKeyDown={(e) => e.key === "Enter" && ready && submit()}
             autoComplete="new-password"
             aria-label="New password"
             style={field}
           />
         </div>
-        <div>
-          <div style={label}>CONFIRM NEW PASSWORD</div>
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-            aria-label="Confirm new password"
-            style={field}
-          />
-        </div>
-
-        {error && (
-          <div
-            style={{
-              fontSize: 12.5,
-              color: "var(--neg)",
-              background: "var(--neg-bg)",
-              padding: "9px 12px",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div>
-          <Primary
-            onClick={submit}
-            disabled={!current || !next || change.isPending}
-          >
-            Change password
-          </Primary>
-        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!ready || change.isPending}
+          style={{
+            background: ready ? "var(--accent)" : "var(--line-strong)",
+            color: ready ? "#fff" : "var(--txt4)",
+            fontSize: 12.5,
+            fontWeight: 500,
+            padding: 11,
+            borderRadius: 10,
+            border: "none",
+            cursor: ready ? "pointer" : "default",
+            textAlign: "center",
+            fontFamily: "inherit",
+          }}
+        >
+          Change password
+        </button>
       </div>
+
+      {error && (
+        <div
+          style={{
+            fontSize: 12.5,
+            color: "var(--neg)",
+            background: "var(--neg-bg)",
+            borderRadius: 9,
+            padding: "9px 12px",
+            marginTop: 12,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {done && (
+        <div
+          style={{
+            fontSize: 12.5,
+            color: "var(--accent)",
+            background: "var(--good-bg)",
+            borderRadius: 9,
+            padding: "9px 12px",
+            marginTop: 12,
+          }}
+        >
+          Password changed. Every other session was signed out.
+        </div>
+      )}
     </Card>
   )
 }
@@ -342,24 +413,26 @@ function MfaSection() {
       <Card
         title="Two-factor authentication"
         description={`On since ${status.enrolledAt ? new Date(status.enrolledAt).toLocaleDateString() : "enrolment"} · ${status.recoveryCodesRemaining} recovery ${status.recoveryCodesRemaining === 1 ? "code" : "codes"} left.`}
+        action={
+          <>
+            <span style={{ fontSize: 12.5, color: "var(--accent)" }}>On</span>
+            {!disabling && (
+              <button
+                type="button"
+                onClick={() => setDisabling(true)}
+                style={{
+                  ...ghostButton,
+                  marginLeft: "auto",
+                  color: "var(--neg)",
+                }}
+              >
+                Turn off
+              </button>
+            )}
+          </>
+        }
       >
-        {!disabling ? (
-          <button
-            type="button"
-            onClick={() => setDisabling(true)}
-            style={{
-              fontSize: 12.5,
-              color: "var(--neg)",
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            Turn off two-factor authentication
-          </button>
-        ) : (
+        {disabling && (
           <div style={{ display: "grid", gap: 12, maxWidth: 380 }}>
             <div
               style={{
@@ -423,19 +496,40 @@ function MfaSection() {
   return (
     <Card
       title="Two-factor authentication"
-      description="Off. QHub staff accounts hold the keys to every institution on the estate — a password alone is not enough between anyone and that."
+      description="MFA is required for QHub staff. The audit log's MFA policy scan flags accounts without it — enrolment here clears the flag."
+      action={
+        <>
+          <span style={{ fontSize: 12.5, color: "var(--neg)" }}>Off</span>
+          {!enrolment && (
+            <button
+              type="button"
+              onClick={() =>
+                begin.mutate(undefined, {
+                  onSuccess: (data) => setEnrolment(data),
+                })
+              }
+              disabled={begin.isPending}
+              style={{ ...ghostButton, marginLeft: "auto" }}
+            >
+              Set up
+            </button>
+          )}
+        </>
+      }
     >
-      {!enrolment ? (
-        <Primary
-          onClick={() =>
-            begin.mutate(undefined, { onSuccess: (data) => setEnrolment(data) })
-          }
-          disabled={begin.isPending}
+      {enrolment && (
+        <div
+          style={{
+            display: "flex",
+            gap: 20,
+            alignItems: "center",
+            flexWrap: "wrap",
+            border: "1px solid var(--line2)",
+            borderRadius: 14,
+            background: "var(--panel)",
+            padding: 18,
+          }}
         >
-          Set up an authenticator
-        </Primary>
-      ) : (
-        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
           <div>
             {qrImage ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -497,7 +591,14 @@ function MfaSection() {
               style={{ ...field, fontSize: 17, letterSpacing: ".3em" }}
             />
 
-            <div style={{ marginTop: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 12,
+                alignItems: "center",
+              }}
+            >
               <Primary
                 onClick={() =>
                   confirm.mutate(code, {
@@ -510,8 +611,33 @@ function MfaSection() {
                 }
                 disabled={code.length !== 6 || confirm.isPending}
               >
-                Verify &amp; turn on
+                Verify &amp; enrol
               </Primary>
+              <button
+                type="button"
+                onClick={() => {
+                  setEnrolment(null)
+                  setCode("")
+                }}
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--txt3)",
+                  background: "none",
+                  border: "none",
+                  padding: "9px 6px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div
+              style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 10 }}
+            >
+              Recovery codes are shown once after verification — store them
+              outside this device.
             </div>
           </div>
         </div>
@@ -530,9 +656,64 @@ function SessionsSection() {
 
   return (
     <Card
-      title="Sessions and devices"
-      description="Everywhere this account is currently signed in."
+      title="Sessions & devices"
+      action={
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          style={{
+            ...ghostButton,
+            marginLeft: "auto",
+            color: "var(--neg)",
+          }}
+        >
+          Sign out everywhere
+        </button>
+      }
     >
+      {confirming && (
+        <div
+          style={{
+            background: "var(--warn-bg)",
+            borderRadius: 9,
+            padding: "10px 13px",
+            marginBottom: 12,
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{ fontSize: 12.5, color: "var(--warn)", lineHeight: 1.5 }}
+          >
+            This ends every session including this one. You will be signed out
+            and will need to sign in again.
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Primary
+              tone="danger"
+              onClick={() => signOutAll.mutate()}
+              disabled={signOutAll.isPending}
+            >
+              Sign out everywhere
+            </Primary>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              style={{
+                fontSize: 12.5,
+                color: "var(--txt3)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading && (
         <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>Loading…</div>
       )}
@@ -550,41 +731,22 @@ function SessionsSection() {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
               gap: 12,
               padding: "11px 0",
               borderBottom: "1px solid var(--line2)",
+              fontSize: 13,
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--txt)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
+              <div style={{ fontWeight: 500, color: "var(--txt)" }}>
                 {s.device}
-                {s.isCurrent && (
-                  <span
-                    className="qhub-mono"
-                    style={{
-                      fontSize: 9.5,
-                      letterSpacing: ".06em",
-                      color: "var(--accent)",
-                      background: "var(--accent-soft)",
-                      padding: "2px 6px",
-                    }}
-                  >
-                    THIS DEVICE
-                  </span>
-                )}
               </div>
               <div
-                className="qhub-mono"
-                style={{ fontSize: 11, color: "var(--txt4)", marginTop: 3 }}
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--txt4)",
+                  marginTop: 2,
+                }}
               >
                 {s.ipAddress ?? "unknown IP"} ·{" "}
                 {s.lastActive
@@ -598,20 +760,38 @@ function SessionsSection() {
               </div>
             </div>
 
-            {/* The current session gets no end button: ending the one you are
-                sitting in reads as a bug, not a feature. */}
-            {!s.isCurrent && (
+            {s.isCurrent ? (
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: ".06em",
+                  color: "var(--accent)",
+                  background: "var(--good-bg)",
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                }}
+              >
+                THIS DEVICE
+              </span>
+            ) : (
+              // The current session gets no end button: ending the one you are
+              // sitting in reads as a bug.
               <button
                 type="button"
                 onClick={() => endSession.mutate(s.id)}
                 disabled={endSession.isPending}
                 style={{
-                  fontSize: 12,
-                  color: "var(--neg)",
-                  background: "none",
-                  border: "none",
+                  marginLeft: "auto",
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 8,
+                  background: "transparent",
+                  color: "var(--txt3)",
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  padding: "5px 11px",
                   cursor: "pointer",
-                  whiteSpace: "nowrap",
                   fontFamily: "inherit",
                 }}
               >
@@ -620,65 +800,6 @@ function SessionsSection() {
             )}
           </div>
         ))}
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        {!confirming ? (
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            style={{
-              fontSize: 12.5,
-              color: "var(--neg)",
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            Sign out everywhere
-          </button>
-        ) : (
-          <div
-            style={{
-              background: "var(--warn-bg)",
-              padding: "12px 14px",
-              display: "grid",
-              gap: 10,
-            }}
-          >
-            <div
-              style={{ fontSize: 12.5, color: "var(--warn)", lineHeight: 1.5 }}
-            >
-              This ends every session including this one. You will be signed out
-              and will need to sign in again.
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <Primary
-                tone="danger"
-                onClick={() => signOutAll.mutate()}
-                disabled={signOutAll.isPending}
-              >
-                Sign out everywhere
-              </Primary>
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                style={{
-                  fontSize: 12.5,
-                  color: "var(--txt3)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </Card>
   )
@@ -692,46 +813,94 @@ function NotificationPreferencesSection() {
 
   return (
     <Card
-      title="What interrupts you"
-      description="These mute the bell, not the record. Ticket assignments stay visible to everyone by design — muting one does not opt you out of the work."
+      title="Notification preferences"
+      description="These mute the bell, not the record — assignments stay visible to everyone in the queues by design."
     >
       {isLoading && (
         <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>Loading…</div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {NOTIFICATION_KINDS.map((kind) => {
           // The API returns every kind, filling unset ones with true, so an
           // absent key only happens while the request is still in flight.
           const enabled = prefs?.[kind] ?? true
 
           return (
-            <label
+            <div
               key={kind}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 0",
-                borderBottom: "1px solid var(--line2)",
-                fontSize: 13,
-                color: "var(--txt)",
-                textTransform: "capitalize",
-                cursor: "pointer",
-              }}
+              style={{ display: "flex", alignItems: "center", gap: 12 }}
             >
-              {kind}
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) =>
-                  setPref.mutate({ kind, enabled: e.target.checked })
-                }
+              <Toggle
+                on={enabled}
+                label={`Notify me about ${kind}`}
+                onChange={(value) => setPref.mutate({ kind, enabled: value })}
               />
-            </label>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "var(--txt2)",
+                  textTransform: "capitalize",
+                }}
+              >
+                {kind}
+              </span>
+            </div>
           )
         })}
       </div>
     </Card>
+  )
+}
+
+/**
+ * The draft's pill switch.
+ *
+ * A real button rather than a styled div: it has to be reachable by keyboard
+ * and announce its state, which a div with an onClick does neither of.
+ */
+function Toggle({
+  on,
+  label,
+  onChange,
+}: {
+  on: boolean
+  label: string
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => onChange(!on)}
+      style={{
+        position: "relative",
+        width: 34,
+        height: 18,
+        flex: "0 0 34px",
+        borderRadius: 999,
+        background: on ? "var(--accent)" : "var(--line-strong)",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        transition: "background .15s",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 2,
+          left: on ? 18 : 2,
+          width: 14,
+          height: 14,
+          borderRadius: 999,
+          background: "#fff",
+          transition: "left .15s",
+          boxShadow: "0 1px 3px rgba(8,12,18,.3)",
+        }}
+      />
+    </button>
   )
 }

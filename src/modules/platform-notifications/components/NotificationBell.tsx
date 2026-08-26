@@ -69,33 +69,39 @@ export function NotificationBell() {
         aria-expanded={open}
         style={{
           position: "relative",
-          display: "grid",
-          placeItems: "center",
-          width: 34,
-          height: 34,
-          background: open ? "var(--accent-soft)" : "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 44,
+          height: 44,
+          borderRadius: 999,
+          background: "var(--card)",
+          boxShadow: "var(--shadow-sm)",
           border: "none",
           cursor: "pointer",
-          color: "var(--icon)",
+          color: "var(--icon-strong)",
         }}
       >
-        <Bell size={17} aria-hidden="true" />
+        <Bell size={18} strokeWidth={1.7} aria-hidden="true" />
         {unread > 0 && (
           <span
             className="qhub-mono"
             style={{
               position: "absolute",
-              top: 2,
-              right: 1,
-              minWidth: 15,
-              height: 15,
-              padding: "0 3px",
+              top: 6,
+              right: 6,
+              minWidth: 16,
+              height: 16,
+              borderRadius: 999,
               background: "var(--neg)",
               color: "#fff",
-              fontSize: 9,
-              lineHeight: "15px",
-              textAlign: "center",
-              borderRadius: 8,
+              fontSize: 9.5,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 4px",
+              boxSizing: "border-box",
             }}
           >
             {unread > 99 ? "99+" : unread}
@@ -109,15 +115,17 @@ export function NotificationBell() {
           aria-label="Notifications"
           style={{
             position: "absolute",
-            top: 42,
+            top: "calc(100% + 10px)",
             right: 0,
-            width: 380,
-            maxHeight: 460,
+            zIndex: 250,
+            width: 420,
             display: "flex",
             flexDirection: "column",
             background: "var(--surface-solid)",
-            boxShadow: "var(--shadow-pop)",
-            zIndex: 60,
+            border: "1px solid var(--line-strong)",
+            borderRadius: 16,
+            boxShadow: "0 24px 64px rgba(8,12,18,.3)",
+            overflow: "hidden",
           }}
         >
           <div
@@ -125,11 +133,11 @@ export function NotificationBell() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "12px 14px",
-              borderBottom: "1px solid var(--line)",
+              padding: "14px 18px",
+              borderBottom: "1px solid var(--line2)",
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt)" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--txt)" }}>
               Notifications
             </div>
             {unread > 0 && (
@@ -152,7 +160,7 @@ export function NotificationBell() {
             )}
           </div>
 
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          <div style={{ maxHeight: 420, overflow: "auto" }}>
             {isLoading && (
               <div
                 style={{
