@@ -35,6 +35,8 @@ export interface AdmissionConfig {
 export interface CreateAdmissionStepPayload {
   group: AdmissionStepGroup
   key: string
+  /** Display/navigation order within its group — the backend requires this on create, it isn't auto-assigned. */
+  order: number
   label: string
   description: string
   icon: string
