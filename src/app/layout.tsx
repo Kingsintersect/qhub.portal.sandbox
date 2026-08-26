@@ -1,4 +1,4 @@
-import { Geist_Mono, Outfit } from "next/font/google"
+import { Geist, Geist_Mono, Outfit } from "next/font/google"
 
 import "./globals.css"
 import { cn } from "@/lib/utils"
@@ -8,6 +8,10 @@ import { TenantProvider } from "@/lib/tenant/tenant-context"
 import { TenantBrandingStyle } from "@/lib/tenant/branding-style"
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" })
+
+// The platform console is set in Geist, per the design system for the estate
+// console. The institution portals keep Outfit.
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -35,6 +39,7 @@ export default async function RootLayout({
         "antialiased",
         fontMono.variable,
         outfit.variable,
+        geist.variable,
         "font-sans"
       )}
     >

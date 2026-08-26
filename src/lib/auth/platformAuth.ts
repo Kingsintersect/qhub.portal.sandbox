@@ -30,6 +30,9 @@ export type PlatformAuthUser = {
 type PlatformLoginResponse = {
   accessToken?: string
   refreshToken?: string
+  /** Present with 202 when the password was right and the code is still owed. */
+  mfaRequired?: boolean
+  message?: string
   user?: {
     id: number | string
     email: string
@@ -41,19 +44,81 @@ type PlatformLoginResponse = {
   }
 }
 
+/**
+ * Why a sign-in did not produce a session.
+ *
+ * Three outcomes, deliberately distinguished, because the console says
+ * something different for each and saying the wrong one wastes the person's
+ * time. In particular an invited account that has never set a password is NOT
+ * a wrong password — telling somebody to check their typing when the real
+ * answer is "use the link in your invitation" sends them round in circles.
+ */
+export type PlatformLoginFailure =
+  | "MFA_REQUIRED"
+  | "PASSWORD_NOT_SET"
+  | "ACCOUNT_INACTIVE"
+  | "INVALID_CREDENTIALS"
+
+export class PlatformLoginError extends Error {
+  constructor(
+    public readonly reason: PlatformLoginFailure,
+    message: string
+  ) {
+    super(message)
+    this.name = "PlatformLoginError"
+  }
+}
+
+/**
+ * The API answers a correct password on an MFA account with 202 and
+ * `mfaRequired`, expecting the same credentials again with the code. Axios
+ * treats 202 as success, so this is read off the body rather than caught.
+ */
+const isMfaChallenge = (response: PlatformLoginResponse): boolean =>
+  response.mfaRequired === true
+
 export const loginWithPlatformBackend = async (payload: {
   identifier: string
   password: string
+  mfaCode?: string
   apiBaseUrl?: string
 }): Promise<PlatformAuthUser> => {
-  const response = await apiClient.post<PlatformLoginResponse>(
-    "/platform/auth/login",
-    {
-      emailOrUsername: payload.identifier,
-      password: payload.password,
-    },
-    payload.apiBaseUrl ? { baseURL: payload.apiBaseUrl } : {}
-  )
+  let response: PlatformLoginResponse
+
+  try {
+    response = await apiClient.post<PlatformLoginResponse>(
+      "/platform/auth/login",
+      {
+        emailOrUsername: payload.identifier,
+        password: payload.password,
+        // Omitted on the first attempt. The API replies 202 asking for it.
+        ...(payload.mfaCode ? { mfaCode: payload.mfaCode } : {}),
+      },
+      payload.apiBaseUrl ? { baseURL: payload.apiBaseUrl } : {}
+    )
+  } catch (error) {
+    const status = (error as { status?: number } | null)?.status
+    const message =
+      (error as { message?: string } | null)?.message ?? "Sign-in failed."
+
+    if (status === 403) {
+      // 403 covers two different refusals and the console must not merge
+      // them: one is fixable by the person, the other is not.
+      throw new PlatformLoginError(
+        /invitation/i.test(message) ? "PASSWORD_NOT_SET" : "ACCOUNT_INACTIVE",
+        message
+      )
+    }
+
+    throw new PlatformLoginError("INVALID_CREDENTIALS", message)
+  }
+
+  if (isMfaChallenge(response)) {
+    throw new PlatformLoginError(
+      "MFA_REQUIRED",
+      response.message ?? "Enter the six-digit code from your authenticator."
+    )
+  }
 
   if (!response.user || !response.accessToken || !response.refreshToken) {
     throw new Error("Invalid authentication response from platform API.")
@@ -145,4 +210,37 @@ export const isPlatformHost = (): boolean => {
   return (
     !!platformHost && window.location.hostname.toLowerCase() === platformHost
   )
+}
+
+/**
+ * Ask for a reset or invitation link.
+ *
+ * The API answers identically whether or not the address is registered, and
+ * this screen must not undo that by behaving differently on failure — so the
+ * caller reports "sent" either way.
+ */
+export const requestPlatformPasswordReset = async (
+  email: string
+): Promise<void> => {
+  await apiClient.post("/platform/auth/forgot-password", { email })
+}
+
+/**
+ * Spend a reset or invitation token and set the password.
+ *
+ * The token is what proves the person owns the address. An endpoint that set a
+ * password from an email address alone would let anybody take over any
+ * account, which is why the invitation card collects an address and sends a
+ * link rather than setting the password there.
+ */
+export const setPlatformPassword = async (payload: {
+  token: string
+  password: string
+  passwordConfirmation: string
+}): Promise<void> => {
+  await apiClient.post("/platform/auth/reset-password", {
+    token: payload.token,
+    password: payload.password,
+    password_confirmation: payload.passwordConfirmation,
+  })
 }

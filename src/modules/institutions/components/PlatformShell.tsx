@@ -22,6 +22,15 @@ import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 const SIGNIN_PATH = "/platform/signin"
 
 /**
+ * Routes that must render without a session.
+ *
+ * Somebody following an invitation or reset link has no account to sign in
+ * with yet — that is the whole point of the link — so bouncing them to the
+ * sign-in screen would make the link impossible to use.
+ */
+const UNAUTHENTICATED_PATHS = [SIGNIN_PATH, "/platform/set-password"]
+
+/**
  * Navigation for the platform console.
  *
  * A sidebar rather than a top bar, matching the institution portal so the two
@@ -94,7 +103,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { can } = usePlatformPermissions()
 
-  const isSigninPage = pathname === SIGNIN_PATH
+  const isSigninPage = UNAUTHENTICATED_PATHS.includes(pathname)
   const isPlatformUser = session?.user?.isPlatform === true
 
   useEffect(() => {

@@ -2,145 +2,647 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
 import { signIn } from "next-auth/react"
-import { Building2, Loader2 } from "lucide-react"
-import { z } from "zod"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-
-const signinSchema = z.object({
-  identifier: z.string().min(1, "Enter your email or username"),
-  password: z.string().min(1, "Enter your password"),
-})
-
-type SigninValues = z.infer<typeof signinSchema>
+import { requestPlatformPasswordReset } from "@/lib/auth/platformAuth"
 
 /**
- * Sign-in for platform staff. Uses the `platform-credentials` provider, which
- * authenticates against the central database rather than any institution's.
+ * Sign-in for platform staff.
+ *
+ * Lifted from the QHub estate console design. Every colour, size, weight and
+ * sentence here comes from that draft — nothing is improvised.
+ *
+ * Four states on one square-cornered card, because they are four different
+ * conversations and merging any two of them wastes somebody's time:
+ *
+ *  - **signin** — email and password.
+ *  - **mfa** — the password was right and no session exists yet. Distinct on
+ *    purpose: the design's line is "no session exists until it's right".
+ *  - **forgot** — a non-disclosing sent state that reveals nothing about
+ *    whether the address is registered.
+ *  - **invite** — an account that was created but never set up. This is NOT a
+ *    wrong password, and telling somebody to check their typing when the real
+ *    answer is "use the link in your invitation" sends them round in circles.
  */
+
+type Mode = "signin" | "mfa" | "forgot" | "invite"
+type SigninError = "plain" | "unset" | null
+
+// Straight from the design's palette.
+const C = {
+  ink: "#141A22",
+  body: "#5A6472",
+  bodyStrong: "#3E4753",
+  label: "#8A93A0",
+  accent: "#1D5FBF",
+  accentHover: "#174C99",
+  field: "#F5F7FA",
+  fieldBorder: "#DCE1E8",
+  negText: "#C2453A",
+  negBg: "#FBEBE9",
+  warnText: "#8A6116",
+  warnBg: "#FBF3E2",
+  infoBg: "#EDF3FC",
+  disabledBg: "#E8EBF0",
+  disabledText: "#A6AEB9",
+} as const
+
+const fieldStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  background: C.field,
+  border: `1px solid ${C.fieldBorder}`,
+  padding: "12px 14px",
+  fontSize: 14,
+  color: C.ink,
+  outline: "none",
+  fontFamily: "inherit",
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  letterSpacing: ".07em",
+  color: C.label,
+  marginTop: 22,
+  marginBottom: 7,
+}
+
+const primaryStyle: React.CSSProperties = {
+  marginTop: 20,
+  background: C.accent,
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: 500,
+  padding: 13,
+  textAlign: "center",
+  cursor: "pointer",
+  border: "none",
+  width: "100%",
+  fontFamily: "inherit",
+}
+
+const linkStyle: React.CSSProperties = {
+  fontSize: 12.5,
+  color: C.accent,
+  cursor: "pointer",
+  background: "none",
+  border: "none",
+  padding: 0,
+  fontFamily: "inherit",
+}
+
 export default function PlatformSigninPage() {
   const router = useRouter()
-  const [formError, setFormError] = useState<string | null>(null)
 
-  const form = useForm<SigninValues>({
-    resolver: zodResolver(signinSchema),
-    defaultValues: { identifier: "", password: "" },
-  })
+  const [mode, setMode] = useState<Mode>("signin")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [code, setCode] = useState("")
+  const [error, setError] = useState<SigninError>(null)
+  const [inviteErr, setInviteErr] = useState(false)
+  const [forgotErr, setForgotErr] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setFormError(null)
+  const toSignin = () => {
+    setMode("signin")
+    setSent(false)
+    setError(null)
+    setCode("")
+  }
+
+  /**
+   * One call serves both the password step and the code step: the API answers
+   * a correct password on an MFA account by asking for the code, and expects
+   * the same credentials back with it.
+   */
+  const attempt = async (mfaCode?: string) => {
+    setBusy(true)
+    setError(null)
 
     const result = await signIn("platform-credentials", {
-      ...values,
+      identifier: email,
+      password,
+      mfaCode: mfaCode ?? "",
       redirect: false,
     })
 
-    if (!result?.ok) {
-      // Deliberately not distinguishing unknown account from wrong password —
-      // mirrors the API, which does the same to avoid account enumeration.
-      setFormError("Those credentials were not recognised.")
+    setBusy(false)
+
+    if (result?.ok) {
+      router.replace("/platform")
+      router.refresh()
       return
     }
 
-    router.replace("/platform")
-    router.refresh()
-  })
+    switch (result?.error) {
+      case "MFA_REQUIRED":
+        setMode("mfa")
+        setCode("")
+        return
+      case "PASSWORD_NOT_SET":
+        setMode("signin")
+        setError("unset")
+        return
+      default:
+        setError("plain")
+    }
+  }
+
+  const submitSignin = () => {
+    if (!email.trim() || !password) {
+      setError("plain")
+      return
+    }
+    void attempt()
+  }
+
+  const sendReset = async () => {
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setForgotErr(true)
+      return
+    }
+
+    setForgotErr(false)
+    setBusy(true)
+    // Always reports sent, whatever the answer — the API does not disclose
+    // whether the address is registered and neither does this screen.
+    await requestPlatformPasswordReset(email).catch(() => undefined)
+    setBusy(false)
+    setSent(true)
+  }
+
+  const requestInvite = async () => {
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setInviteErr(true)
+      return
+    }
+
+    setInviteErr(false)
+    setBusy(true)
+    await requestPlatformPasswordReset(email).catch(() => undefined)
+    setBusy(false)
+    setSent(true)
+    setMode("forgot")
+  }
+
+  const codeReady = code.length === 6
 
   return (
-    <div className="grid min-h-dvh place-items-center px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-3 text-center">
-          <span className="mx-auto grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Building2 className="size-5" aria-hidden="true" />
-          </span>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">
-              QHUB Platform
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to manage institutions.
-            </p>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "url('/platform/login-bg.jpg') center / cover no-repeat",
+        fontFamily: "var(--font-geist), Geist, 'Helvetica Neue', sans-serif",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 32,
+        boxSizing: "border-box",
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(10,16,28,.22)",
+        }}
+        aria-hidden="true"
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          top: 28,
+          left: 32,
+          display: "flex",
+          alignItems: "center",
+          gap: 11,
+        }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            background: "rgba(255,255,255,.92)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 24px rgba(8,12,18,.25)",
+          }}
+        >
+          <svg
+            style={{ stroke: C.accent }}
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth="1.6"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
+          </svg>
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              color: "#fff",
+              textShadow: "0 1px 8px rgba(8,12,18,.4)",
+            }}
+          >
+            QHub
           </div>
-        </CardHeader>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: "rgba(255,255,255,.85)",
+              textShadow: "0 1px 6px rgba(8,12,18,.4)",
+            }}
+          >
+            Institutions manager
+          </div>
+        </div>
+      </div>
 
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
-            <div className="space-y-1.5">
-              <Label htmlFor="identifier">Email or username</Label>
-              <Input
-                id="identifier"
-                autoComplete="username"
-                aria-describedby={
-                  form.formState.errors.identifier
-                    ? "identifier-error"
-                    : undefined
-                }
-                {...form.register("identifier")}
-              />
-              {form.formState.errors.identifier && (
-                <p
-                  id="identifier-error"
-                  role="alert"
-                  className="text-xs font-medium text-destructive"
-                >
-                  {form.formState.errors.identifier.message}
-                </p>
-              )}
+      <div
+        style={{
+          position: "relative",
+          width: 400,
+          background: "#FFFFFF",
+          boxShadow: "0 40px 100px rgba(8,12,18,.45)",
+          padding: "34px 34px 30px",
+          color: C.ink,
+        }}
+      >
+        {mode === "forgot" && (
+          <>
+            <div
+              style={{
+                fontSize: 21,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Reset password
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                aria-describedby={
-                  form.formState.errors.password ? "password-error" : undefined
-                }
-                {...form.register("password")}
-              />
-              {form.formState.errors.password && (
-                <p
-                  id="password-error"
-                  role="alert"
-                  className="text-xs font-medium text-destructive"
+            {sent ? (
+              <>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: C.bodyStrong,
+                    lineHeight: 1.6,
+                    marginTop: 14,
+                    background: C.infoBg,
+                    padding: "12px 14px",
+                  }}
                 >
-                  {form.formState.errors.password.message}
-                </p>
-              )}
-            </div>
+                  If that address belongs to a QHub account, a reset link is on
+                  its way. It expires in 30 minutes and works once. Nothing is
+                  revealed about whether the account exists.
+                </div>
+                <button
+                  type="button"
+                  onClick={toSignin}
+                  style={{
+                    ...linkStyle,
+                    fontSize: 13,
+                    marginTop: 18,
+                    display: "block",
+                  }}
+                >
+                  ← Back to sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: C.body, marginTop: 5 }}>
+                  Enter your work email — we send a single-use reset link.
+                </div>
+                <div style={labelStyle}>WORK EMAIL</div>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void sendReset()}
+                  placeholder="you@qhub.io"
+                  style={fieldStyle}
+                  aria-label="Work email"
+                />
+                {forgotErr && (
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      color: C.negText,
+                      background: C.negBg,
+                      padding: "9px 12px",
+                      marginTop: 12,
+                    }}
+                  >
+                    That doesn&apos;t look like an email address.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void sendReset()}
+                  disabled={busy}
+                  style={primaryStyle}
+                >
+                  Send reset link
+                </button>
+                <button
+                  type="button"
+                  onClick={toSignin}
+                  style={{ ...linkStyle, marginTop: 16, display: "block" }}
+                >
+                  ← Back to sign in
+                </button>
+              </>
+            )}
+          </>
+        )}
 
-            {formError && (
-              <p
-                role="alert"
-                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive"
+        {mode === "invite" && (
+          <>
+            <div
+              style={{
+                fontSize: 21,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Welcome to QHub
+            </div>
+            <div style={{ fontSize: 13, color: C.body, marginTop: 5 }}>
+              First sign-in — set your password to activate the account your
+              admin created.
+            </div>
+            <div style={labelStyle}>INVITED EMAIL</div>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void requestInvite()}
+              placeholder="you@qhub.io"
+              style={fieldStyle}
+              aria-label="Invited email"
+            />
+            {inviteErr && (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  color: C.negText,
+                  background: C.negBg,
+                  padding: "9px 12px",
+                  marginTop: 12,
+                }}
               >
-                {formError}
-              </p>
+                Use the invited email address.
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: C.label, marginTop: 12 }}>
+              We send a single-use link to that address — you choose your
+              password there, then enrol an authenticator app. QHub staff
+              accounts require MFA.
+            </div>
+            <button
+              type="button"
+              onClick={() => void requestInvite()}
+              disabled={busy}
+              style={{ ...primaryStyle, marginTop: 16 }}
+            >
+              Send my setup link
+            </button>
+            <button
+              type="button"
+              onClick={toSignin}
+              style={{ ...linkStyle, marginTop: 16, display: "block" }}
+            >
+              ← Back to sign in
+            </button>
+          </>
+        )}
+
+        {mode === "mfa" && (
+          <>
+            <div
+              style={{
+                fontSize: 21,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Check your authenticator
+            </div>
+            <div style={{ fontSize: 13, color: C.body, marginTop: 5 }}>
+              Password confirmed. Enter the 6-digit code from your authenticator
+              app — no session exists until it&apos;s right.
+            </div>
+            <div style={labelStyle}>6-DIGIT CODE</div>
+            <input
+              value={code}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              onKeyDown={(e) =>
+                e.key === "Enter" && codeReady && void attempt(code)
+              }
+              placeholder="••••••"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              aria-label="Six-digit authenticator code"
+              style={{
+                ...fieldStyle,
+                fontSize: 18,
+                letterSpacing: ".35em",
+                fontFamily: "var(--font-mono), 'Geist Mono', monospace",
+              }}
+            />
+            {error === "plain" && (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  color: C.negText,
+                  background: C.negBg,
+                  padding: "9px 12px",
+                  marginTop: 12,
+                }}
+              >
+                That code is not right. Check your authenticator and try the
+                next one.
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => codeReady && void attempt(code)}
+              disabled={!codeReady || busy}
+              style={{
+                ...primaryStyle,
+                background: codeReady ? C.accent : C.disabledBg,
+                color: codeReady ? "#fff" : C.disabledText,
+                cursor: codeReady ? "pointer" : "default",
+              }}
+            >
+              Verify &amp; sign in
+            </button>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginTop: 16,
+              }}
+            >
+              <button type="button" onClick={toSignin} style={linkStyle}>
+                ← Start over
+              </button>
+              <div style={{ fontSize: 12, color: C.label }}>
+                Lost your device? Use a recovery code
+              </div>
+            </div>
+          </>
+        )}
+
+        {mode === "signin" && (
+          <>
+            <div
+              style={{
+                fontSize: 21,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Sign in
+            </div>
+            <div style={{ fontSize: 13, color: C.body, marginTop: 5 }}>
+              The estate console for QHub staff.
+            </div>
+
+            <div style={{ ...labelStyle, marginTop: 24 }}>WORK EMAIL</div>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSignin()}
+              placeholder="you@qhub.io"
+              autoComplete="username"
+              aria-label="Work email"
+              style={fieldStyle}
+            />
+
+            <div style={labelStyle}>PASSWORD</div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSignin()}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              aria-label="Password"
+              style={fieldStyle}
+            />
+
+            {error === "plain" && (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  color: C.negText,
+                  background: C.negBg,
+                  padding: "9px 12px",
+                  marginTop: 12,
+                }}
+              >
+                That didn&apos;t work — check the email address and password,
+                then try again.
+              </div>
+            )}
+            {error === "unset" && (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  color: C.warnText,
+                  background: C.warnBg,
+                  padding: "9px 12px",
+                  marginTop: 12,
+                }}
+              >
+                This account hasn&apos;t been set up yet — set your password
+                using the link in your invitation. Nothing is wrong with the
+                password you typed.
+              </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={form.formState.isSubmitting}
+            <button
+              type="button"
+              onClick={submitSignin}
+              disabled={busy}
+              style={primaryStyle}
             >
-              {form.formState.isSubmitting && (
-                <Loader2
-                  className="mr-2 size-4 animate-spin"
-                  aria-hidden="true"
-                />
-              )}
               Sign in
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </button>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginTop: 16,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("forgot")
+                  setSent(false)
+                  setError(null)
+                }}
+                style={linkStyle}
+              >
+                Forgot password?
+              </button>
+              <div style={{ fontSize: 12, color: C.label }}>
+                Password + 6-digit code
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode("invite")
+                setInviteErr(false)
+              }}
+              style={{
+                ...linkStyle,
+                fontSize: 12,
+                color: C.label,
+                marginTop: 12,
+                display: "block",
+              }}
+            >
+              Invited by your admin?{" "}
+              <span style={{ color: C.accent }}>Set your password</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          bottom: 22,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontSize: 11.5,
+          color: "rgba(255,255,255,.75)",
+          textShadow: "0 1px 6px rgba(8,12,18,.4)",
+        }}
+      >
+        © 2026 QHub · access is logged to the platform audit trail
+      </div>
     </div>
   )
 }

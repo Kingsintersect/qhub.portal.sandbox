@@ -2,7 +2,10 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { UserRole } from "@/config/nav.config"
 import { loginWithBackend } from "@/lib/auth/backendAuth"
-import { loginWithPlatformBackend } from "@/lib/auth/platformAuth"
+import {
+  loginWithPlatformBackend,
+  PlatformLoginError,
+} from "@/lib/auth/platformAuth"
 import { resolveApiBaseUrl } from "@/lib/tenant/api-origin"
 
 const normalizeRoles = (roles: string[] | undefined): UserRole[] => {
@@ -108,10 +111,12 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         identifier: { label: "Email or Username", type: "text" },
         password: { label: "Password", type: "password" },
+        mfaCode: { label: "Authenticator code", type: "text" },
       },
       async authorize(credentials, req) {
         const password = String(credentials?.password ?? "")
         const identifier = String(credentials?.identifier ?? "").trim()
+        const mfaCode = String(credentials?.mfaCode ?? "").trim()
         if (!identifier || !password) {
           return null
         }
@@ -126,6 +131,7 @@ export const authOptions: NextAuthOptions = {
           const user = await loginWithPlatformBackend({
             identifier,
             password,
+            mfaCode: mfaCode || undefined,
             apiBaseUrl: resolveApiBaseUrl(host),
           })
 
@@ -153,7 +159,16 @@ export const authOptions: NextAuthOptions = {
             permissions: user.permissions,
             isPlatform: true,
           }
-        } catch {
+        } catch (error) {
+          // Rethrown so the sign-in screen can tell the three refusals apart:
+          // a code is owed, the account was invited but never set up, or the
+          // credentials are simply wrong. next-auth surfaces the thrown
+          // message as `result.error`, and returning null would flatten all
+          // three into one unhelpful sentence.
+          if (error instanceof PlatformLoginError) {
+            throw new Error(error.reason)
+          }
+
           return null
         }
       },
