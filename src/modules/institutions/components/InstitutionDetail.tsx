@@ -25,6 +25,7 @@ import { CourseImportPanel } from "@/modules/platform-operations/components/Cour
 import { DirectoryPanel } from "@/modules/platform-operations/components/DirectoryPanel"
 import { FeatureControlPanel } from "@/modules/platform-controls/components/FeatureControlPanel"
 import { MaintenancePanel } from "@/modules/platform-controls/components/MaintenancePanel"
+import { UsagePanel } from "@/modules/platform-controls/components/UsagePanel"
 
 export function InstitutionDetail({
   institutionId,
@@ -120,6 +121,8 @@ export function InstitutionDetail({
         institutionId={institution.id}
         notice={institution.maintenance ?? null}
       />
+
+      <UsagePanel institutionId={institution.id} />
 
       <FeatureControlPanel institutionId={institution.id} />
 

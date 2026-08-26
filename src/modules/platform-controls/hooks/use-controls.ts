@@ -23,6 +23,14 @@ export function useInstitutionFeatures(tenantId: number) {
   })
 }
 
+export function useInstitutionAnalytics(tenantId: number, days: number) {
+  return useQuery({
+    queryKey: controlKeys.analytics(tenantId, days),
+    queryFn: () => controlsService.analytics(tenantId, days),
+    enabled: Number.isFinite(tenantId) && tenantId > 0,
+  })
+}
+
 export function useSetFeature(tenantId: number) {
   const queryClient = useQueryClient()
 

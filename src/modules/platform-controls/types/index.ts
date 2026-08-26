@@ -23,3 +23,18 @@ export interface MaintenanceNotice {
   /** True once the window has opened; before that it is only a warning. */
   active: boolean
 }
+
+export interface UsageAnalytics {
+  windowDays: number
+  /** The zone the hour buckets were built in — timestamps are stored UTC. */
+  timezone: string
+  totals: { events: number; logins: number; activeUsers: number }
+  daily: Array<{
+    day: string
+    events: number
+    logins: number
+    activeUsers: number
+  }>
+  byHour: Array<{ hour: number; logins: number }>
+  adoption: Array<{ role: string; total: number; active: number }>
+}

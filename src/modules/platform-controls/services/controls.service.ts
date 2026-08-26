@@ -2,6 +2,7 @@ import apiClient from "@/lib/clients/apiClient"
 import type {
   InstitutionFeature,
   MaintenanceNotice,
+  UsageAnalytics,
 } from "@/modules/platform-controls/types"
 
 const AUTH = { access_token: true } as const
@@ -38,6 +39,14 @@ export const controlsService = {
       )
     ).data,
 
+  analytics: async (tenantId: number, days: number): Promise<UsageAnalytics> =>
+    (
+      await apiClient.get<{ data: UsageAnalytics }>(
+        `/platform/tenants/${tenantId}/analytics`,
+        { ...AUTH, params: { days } }
+      )
+    ).data,
+
   clearMaintenance: (tenantId: number) =>
     apiClient.delete<{ data: null }>(
       `/platform/tenants/${tenantId}/maintenance`,
@@ -49,4 +58,6 @@ export const controlKeys = {
   all: ["platform-controls"] as const,
   features: (tenantId: number) =>
     [...controlKeys.all, "features", tenantId] as const,
+  analytics: (tenantId: number, days: number) =>
+    [...controlKeys.all, "analytics", tenantId, days] as const,
 }
