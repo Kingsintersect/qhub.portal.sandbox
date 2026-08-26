@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, type ReactNode } from "react"
 import { signOut, useSession } from "next-auth/react"
 import {
+  Activity,
   Bell,
   Building2,
   FileBarChart,
@@ -93,6 +94,12 @@ const NAV: Array<{
     label: "Billing",
     Icon: Wallet,
     permission: "billing.read",
+  },
+  {
+    href: "/platform/operations",
+    label: "Operations",
+    Icon: Activity,
+    permission: "incidents.manage",
   },
   {
     href: "/platform/tasks",
