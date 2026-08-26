@@ -10,13 +10,11 @@ on:
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURE THESE for each application — everything else is generic.
 #
-
 # To reuse this workflow in another repo:
 #   1. Copy this file unchanged.
 #   2. Edit the values below (the env block).
 #   3. Set the required secrets in GitHub → Settings → Secrets and variables.
 #
-
 # Required secrets (same for every app on the same server):
 #   DEPLOY_SSH_PRIVATE_KEY  — private key whose public key is in ~/.ssh/authorized_keys
 #   DEPLOY_SSH_HOST         — server IP or hostname
@@ -33,7 +31,6 @@ on:
 #                               - build time (NEXT_PUBLIC_* baked into the bundle)
 #                               - runtime on the server (.env.production)
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 env:
   # ── App identity (change these for each application) ────────────────────────
