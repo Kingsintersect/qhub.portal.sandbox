@@ -39,11 +39,27 @@ export function usePlatformPermissions() {
 }
 
 export function usePlatformAudit(
-  params: { tenantId?: number; action?: string } = {}
+  params: {
+    tenantId?: number
+    action?: string
+    category?: string
+    actorClass?: string
+    search?: string
+    page?: number
+    perPage?: number
+  } = {},
+  /** Off while the operator has paused the stream. */
+  live = false
 ) {
   return useQuery({
     queryKey: platformTeamKeys.audit(params),
     queryFn: () => platformTeamService.auditLog(params),
+    // The log is append-only and the console is a live tool, so it refreshes
+    // itself. Pausing stops the poll rather than hiding new rows — an
+    // operator reading one incident does not want the table moving underneath
+    // them, and a paused feed that still fetched would do exactly that.
+    refetchInterval: live ? 6_000 : false,
+    placeholderData: (previous) => previous,
   })
 }
 

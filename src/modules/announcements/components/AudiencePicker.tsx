@@ -1,41 +1,13 @@
 "use client"
 
-import { Loader2, Users } from "lucide-react"
-
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import { useAudiencePreview } from "@/modules/announcements/hooks/use-announcements"
 import type { AnnouncementAudience } from "@/modules/announcements/types"
 import { useInstitutions } from "@/modules/institutions/hooks/use-institutions"
 
-const AUDIENCES: Array<{
-  value: AnnouncementAudience
-  label: string
-  hint: string
-}> = [
-  {
-    value: "ALL",
-    label: "Every institution",
-    hint: "Including any onboarded while this is still live.",
-  },
-  {
-    value: "CATEGORY",
-    label: "By programme type",
-    hint: "Institutions running the selected programme.",
-  },
-  {
-    value: "SELECTED",
-    label: "Specific institutions",
-    hint: "Exactly the ones you pick, fixed at publish.",
-  },
+const AUDIENCES: Array<{ value: AnnouncementAudience; label: string }> = [
+  { value: "ALL", label: "Every institution" },
+  { value: "CATEGORY", label: "By programme type" },
+  { value: "SELECTED", label: "Specific institutions" },
 ]
 
 const CATEGORIES = [
@@ -78,129 +50,191 @@ export function AudiencePicker({
     tenantIds,
   })
 
-  const toggle = (id: number) =>
-    onChange({
-      audience,
-      category,
-      tenantIds: tenantIds.includes(id)
-        ? tenantIds.filter((value) => value !== id)
-        : [...tenantIds, id],
-    })
+  const rows = institutions.data?.data ?? []
 
   return (
-    <div className="space-y-3">
+    <div>
       <div
-        className="grid gap-2 sm:grid-cols-3"
-        role="radiogroup"
-        aria-label="Audience"
+        style={{
+          display: "flex",
+          background: "var(--panel)",
+          borderRadius: 11,
+          padding: 3,
+          width: "fit-content",
+        }}
       >
-        {AUDIENCES.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={audience === option.value}
-            disabled={disabled}
-            onClick={() =>
-              onChange({
-                audience: option.value,
-                category: null,
-                tenantIds: [],
-              })
-            }
-            className={cn(
-              "rounded-lg border p-3 text-left transition-colors disabled:opacity-50",
-              audience === option.value
-                ? "border-primary bg-primary/5"
-                : "border-border hover:bg-muted/50"
-            )}
-          >
-            <span className="block text-sm font-medium text-foreground">
+        {AUDIENCES.map((option) => {
+          const on = audience === option.value
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              disabled={disabled}
+              onClick={() =>
+                onChange({
+                  audience: option.value,
+                  category: option.value === "CATEGORY" ? category : null,
+                  tenantIds: option.value === "SELECTED" ? tenantIds : [],
+                })
+              }
+              style={{
+                fontSize: 12.5,
+                fontWeight: on ? 600 : 400,
+                color: on ? "var(--txt)" : "var(--txt3)",
+                background: on ? "var(--card)" : "transparent",
+                boxShadow: on ? "var(--shadow-sm)" : "none",
+                padding: "7px 14px",
+                borderRadius: 9,
+                border: "none",
+                cursor: disabled === true ? "default" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
               {option.label}
-            </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {option.hint}
-            </span>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
 
       {audience === "CATEGORY" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="audience-category">Programme type</Label>
-          <Select
-            value={category ?? ""}
-            onValueChange={(value) =>
-              onChange({ audience, category: value, tenantIds: [] })
-            }
-            disabled={disabled}
-          >
-            <SelectTrigger id="audience-category" className="w-full sm:w-64">
-              <SelectValue placeholder="Choose a programme type" />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div
+          style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}
+        >
+          {CATEGORIES.map((option) => {
+            const on = category === option.value
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  onChange({ audience, category: option.value, tenantIds: [] })
+                }
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  padding: "8px 13px",
+                  borderRadius: 9,
+                  color: on ? "var(--accent)" : "var(--txt2)",
+                  background: on ? "var(--accent-soft)" : "transparent",
+                  border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
+                  cursor: disabled === true ? "default" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {option.label}
+              </button>
+            )
+          })}
         </div>
       )}
 
       {audience === "SELECTED" && (
-        <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-          {institutions.isPending && (
-            <p className="p-2 text-sm text-muted-foreground">
-              Loading institutions…
-            </p>
-          )}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+            marginTop: 10,
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          {rows.map((institution) => {
+            const on = tenantIds.includes(institution.id)
 
-          {institutions.data?.data.map((institution) => (
-            <label
-              key={institution.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
-            >
-              <Checkbox
-                checked={tenantIds.includes(institution.id)}
-                onCheckedChange={() => toggle(institution.id)}
+            return (
+              <button
+                key={institution.id}
+                type="button"
                 disabled={disabled}
-              />
-              <span className="text-sm text-foreground">
-                {institution.name}
-              </span>
-              <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                {institution.slug}
-              </span>
-            </label>
-          ))}
+                aria-pressed={on}
+                onClick={() =>
+                  onChange({
+                    audience,
+                    category: null,
+                    tenantIds: on
+                      ? tenantIds.filter((id) => id !== institution.id)
+                      : [...tenantIds, institution.id],
+                  })
+                }
+                style={{
+                  border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
+                  background: on ? "var(--accent-soft)" : "transparent",
+                  borderRadius: 11,
+                  padding: "10px 13px",
+                  cursor: disabled === true ? "default" : "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: on ? "var(--accent)" : "var(--txt)",
+                  }}
+                >
+                  {institution.name}
+                </div>
+                <div
+                  className="qhub-mono"
+                  style={{
+                    fontSize: 11.5,
+                    color: "var(--txt4)",
+                    marginTop: 2,
+                  }}
+                >
+                  {institution.slug}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm">
-        {preview.isFetching ? (
-          <Loader2
-            className="size-4 animate-spin text-muted-foreground"
-            aria-hidden="true"
-          />
-        ) : (
-          <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+      <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 8 }}>
+        {audienceNote(
+          audience,
+          preview.data?.count ?? null,
+          preview.data?.institutions ?? []
         )}
-
-        <span aria-live="polite" className="text-muted-foreground">
-          {preview.data
-            ? preview.data.count === 0
-              ? "This reaches no institutions yet."
-              : `Reaches ${preview.data.count} institution${preview.data.count === 1 ? "" : "s"}: ${preview.data.institutions
-                  .slice(0, 4)
-                  .map((institution) => institution.name)
-                  .join(
-                    ", "
-                  )}${preview.data.count > 4 ? `, and ${preview.data.count - 4} more` : ""}`
-            : "Choose an audience to see who it reaches."}
-        </span>
       </div>
     </div>
   )
+}
+
+/**
+ * The blast radius, in words.
+ *
+ * Named institutions up to a point, then a count — reading eighty names is
+ * not comprehension, but seeing three is.
+ */
+function audienceNote(
+  audience: AnnouncementAudience,
+  count: number | null,
+  institutions: Array<{ id: number; name: string }>
+): string {
+  if (count === null) {
+    return audience === "ALL"
+      ? "Every institution QHub hosts."
+      : "Pick who this reaches."
+  }
+
+  if (count === 0) return "This reaches nobody as configured."
+
+  const suffix =
+    audience === "ALL"
+      ? " — including any onboarded while this is still live."
+      : audience === "SELECTED"
+        ? " — fixed at publish, so later arrivals are not included."
+        : "."
+
+  if (institutions.length > 0 && institutions.length <= 3) {
+    return `Reaches ${institutions.map((i) => i.name).join(", ")}${suffix}`
+  }
+
+  return `Reaches ${count} institution${count === 1 ? "" : "s"}${suffix}`
 }

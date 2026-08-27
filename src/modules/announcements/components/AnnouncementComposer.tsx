@@ -1,28 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Send } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import { AudiencePicker } from "@/modules/announcements/components/AudiencePicker"
 import {
   useCreateAnnouncement,
@@ -32,6 +11,12 @@ import type {
   AnnouncementAudience,
   AnnouncementSeverity,
 } from "@/modules/announcements/types"
+
+const SEVERITIES: Array<{ value: AnnouncementSeverity; label: string }> = [
+  { value: "INFO", label: "Information" },
+  { value: "WARNING", label: "Warning" },
+  { value: "CRITICAL", label: "Critical" },
+]
 
 /**
  * Write an announcement and, optionally, send it in the same step.
@@ -81,6 +66,11 @@ export function AnnouncementComposer({
     setNotifyStaff(false)
   }
 
+  const close = () => {
+    reset()
+    onOpenChange(false)
+  }
+
   const submit = async (thenPublish: boolean) => {
     if (!ready) return
 
@@ -105,127 +95,307 @@ export function AnnouncementComposer({
     onOpenChange(false)
   }
 
+  if (!open) return null
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>New announcement</DialogTitle>
-          <DialogDescription>
-            This goes to the institutions QHub hosts, not to their students.
-          </DialogDescription>
-        </DialogHeader>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 300,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={close}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(8,12,18,.45)",
+        }}
+      />
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="announcement-title">Title</Label>
-            <Input
-              id="announcement-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Scheduled maintenance on Sunday"
-              maxLength={200}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="announcement-body">Message</Label>
-            <Textarea
-              id="announcement-body"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              rows={5}
-              placeholder="What is happening, when, and what it means for them."
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="announcement-severity">Severity</Label>
-              <Select
-                value={severity}
-                onValueChange={(value) =>
-                  setSeverity(value as AnnouncementSeverity)
-                }
-              >
-                <SelectTrigger id="announcement-severity">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INFO">Info</SelectItem>
-                  <SelectItem value="WARNING">Warning</SelectItem>
-                  <SelectItem value="CRITICAL">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="announcement-expires">
-                Stops showing (optional)
-              </Label>
-              <Input
-                id="announcement-expires"
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(event) => setExpiresAt(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Audience</Label>
-            <AudiencePicker
-              audience={audience}
-              category={category}
-              tenantIds={tenantIds}
-              disabled={busy}
-              onChange={(next) => {
-                setAudience(next.audience)
-                setCategory(next.category)
-                setTenantIds(next.tenantIds)
-              }}
-            />
-          </div>
-
-          <label className="flex items-start gap-3 rounded-lg border border-border p-3">
-            <Switch
-              checked={notifyStaff}
-              onCheckedChange={setNotifyStaff}
-              aria-label="Also notify institution staff"
-            />
-            <span>
-              <span className="block text-sm font-medium text-foreground">
-                Also notify institution staff
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                Drops this into the inbox of each institution&apos;s admins and
-                staff. Students are never included.
-              </span>
-            </span>
-          </label>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="New announcement"
+        style={{
+          position: "relative",
+          width: 640,
+          maxWidth: "94vw",
+          maxHeight: "88vh",
+          overflow: "auto",
+          background: "var(--surface-solid)",
+          border: "1px solid var(--line-strong)",
+          borderRadius: 18,
+          boxShadow: "0 30px 80px rgba(8,12,18,.35)",
+          padding: 26,
+          color: "var(--txt)",
+        }}
+      >
+        <div
+          style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.015em" }}
+        >
+          New announcement
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 4 }}>
+          This goes to the institutions QHub hosts, not to their students.
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={() => submit(false)}
-            disabled={!ready || busy}
-          >
-            Save as draft
-          </Button>
+        <Label>TYPE</Label>
+        <div
+          style={{
+            display: "flex",
+            background: "var(--panel)",
+            borderRadius: 11,
+            padding: 3,
+            width: "fit-content",
+          }}
+        >
+          {SEVERITIES.map((option) => {
+            const on = severity === option.value
+            const hot = option.value === "CRITICAL"
 
-          <Button onClick={() => submit(true)} disabled={!ready || busy}>
-            {busy ? (
-              <Loader2
-                className="mr-2 size-4 animate-spin"
-                aria-hidden="true"
-              />
-            ) : (
-              <Send className="mr-2 size-4" aria-hidden="true" />
-            )}
-            Publish now
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setSeverity(option.value)}
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: on ? 600 : 400,
+                  color: on
+                    ? hot
+                      ? "var(--neg)"
+                      : "var(--txt)"
+                    : "var(--txt3)",
+                  background: on ? "var(--card)" : "transparent",
+                  boxShadow: on ? "var(--shadow-sm)" : "none",
+                  padding: "7px 14px",
+                  borderRadius: 9,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <Label>MESSAGE</Label>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title — what tenants see first"
+          aria-label="Title"
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            background: "var(--card)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: 10,
+            padding: "11px 13px",
+            fontSize: 13.5,
+            color: "var(--txt)",
+            outline: "none",
+            fontFamily: "inherit",
+          }}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={3}
+          placeholder="The announcement body. Plain language — tenants forward these to their staff."
+          aria-label="Body"
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            marginTop: 8,
+            resize: "vertical",
+            background: "var(--card)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: 10,
+            padding: "11px 13px",
+            fontSize: 13,
+            lineHeight: 1.55,
+            color: "var(--txt)",
+            outline: "none",
+            fontFamily: "inherit",
+          }}
+        />
+
+        <Label>AUDIENCE</Label>
+        <AudiencePicker
+          audience={audience}
+          category={category}
+          tenantIds={tenantIds}
+          disabled={busy}
+          onChange={(next) => {
+            setAudience(next.audience)
+            setCategory(next.category)
+            setTenantIds(next.tenantIds)
+          }}
+        />
+
+        <Label>DELIVERY</Label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12.5,
+              color: "var(--txt2)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={notifyStaff}
+              onChange={(e) => setNotifyStaff(e.target.checked)}
+              style={{ accentColor: "var(--accent)" }}
+            />
+            Also email each institution&rsquo;s staff digest
+          </label>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12.5,
+              color: "var(--txt2)",
+            }}
+          >
+            Expires
+            <input
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              aria-label="Expires at"
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 9,
+                padding: "7px 11px",
+                fontSize: 12.5,
+                color: "var(--txt)",
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+          </label>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 8 }}>
+          Leave the expiry empty to keep it up until you unpublish it.
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginTop: 22,
+            paddingTop: 16,
+            borderTop: "1px solid var(--line)",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "var(--txt3)" }}>
+            {/* Publishing reaches other organisations — say so before the click,
+                not in a toast afterwards. */}
+            Publishing delivers immediately and cannot be recalled from inboxes.
+          </div>
+
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={close}
+              disabled={busy}
+              style={{
+                border: "1px solid var(--line-strong)",
+                color: "var(--txt2)",
+                background: "transparent",
+                fontSize: 12.5,
+                fontWeight: 500,
+                padding: "8px 14px",
+                borderRadius: 10,
+                cursor: busy ? "default" : "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void submit(false)}
+              style={{
+                border: "1px solid var(--line-strong)",
+                color: ready && !busy ? "var(--txt2)" : "var(--txt4)",
+                background: "transparent",
+                fontSize: 12.5,
+                fontWeight: 500,
+                padding: "8px 14px",
+                borderRadius: 10,
+                cursor: ready && !busy ? "pointer" : "default",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              Save as draft
+            </button>
+
+            <button
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void submit(true)}
+              style={{
+                background: ready && !busy ? "var(--accent)" : "var(--panel)",
+                color: ready && !busy ? "#fff" : "var(--txt4)",
+                border: "none",
+                fontSize: 12.5,
+                fontWeight: 500,
+                padding: "8px 16px",
+                borderRadius: 10,
+                cursor: ready && !busy ? "pointer" : "default",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              {busy ? "Sending…" : "Publish now"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        letterSpacing: ".07em",
+        color: "var(--txt4)",
+        marginTop: 18,
+        marginBottom: 8,
+      }}
+    >
+      {children}
+    </div>
   )
 }

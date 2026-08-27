@@ -42,6 +42,10 @@ export const platformAuditEntrySchema = z.object({
   id: z.number(),
   action: z.string(),
   actor: z.string().nullable(),
+  /** "System" means a collector, the scheduler or an alarm did it. */
+  actorClass: z.enum(["QHub", "System"]).default("QHub"),
+  /** Derived server-side from the action, so the filter and the row agree. */
+  category: z.string().default("Platform"),
   institution: z.string().nullable(),
   entityType: z.string().nullable(),
   entityId: z.string().nullable(),

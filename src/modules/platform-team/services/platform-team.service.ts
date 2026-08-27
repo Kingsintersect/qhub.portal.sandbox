@@ -79,11 +79,33 @@ export const platformTeamService = {
       AUTH
     ),
 
-  auditLog: async (params: { tenantId?: number; action?: string } = {}) =>
-    apiClient.get<{ data: PlatformAuditEntry[]; meta: { total: number } }>(
-      "/platform/audit",
-      { ...AUTH, params }
-    ),
+  auditLog: async (
+    params: {
+      tenantId?: number
+      action?: string
+      category?: string
+      actorClass?: string
+      search?: string
+      page?: number
+      perPage?: number
+    } = {}
+  ) =>
+    apiClient.get<{
+      data: PlatformAuditEntry[]
+      meta: {
+        total: number
+        currentPage: number
+        lastPage: number
+        perPage: number
+        summary: {
+          events24h: number
+          actors24h: number
+          tenants24h: number
+          security24h: number
+          dataEvents24h: number
+        }
+      }
+    }>("/platform/audit", { ...AUTH, params }),
 }
 
 export const platformTeamKeys = {
