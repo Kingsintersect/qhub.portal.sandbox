@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 
 import type { TrendPoint } from "@/modules/platform-observability/types"
 
@@ -43,37 +43,53 @@ export function TrendsChart({
   isLoading: boolean
 }) {
   const [hidden, setHidden] = useState<SeriesKey[]>([])
+  const [hover, setHover] = useState<number | null>(null)
 
-  const paths = useMemo(() => {
-    if (points.length === 0) return null
+  /**
+   * Each series as percent change from its own first point.
+   *
+   * The draft's axis is labelled 10% … −10%, so this chart is about MOVEMENT,
+   * not absolute counts — which is also the only way three series of wildly
+   * different magnitude can share one axis honestly.
+   */
+  const chart = useMemo(() => {
+    if (points.length < 2) return null
 
     const width = 1000
-    const height = 230
-    const pad = 14
+    const height = 212
 
-    const x = (i: number) =>
-      points.length === 1 ? width / 2 : (i / (points.length - 1)) * width
+    const pct = (key: SeriesKey) => {
+      const base = points[0][key] || 1
 
-    const build = (key: SeriesKey) => {
-      const values = points.map((p) => p[key])
-      const max = Math.max(...values, 1)
-
-      return values
-        .map((v, i) => {
-          const y = height - pad - (v / max) * (height - pad * 2)
-
-          return `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y.toFixed(1)}`
-        })
-        .join(" ")
+      return points.map((p) => ((p[key] - base) / base) * 100)
     }
 
-    return SERIES.reduce<Record<SeriesKey, string>>(
-      (acc, s) => ({ ...acc, [s.key]: build(s.key) }),
-      {} as Record<SeriesKey, string>
-    )
-  }, [points])
+    const series = SERIES.map((s) => ({ ...s, values: pct(s.key) }))
 
-  const latest = points.at(-1)
+    // One shared scale across all three, so the lines are comparable.
+    const spread = Math.max(
+      10,
+      ...series.flatMap((s) => s.values.map((v) => Math.abs(v)))
+    )
+
+    const x = (i: number) => (i / (points.length - 1)) * width
+    const y = (v: number) => height / 2 - (v / spread) * (height / 2 - 10)
+
+    return {
+      spread,
+      x,
+      y,
+      series: series.map((s) => ({
+        ...s,
+        d: s.values
+          .map(
+            (v, i) =>
+              `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`
+          )
+          .join(" "),
+      })),
+    }
+  }, [points])
 
   return (
     <div
@@ -191,12 +207,19 @@ export function TrendsChart({
                 }}
               />
               {s.label}
-              {latest && !off && (
+              {chart && !off && (
                 <span
                   className="qhub-mono"
-                  style={{ color: "var(--txt4)", fontSize: 11.5 }}
+                  style={{
+                    fontSize: 11.5,
+                    color:
+                      seriesLatest(chart, s.key) < 0
+                        ? "var(--neg)"
+                        : "var(--txt4)",
+                  }}
                 >
-                  {latest[s.key].toLocaleString()}
+                  {seriesLatest(chart, s.key) >= 0 ? "+" : "−"}
+                  {Math.abs(seriesLatest(chart, s.key)).toFixed(1)}%
                 </span>
               )}
             </button>
@@ -204,8 +227,9 @@ export function TrendsChart({
         })}
       </div>
 
-      <div style={{ position: "relative" }}>
-        {points.length === 0 ? (
+      {/* 52px reserved on the right for the axis, as the draft does. */}
+      <div style={{ position: "relative", paddingRight: 52 }}>
+        {!chart ? (
           <div
             style={{
               height: 232,
@@ -219,75 +243,228 @@ export function TrendsChart({
           >
             {isLoading
               ? "Loading…"
-              : "Nothing collected yet. The metrics collector runs every fifteen minutes — if this stays empty, check that the scheduler is running."}
+              : points.length === 1
+                ? "Only one capture so far — a trend needs at least two."
+                : "Nothing collected yet. The metrics collector runs every fifteen minutes — if this stays empty, check that the scheduler is running."}
           </div>
         ) : (
-          <svg
-            viewBox="0 0 1000 230"
-            preserveAspectRatio="none"
-            style={{
-              width: "100%",
-              height: 232,
-              display: "block",
-              overflow: "visible",
-            }}
-            role="img"
-            aria-label={`Estate trends over the last ${days} days`}
-          >
-            <line
-              style={{ stroke: "var(--grid-line)" }}
-              x1="0"
-              y1="115"
-              x2="1000"
-              y2="115"
-              strokeWidth="1"
-            />
-            {[150, 480, 810].map((x) => (
+          <>
+            <svg
+              viewBox="0 0 1000 230"
+              preserveAspectRatio="none"
+              style={{
+                width: "100%",
+                height: 232,
+                display: "block",
+                overflow: "visible",
+              }}
+              role="img"
+              aria-label={`Estate trends over the last ${days} days`}
+              onMouseLeave={() => setHover(null)}
+              onMouseMove={(e) => {
+                const box = e.currentTarget.getBoundingClientRect()
+                const ratio = (e.clientX - box.left) / box.width
+                const i = Math.round(ratio * (points.length - 1))
+
+                setHover(Math.max(0, Math.min(points.length - 1, i)))
+              }}
+            >
               <line
-                key={x}
-                style={{ stroke: "var(--grid-line2)" }}
-                x1={x}
-                y1="0"
-                x2={x}
-                y2="230"
+                style={{ stroke: "var(--grid-line)" }}
+                x1="0"
+                y1="106"
+                x2="1000"
+                y2="106"
                 strokeWidth="1"
               />
-            ))}
+              {[150, 480, 810].map((x) => (
+                <line
+                  key={x}
+                  style={{ stroke: "var(--grid-line2)" }}
+                  x1={x}
+                  y1="0"
+                  x2={x}
+                  y2="212"
+                  strokeWidth="1"
+                />
+              ))}
 
-            {/* Drawn back to front so the accent series sits on top, as the
-                draft layers them. */}
-            {[...SERIES]
-              .reverse()
-              .map((s) =>
-                hidden.includes(s.key) || !paths ? null : (
-                  <path
-                    key={s.key}
-                    style={{ stroke: s.stroke }}
-                    d={paths[s.key]}
-                    fill="none"
-                    strokeWidth={s.width}
-                    vectorEffect="non-scaling-stroke"
-                    strokeLinejoin="round"
+              {/* Back to front, so the accent series sits on top. */}
+              {[...chart.series]
+                .reverse()
+                .map((s) =>
+                  hidden.includes(s.key) ? null : (
+                    <path
+                      key={s.key}
+                      style={{ stroke: s.stroke }}
+                      d={s.d}
+                      fill="none"
+                      strokeWidth={s.width}
+                      vectorEffect="non-scaling-stroke"
+                      strokeLinejoin="round"
+                    />
+                  )
+                )}
+
+              {/* The draft's crosshair and markers. */}
+              {hover !== null && (
+                <>
+                  <line
+                    style={{ stroke: "var(--crosshair)" }}
+                    x1={chart.x(hover)}
+                    y1="0"
+                    x2={chart.x(hover)}
+                    y2="212"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
                   />
-                )
+                  {chart.series.map((s) =>
+                    hidden.includes(s.key) ? null : (
+                      <circle
+                        key={s.key}
+                        cx={chart.x(hover)}
+                        cy={chart.y(s.values[hover])}
+                        r="5"
+                        style={{ stroke: s.stroke, fill: "var(--marker-fill)" }}
+                        strokeWidth="2.4"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    )
+                  )}
+                </>
               )}
-          </svg>
-        )}
+            </svg>
 
-        {points.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 11,
-              letterSpacing: ".08em",
-              color: "var(--txt4)",
-              marginTop: 6,
-            }}
-          >
-            <span>{formatDay(points[0]?.day)}</span>
-            <span>{formatDay(points.at(-1)?.day)}</span>
-          </div>
+            {/* The readout card. Follows the crosshair, flipping side near the
+                right edge so it never leaves the chart. */}
+            {hover !== null && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: `${(hover / (points.length - 1)) * 100}%`,
+                  transform:
+                    hover / (points.length - 1) > 0.62
+                      ? "translateX(calc(-100% - 14px))"
+                      : "translateX(14px)",
+                  background: "var(--card)",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  boxShadow: "var(--shadow-pop)",
+                  fontSize: 12,
+                  display: "grid",
+                  gridTemplateColumns: "auto auto",
+                  gap: "6px 18px",
+                  alignItems: "center",
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {chart.series.map((s) =>
+                  hidden.includes(s.key) ? null : (
+                    <Fragment key={s.key}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          color: "var(--txt2)",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 3,
+                            height: 12,
+                            borderRadius: 2,
+                            background: s.stroke,
+                          }}
+                        />
+                        {s.label}
+                      </div>
+                      <div
+                        className="qhub-mono"
+                        style={{
+                          textAlign: "right",
+                          fontWeight: 500,
+                          color:
+                            s.values[hover] < 0 ? "var(--neg)" : "var(--txt)",
+                        }}
+                      >
+                        {s.values[hover] >= 0 ? "+" : "−"}
+                        {Math.abs(s.values[hover]).toFixed(1)}%
+                      </div>
+                    </Fragment>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* Date pill under the crosshair. */}
+            {hover !== null && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: `${(hover / (points.length - 1)) * 100}%`,
+                  transform: "translateX(-50%)",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  pointerEvents: "none",
+                }}
+              >
+                {new Date(points[hover].day).getDate()}
+              </div>
+            )}
+
+            {/* Month labels along the bottom. */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 52,
+                bottom: 6,
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 11,
+                letterSpacing: ".08em",
+                color: "var(--txt4)",
+              }}
+            >
+              <span>{monthLabel(points[0]?.day)}</span>
+              <span>
+                {monthLabel(points[Math.floor(points.length / 2)]?.day)}
+              </span>
+              <span>{monthLabel(points.at(-1)?.day)}</span>
+            </div>
+
+            {/* The percent axis, as the draft has it. */}
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                height: 212,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                fontSize: 11,
+                color: "var(--txt4)",
+                textAlign: "right",
+                width: 44,
+              }}
+            >
+              {[1, 0.5, 0, -0.5, -1].map((f) => (
+                <span key={f}>
+                  {f > 0 ? "" : f < 0 ? "−" : ""}
+                  {Math.abs(chart.spread * f).toFixed(0)}%
+                </span>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -296,10 +473,18 @@ export function TrendsChart({
   )
 }
 
-function formatDay(day?: string): string {
+/** The most recent percent change for one series. */
+function seriesLatest(
+  chart: { series: Array<{ key: SeriesKey; values: number[] }> },
+  key: SeriesKey
+): number {
+  return chart.series.find((s) => s.key === key)?.values.at(-1) ?? 0
+}
+
+function monthLabel(day?: string): string {
   if (!day) return ""
 
   return new Date(day)
-    .toLocaleDateString(undefined, { day: "numeric", month: "short" })
+    .toLocaleDateString(undefined, { month: "short" })
     .toUpperCase()
 }

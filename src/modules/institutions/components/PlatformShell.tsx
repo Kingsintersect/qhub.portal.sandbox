@@ -24,6 +24,7 @@ import {
 
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import { NotificationBell } from "@/modules/platform-notifications/components/NotificationBell"
+import { ConsoleRail } from "@/modules/platform-rail/ConsoleRail"
 import {
   useNavCounts,
   type NavCounts,
@@ -431,6 +432,10 @@ export function PlatformShell({ children }: { children: ReactNode }) {
 
         {children}
       </main>
+
+      {/* Outside the view, as the draft places it: the rail is on every
+          screen, not part of any one module. */}
+      <ConsoleRail enabled={isPlatformUser} />
     </div>
   )
 }
