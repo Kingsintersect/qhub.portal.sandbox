@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import apiClient from "@/lib/clients/apiClient"
@@ -213,26 +213,96 @@ export function SupportSessionDialog({
 }
 
 /**
- * The in-session frame.
+ * The in-session frame, lifted from the draft.
  *
  * Undismissible by design: an operator inside somebody else's portal should
  * never be able to forget they are there. The orange border and banner are the
  * whole point.
+ *
+ * The Courses table is THEIR live data, read with the session token against
+ * their own host — which is what "you see what their admins see" means. The
+ * Edit control makes a real write attempt, so the blocked-write banner is a
+ * demonstration of the two controls refusing rather than a description of
+ * them.
  */
 export function SupportSessionFrame({
   session,
   institution,
   slug,
+  reason,
   onEnd,
 }: {
   session: SupportSession
   institution: string
   slug: string
+  reason: string
   onEnd: () => void
 }) {
+  const [blocked, setBlocked] = useState(false)
+
   const expires = new Date(session.expiresAt).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+  })
+
+  // Their host, their token. The console's own base URL would resolve to the
+  // platform host, where this token is not valid.
+  const base = session.url.replace(/\/$/, "")
+
+  const courses = useQuery({
+    queryKey: ["support-session", session.reference, "courses"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/v1/courses`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      })
+
+      if (!res.ok) throw new Error(String(res.status))
+
+      const body = (await res.json()) as {
+        data: Array<{
+          id: number
+          code: string
+          title: string
+          creditUnits: number | null
+          isActive: boolean
+        }>
+      }
+
+      return body.data
+    },
+  })
+
+  /** Deliberately attempts a write, so the refusal is real. */
+  const tryWrite = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`${base}/api/v1/courses/${id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: "support-session write test" }),
+      })
+
+      if (res.ok) {
+        // Would mean both controls failed. Loud, not silent.
+        throw new Error("WRITE_SUCCEEDED")
+      }
+
+      return res.status
+    },
+    onSuccess: () => setBlocked(true),
+    onError: (e) => {
+      if ((e as Error).message === "WRITE_SUCCEEDED") {
+        toast.error(
+          "A write went through in a read-only session. Stop and report this."
+        )
+
+        return
+      }
+
+      setBlocked(true)
+    },
   })
 
   return (
@@ -259,7 +329,6 @@ export function SupportSessionFrame({
           background: "var(--series2)",
           color: "#fff",
           padding: "10px 20px",
-          flexWrap: "wrap",
         }}
       >
         <svg
@@ -282,6 +351,18 @@ export function SupportSessionFrame({
         </div>
         <div style={{ fontSize: 12, opacity: 0.9 }}>
           Read-only · acting as QHub Support · expires {expires}
+        </div>
+        <div
+          style={{
+            fontSize: 11.5,
+            opacity: 0.85,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 420,
+          }}
+        >
+          Reason on their audit trail: &quot;{reason}&quot;
         </div>
 
         <button
@@ -336,57 +417,187 @@ export function SupportSessionFrame({
           </div>
         </div>
 
-        {/*
-          The session token belongs to the institution's host, not this one, so
-          the portal itself is opened in its own tab rather than embedded — an
-          iframe here would be a cross-origin request carrying their token from
-          our page, which is exactly the shape we should not build.
-        */}
+        {blocked && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 18,
+              background: "var(--warn-bg)",
+              border: "1px solid var(--warn)",
+              borderRadius: 12,
+              padding: "11px 16px",
+              fontSize: 12.5,
+            }}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--warn)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V7a4 4 0 018 0v4" />
+            </svg>
+            Writes are blocked in support sessions — two independent controls
+            refused this edit (the session flag and the QHub Support principal).
+            Nothing was changed, and the attempt was logged.
+            <button
+              type="button"
+              onClick={() => setBlocked(false)}
+              aria-label="Dismiss"
+              style={{
+                marginLeft: "auto",
+                fontSize: 12,
+                color: "var(--txt4)",
+                background: "none",
+                border: "none",
+                padding: "0 4px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             background: "var(--card)",
             borderRadius: 18,
             boxShadow: "var(--shadow-card)",
-            padding: "20px 22px",
+            overflow: "hidden",
             marginTop: 20,
             maxWidth: 980,
           }}
         >
-          <div style={{ fontSize: 14.5, fontWeight: 600 }}>
-            Session {session.reference} is open
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: "16px 22px 4px",
+            }}
+          >
+            <div style={{ fontSize: 14.5, fontWeight: 600 }}>Courses</div>
+            <div
+              style={{
+                marginLeft: "auto",
+                fontSize: 11.5,
+                color: "var(--txt4)",
+              }}
+            >
+              their data, live · read-only
+            </div>
           </div>
-          <p
-            style={{
-              fontSize: 13,
-              color: "var(--txt2)",
-              lineHeight: 1.6,
-              marginTop: 8,
-            }}
-          >
-            Their portal opens in a separate tab, signed in as the QHub Support
-            principal. Every write is refused by two independent controls — the
-            session flag and that principal&apos;s permissions — and each
-            refusal is written to their audit trail as well as ours.
-          </p>
 
-          <a
-            href={session.url}
-            target="_blank"
-            rel="noreferrer"
+          <div
             style={{
-              display: "inline-block",
-              marginTop: 14,
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "10px 18px",
-              borderRadius: 10,
-              textDecoration: "none",
+              display: "grid",
+              gridTemplateColumns: "90px minmax(0,1.6fr) 160px 110px 120px",
+              columnGap: 14,
+              padding: "12px 22px 9px",
+              fontSize: 10.5,
+              letterSpacing: ".09em",
+              color: "var(--txt4)",
             }}
           >
-            Open {slug} →
-          </a>
+            <div>CODE</div>
+            <div>COURSE</div>
+            <div>CREDITS</div>
+            <div>STATUS</div>
+            <div />
+          </div>
+
+          {courses.isPending && (
+            <div
+              style={{
+                padding: "20px 22px",
+                fontSize: 13,
+                color: "var(--txt3)",
+              }}
+            >
+              Loading their courses…
+            </div>
+          )}
+
+          {courses.isError && (
+            <div
+              style={{
+                padding: "20px 22px",
+                fontSize: 13,
+                color: "var(--neg)",
+              }}
+            >
+              Their portal could not be read with this session.
+            </div>
+          )}
+
+          {courses.data?.length === 0 && (
+            <div
+              style={{
+                padding: "20px 22px",
+                fontSize: 13,
+                color: "var(--txt3)",
+              }}
+            >
+              This institution has no courses yet.
+            </div>
+          )}
+
+          {(courses.data ?? []).map((c) => (
+            <div
+              key={c.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "90px minmax(0,1.6fr) 160px 110px 120px",
+                columnGap: 14,
+                alignItems: "center",
+                padding: "11px 22px",
+                fontSize: 13,
+                borderTop: "1px solid var(--line2)",
+              }}
+            >
+              <div
+                className="qhub-mono"
+                style={{ fontSize: 11, color: "var(--txt3)" }}
+              >
+                {c.code}
+              </div>
+              <div style={{ fontWeight: 500 }}>{c.title}</div>
+              <div style={{ fontSize: 12, color: "var(--txt3)" }}>
+                {c.creditUnits ?? "—"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--txt2)" }}>
+                {c.isActive ? "Active" : "Inactive"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => tryWrite.mutate(c.id)}
+                  title="Writes are blocked in support sessions"
+                  style={{
+                    border: "1px solid var(--line-strong)",
+                    borderRadius: 8,
+                    background: "transparent",
+                    color: "var(--txt4)",
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                    padding: "5px 11px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Edit ⃠
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 14 }}>
