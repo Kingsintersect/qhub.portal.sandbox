@@ -4,6 +4,13 @@ import { useState } from "react"
 
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import {
+  useEstateOverview,
+  useEstateTrends,
+} from "@/modules/platform-observability/hooks/use-observability"
+import type { HealthStatus } from "@/modules/platform-observability/types"
+import { TrendsChart } from "@/modules/platform-ops-overview/components/TrendsChart"
+import { useProvisioningProgress } from "@/modules/platform-ops-overview/hooks/use-provisioning-progress"
+import {
   useAcknowledgeAnomaly,
   useAnomalies,
   useDetectAnomalies,
@@ -16,7 +23,7 @@ import type {
   UsageAnomaly,
 } from "@/modules/platform-ops-overview/types"
 
-type Tab = "incidents" | "upgrades" | "anomalies"
+type Tab = "health" | "incidents" | "provisioning" | "upgrades" | "anomalies"
 
 /**
  * Incidents, upgrades and usage anomalies — the operational half of Systems
@@ -26,59 +33,360 @@ type Tab = "incidents" | "upgrades" | "anomalies"
  * hand-entered, and acknowledging one records "seen and judged expected"
  * rather than "fixed".
  */
-export function OperationsPage() {
-  const [tab, setTab] = useState<Tab>("incidents")
+export function SystemsOverviewPage() {
+  const [tab, setTab] = useState<Tab>("health")
+  const [days, setDays] = useState(30)
+
+  const { data: overview, isPending: overviewLoading } = useEstateOverview()
+  const { data: trends, isFetching: trendsLoading } = useEstateTrends(days)
   const { data: incidents } = useIncidents("open")
+  const { data: anomalies } = useAnomalies(false)
+  const { data: upgrades } = useUpgrades()
+
+  const needingAttention =
+    (overview?.health.failing ?? 0) + (overview?.health.warning ?? 0)
+
+  const provisioning = (overview?.institutions ?? []).filter(
+    (i) => i.status === "PROVISIONING"
+  )
+
+  const tabs: Array<[Tab, string, number | undefined]> = [
+    ["health", "Tenant Health", needingAttention || undefined],
+    ["incidents", "Incidents", incidents?.openCount || undefined],
+    ["provisioning", "Provisioning", provisioning.length || undefined],
+    [
+      "upgrades",
+      "Upgrades",
+      (upgrades ?? []).filter((u) => u.status !== "COMPLETED").length ||
+        undefined,
+    ],
+    ["anomalies", "Usage Anomalies", anomalies?.length || undefined],
+  ]
+
+  const note: Record<Tab, string> = {
+    health:
+      "Fed automatically by probes and sync. Nothing here is hand-entered.",
+    incidents:
+      "Open incidents across the estate. Affected institutions see a banner in their own portal.",
+    provisioning:
+      "Onboardings still building. Each one is a queued job you can follow to ten of ten.",
+    upgrades: "Rollouts in flight and scheduled.",
+    anomalies:
+      "Flagged against each institution's own baseline. Acknowledging records that you have seen it and judged it expected — it does not mean fixed.",
+  }
 
   return (
-    <div style={{ padding: "26px 30px" }}>
-      <h1
-        style={{
-          fontSize: 21,
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          color: "var(--txt)",
-          margin: 0,
-        }}
-      >
-        Operations
-      </h1>
-      <p style={{ fontSize: 13, color: "var(--txt3)", marginTop: 5 }}>
-        Health, incidents and upgrades across the estate. Everything here is
-        derived from probes and sync — none of it is hand-set.
-      </p>
-
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div
         style={{
-          display: "flex",
-          gap: 6,
-          marginTop: 20,
-          borderBottom: "1px solid var(--line)",
-          paddingBottom: 12,
+          background: "var(--card)",
+          borderRadius: 20,
+          padding: 4,
+          boxShadow: "var(--shadow-card)",
+          display: "grid",
+          gridTemplateColumns: "repeat(6, 1fr)",
         }}
       >
-        <TabChip
-          label="Incidents"
-          badge={incidents?.openCount}
-          active={tab === "incidents"}
-          onClick={() => setTab("incidents")}
+        <Kpi
+          label="Institutions"
+          value={overview?.totals.institutions ?? 0}
+          note={`${overview?.totals.active ?? 0} active`}
+          loading={overviewLoading}
         />
-        <TabChip
-          label="Upgrades"
-          active={tab === "upgrades"}
-          onClick={() => setTab("upgrades")}
+        <Kpi
+          label="Needing attention"
+          value={needingAttention}
+          note="failing or warning"
+          tone={needingAttention > 0 ? "neg" : undefined}
+          loading={overviewLoading}
         />
-        <TabChip
-          label="Usage anomalies"
-          active={tab === "anomalies"}
-          onClick={() => setTab("anomalies")}
+        <Kpi
+          label="Open incidents"
+          value={incidents?.openCount ?? 0}
+          note="unresolved"
+          tone={(incidents?.openCount ?? 0) > 0 ? "neg" : undefined}
+        />
+        <Kpi
+          label="Learners"
+          value={overview?.totals.students ?? 0}
+          note="estate-wide"
+          loading={overviewLoading}
+        />
+        <Kpi
+          label="Activity · 24h"
+          value={overview?.totals.activity24h ?? 0}
+          note="audited events"
+          loading={overviewLoading}
+        />
+        <Kpi
+          label="Unacknowledged anomalies"
+          value={anomalies?.length ?? 0}
+          note="auto-flagged"
+          tone={(anomalies?.length ?? 0) > 0 ? "warn" : undefined}
+          last
         />
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        {tab === "incidents" && <IncidentsTab />}
-        {tab === "upgrades" && <UpgradesTab />}
-        {tab === "anomalies" && <AnomaliesTab />}
+      <TrendsChart
+        points={trends ?? []}
+        days={days}
+        onDaysChange={setDays}
+        isLoading={trendsLoading}
+      />
+
+      <div
+        style={{
+          background: "var(--card)",
+          borderRadius: 20,
+          boxShadow: "var(--shadow-card)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "14px 18px 0",
+            flexWrap: "wrap",
+          }}
+        >
+          {tabs.map(([value, label, count]) => (
+            <TabChip
+              key={value}
+              label={label}
+              badge={count}
+              active={tab === value}
+              onClick={() => setTab(value)}
+            />
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 24px 2px",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "var(--txt3)" }}>{note[tab]}</div>
+        </div>
+
+        <div style={{ paddingBottom: 4 }}>
+          {tab === "health" && <HealthTab />}
+          {tab === "incidents" && <IncidentsTab />}
+          {tab === "provisioning" && <ProvisioningTab rows={provisioning} />}
+          {tab === "upgrades" && <UpgradesTab />}
+          {tab === "anomalies" && <AnomaliesTab />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Tenant health ----------------------------------------------------------
+
+const HEALTH_GRID = "150px 1.1fr 1.5fr 90px 150px 130px"
+
+function HealthTab() {
+  const { data, isPending } = useEstateOverview()
+  const rows = data?.institutions ?? []
+
+  return (
+    <>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: HEALTH_GRID,
+          columnGap: 18,
+          padding: "14px 24px 10px",
+          fontSize: 10.5,
+          letterSpacing: ".09em",
+          color: "var(--txt4)",
+        }}
+      >
+        <div>LAST SYNC</div>
+        <div>INSTITUTION</div>
+        <div>PLAN</div>
+        <div>LEARNERS</div>
+        <div>TENANT HEALTH</div>
+        <div>OPEN ISSUES</div>
+      </div>
+
+      {isPending && <Loading />}
+
+      {!isPending && rows.length === 0 && (
+        <Empty>No institutions on the estate yet.</Empty>
+      )}
+
+      {rows.map((r) => (
+        <div
+          key={r.id}
+          style={{
+            display: "grid",
+            gridTemplateColumns: HEALTH_GRID,
+            columnGap: 18,
+            alignItems: "center",
+            padding: "13px 24px",
+            fontSize: 13.5,
+            borderTop: "1px solid var(--line2)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              color: "var(--txt2)",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: healthDot(r.health),
+              }}
+            />
+            <span style={{ fontSize: 12.5 }}>
+              {r.capturedAt
+                ? new Date(r.capturedAt).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                  })
+                : "never"}
+            </span>
+          </div>
+          <div style={{ fontWeight: 500, color: "var(--txt)" }}>{r.name}</div>
+          <div style={{ color: "var(--txt2)" }}>{r.plan ?? "—"}</div>
+          <div
+            className="qhub-mono"
+            style={{ fontSize: 12.5, color: "var(--txt2)" }}
+          >
+            {r.students.toLocaleString()}
+          </div>
+          <div>
+            <span
+              className="qhub-mono"
+              style={{
+                fontSize: 10.5,
+                letterSpacing: ".06em",
+                padding: "4px 9px",
+                borderRadius: 7,
+                ...healthTone(r.health),
+              }}
+            >
+              {healthLabel(r.health)}
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: r.issues > 0 ? "var(--neg)" : "var(--txt3)",
+            }}
+          >
+            {r.issues > 0 ? `${r.issues} failing` : "none"}
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+// --- Provisioning -----------------------------------------------------------
+
+function ProvisioningTab({
+  rows,
+}: {
+  rows: Array<{ id: number; name: string; slug: string }>
+}) {
+  if (rows.length === 0) {
+    return <Empty>Nothing being provisioned right now.</Empty>
+  }
+
+  return (
+    <>
+      {rows.map((r) => (
+        <ProvisioningRow
+          key={r.id}
+          tenantId={r.id}
+          name={r.name}
+          slug={r.slug}
+        />
+      ))}
+    </>
+  )
+}
+
+/**
+ * One onboarding in flight, followed to ten of ten.
+ *
+ * Polls only while it is still running — a finished build that keeps asking is
+ * just noise on the server.
+ */
+function ProvisioningRow({
+  tenantId,
+  name,
+  slug,
+}: {
+  tenantId: number
+  name: string
+  slug: string
+}) {
+  const { data } = useProvisioningProgress(tenantId)
+
+  return (
+    <div
+      style={{
+        padding: "13px 24px",
+        borderTop: "1px solid var(--line2)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--txt)" }}>
+          {name}
+        </div>
+        <div
+          className="qhub-mono"
+          style={{ fontSize: 11.5, color: "var(--txt4)" }}
+        >
+          {slug}
+        </div>
+        <div
+          className="qhub-mono"
+          style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--txt3)" }}
+        >
+          {data ? `${data.completed}/${data.total}` : "…"}
+        </div>
+      </div>
+
+      <div
+        style={{
+          height: 6,
+          borderRadius: 999,
+          background: "var(--panel)",
+          marginTop: 9,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${data?.percent ?? 0}%`,
+            background:
+              data?.status === "FAILED" ? "var(--neg)" : "var(--accent)",
+            transition: "width .4s ease",
+          }}
+        />
+      </div>
+
+      <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 6 }}>
+        {data?.status === "FAILED"
+          ? `Failed at ${data.failedAt ?? "an unknown step"}${data.error ? ` — ${data.error}` : ""}`
+          : data?.status === "QUEUED"
+            ? "Waiting for a worker to pick it up."
+            : (data?.steps.find((s) => !s.done)?.label ?? "Finishing up")}
       </div>
     </div>
   )
@@ -486,6 +794,89 @@ function AnomalyRow({
 }
 
 // --- Small pieces -----------------------------------------------------------
+
+function healthDot(health: HealthStatus): string {
+  if (health === "FAIL") return "var(--neg)"
+  if (health === "WARN") return "var(--warn)"
+
+  return "var(--accent)"
+}
+
+function healthTone(health: HealthStatus) {
+  if (health === "FAIL") {
+    return { color: "var(--neg)", background: "var(--neg-bg)" }
+  }
+  if (health === "WARN") {
+    return { color: "var(--warn)", background: "var(--warn-bg)" }
+  }
+
+  return { color: "var(--accent)", background: "var(--accent-soft)" }
+}
+
+function healthLabel(health: HealthStatus): string {
+  if (health === "FAIL") return "DEGRADED"
+  if (health === "WARN") return "WARNING"
+
+  return "HEALTHY"
+}
+
+function Kpi({
+  label,
+  value,
+  note,
+  tone,
+  last,
+  loading,
+}: {
+  label: string
+  value: number
+  note: string
+  tone?: "neg" | "warn"
+  last?: boolean
+  loading?: boolean
+}) {
+  return (
+    <div
+      style={{
+        padding: "18px 20px",
+        borderRight: last ? "none" : "1px solid var(--line)",
+      }}
+    >
+      <div style={{ fontSize: 13, color: "var(--txt3)", marginBottom: 7 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 8,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <div
+          className="qhub-mono"
+          style={{
+            fontSize: 23,
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            opacity: loading ? 0.5 : 1,
+            color:
+              tone === "neg"
+                ? "var(--neg)"
+                : tone === "warn"
+                  ? "var(--warn)"
+                  : "var(--txt)",
+          }}
+        >
+          {value.toLocaleString()}
+        </div>
+        <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--txt4)" }}>
+          {note}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function Loading() {
   return <div style={{ fontSize: 13, color: "var(--txt3)" }}>Loading…</div>

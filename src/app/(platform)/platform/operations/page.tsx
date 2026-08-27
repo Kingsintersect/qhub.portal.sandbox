@@ -1,9 +1,12 @@
-import { OperationsPage } from "@/modules/platform-ops-overview/components/OperationsPage"
+import { redirect } from "next/navigation"
 
-export const metadata = {
-  title: "Operations · QHUB Platform",
-}
-
+/**
+ * Operations folded into Systems Overview.
+ *
+ * Incidents, upgrades and anomalies are three of that page's five tabs, so a
+ * separate route would be the same data behind a second door. Redirected
+ * rather than deleted so any link already in a notification still lands.
+ */
 export default function PlatformOperationsRoute() {
-  return <OperationsPage />
+  redirect("/platform/overview")
 }

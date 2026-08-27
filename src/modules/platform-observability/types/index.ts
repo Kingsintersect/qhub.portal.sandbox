@@ -87,3 +87,12 @@ export type ActivityEntry = {
   ipAddress: string | null
   createdAt: string | null
 }
+
+/** One day of the estate's shape, for the Trends chart. */
+export type TrendPoint = {
+  day: string
+  students: number
+  activity: number
+  logins: number
+  institutions: number
+}

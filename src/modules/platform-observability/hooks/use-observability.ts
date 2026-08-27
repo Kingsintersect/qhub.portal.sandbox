@@ -32,3 +32,19 @@ export function useInstitutionActivity(id: number) {
     enabled: Number.isFinite(id) && id > 0,
   })
 }
+
+/**
+ * The estate trend, polled.
+ *
+ * The console is a live operations tool, so this refreshes on its own rather
+ * than waiting for a reload — the collector runs every fifteen minutes and a
+ * chart that silently goes stale is worse than one that says it is loading.
+ */
+export function useEstateTrends(days = 30) {
+  return useQuery({
+    queryKey: observabilityKeys.trends(days),
+    queryFn: () => observabilityService.trends(days),
+    refetchInterval: 60_000,
+    placeholderData: (previous) => previous,
+  })
+}

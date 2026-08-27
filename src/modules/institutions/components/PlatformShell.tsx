@@ -69,20 +69,20 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   {
+    href: "/platform/overview",
+    label: "Systems Overview",
+    Icon: Activity,
+    permission: "metrics.read",
+    badge: "operations",
+    tone: "neg",
+  },
+  {
     href: "/platform",
     label: "Institutions",
     Icon: Building2,
     permission: null,
     exact: true,
     badge: "institutions",
-    tone: "neg",
-  },
-  {
-    href: "/platform/operations",
-    label: "Operations",
-    Icon: Activity,
-    permission: "incidents.manage",
-    badge: "operations",
     tone: "neg",
   },
   {
