@@ -83,7 +83,7 @@ export function ChangePlanDialog({
         style={{
           position: "relative",
           width: 520,
-          maxWidth: "94vw",
+          maxWidth: "calc(94vw / var(--zoom))",
           background: "var(--surface-solid)",
           border: "1px solid var(--line-strong)",
           borderRadius: 18,

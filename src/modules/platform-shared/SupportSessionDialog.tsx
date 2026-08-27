@@ -94,7 +94,7 @@ export function SupportSessionDialog({
         style={{
           position: "relative",
           width: 480,
-          maxWidth: "calc(100vw - 32px)",
+          maxWidth: "calc(100vw / var(--zoom) - 32px)",
           background: "var(--surface-solid)",
           border: "1px solid var(--line-strong)",
           borderRadius: 18,

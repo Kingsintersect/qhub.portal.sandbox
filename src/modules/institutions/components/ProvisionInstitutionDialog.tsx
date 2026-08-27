@@ -266,8 +266,8 @@ export function ProvisionInstitutionDialog() {
           style={{
             position: "relative",
             width: 780,
-            maxWidth: "94vw",
-            maxHeight: "92vh",
+            maxWidth: "calc(94vw / var(--zoom))",
+            maxHeight: "calc(92vh / var(--zoom))",
             overflowY: "auto",
             background: "var(--surface-solid)",
             borderRadius: 20,

@@ -75,7 +75,7 @@ export function TicketDrawer({
           top: 0,
           right: 0,
           bottom: 0,
-          width: "88vw",
+          width: "calc(88vw / var(--zoom))",
           background: "var(--bg)",
           borderLeft: "1px solid var(--drawer-edge)",
           boxShadow: "-30px 0 70px rgba(8,12,18,.3)",

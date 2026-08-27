@@ -48,8 +48,8 @@ export function AnnouncementViewer({
         style={{
           position: "relative",
           width: 560,
-          maxWidth: "94vw",
-          maxHeight: "86vh",
+          maxWidth: "calc(94vw / var(--zoom))",
+          maxHeight: "calc(86vh / var(--zoom))",
           overflow: "auto",
           background: "var(--surface-solid)",
           border: "1px solid var(--line-strong)",

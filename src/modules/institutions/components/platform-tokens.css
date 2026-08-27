@@ -31,6 +31,17 @@
 .qhub-console {
   zoom: 0.8;
 
+  /*
+   * The same factor, readable by calc().
+   *
+   * Viewport units resolve BEFORE the zoom and are then scaled by it, so a
+   * bare 95vw inside the console renders at 76% of the screen. Anything sized
+   * to the viewport divides by this. `position: fixed; inset: 0` is the
+   * exception — measured, it already covers the whole viewport — so scrims
+   * and overlays need no adjustment.
+   */
+  --zoom: 0.8;
+
   --bg: #e8ebef;
   --card: #ffffff;
   --panel: #f5f7fa;

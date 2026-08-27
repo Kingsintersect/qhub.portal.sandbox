@@ -196,7 +196,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     return (
       <main
         className="qhub-console"
-        style={{ minHeight: "calc(100dvh / 0.8)" }}
+        style={{ minHeight: "calc(100dvh / var(--zoom))" }}
       >
         {children}
       </main>
@@ -207,7 +207,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     return (
       <div
         className="qhub-console"
-        style={{ minHeight: "calc(100dvh / 0.8)", padding: 22 }}
+        style={{ minHeight: "calc(100dvh / var(--zoom))", padding: 22 }}
       >
         <div
           style={{
@@ -235,7 +235,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         style={{
           // Viewport units resolve before the 80% zoom, so a bare 100vh comes
           // out a quarter too tall and earns a scrollbar it should not have.
-          minHeight: "calc(100vh / 0.8)",
+          minHeight: "calc(100vh / var(--zoom))",
           display: "flex",
           gap: 20,
           alignItems: "flex-start",
@@ -245,10 +245,16 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         <aside
           style={{
             position: "sticky",
+            zIndex: 1,
             top: 22,
             width: 246,
             flex: "0 0 246px",
-            height: "calc(100vh - 44px)",
+            // The draft says calc(100vh - 44px). Viewport units resolve BEFORE
+            // the 80% zoom, so a bare 100vh leaves the sidebar a fifth short of
+            // the screen — and margin-top:auto then parks the theme toggle
+            // above the fold instead of at the bottom, which is where the
+            // handoff puts it.
+            height: "calc(100vh / var(--zoom) - 44px)",
             display: "flex",
             flexDirection: "column",
             gap: 26,
@@ -340,7 +346,6 @@ export function PlatformShell({ children }: { children: ReactNode }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              gap: 10,
               padding: "0 8px",
             }}
           >
@@ -359,6 +364,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
 
         <main
           style={{
+            position: "relative",
+            zIndex: 1,
             flex: "1 1 auto",
             minWidth: 0,
             display: "flex",

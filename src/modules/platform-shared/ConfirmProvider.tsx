@@ -82,7 +82,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
 
       {request && (
+        // Carries `qhub-console` because this renders as a SIBLING of the
+        // console, not inside it — the provider wraps the shell. Without the
+        // class it inherits neither the design tokens (so --surface-solid and
+        // every colour below resolve to nothing) nor the zoom, and the dialog
+        // comes out unpainted and at the wrong scale.
         <div
+          className="qhub-console"
           style={{
             position: "fixed",
             inset: 0,
@@ -113,7 +119,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             style={{
               position: "relative",
               width: 460,
-              maxWidth: "calc(100vw - 32px)",
+              maxWidth: "calc(100vw / var(--zoom) - 32px)",
               background: "var(--surface-solid)",
               border: "1px solid var(--line-strong)",
               borderRadius: 18,

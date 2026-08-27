@@ -94,7 +94,7 @@ export function EscalateDialog({
         style={{
           position: "relative",
           width: 540,
-          maxHeight: "88vh",
+          maxHeight: "calc(88vh / var(--zoom))",
           overflow: "auto",
           background: "var(--surface-solid)",
           border: "1px solid var(--line-strong)",

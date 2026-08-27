@@ -167,8 +167,8 @@ export function AnnouncementComposer({
         style={{
           position: "relative",
           width: 640,
-          maxWidth: "94vw",
-          maxHeight: "88vh",
+          maxWidth: "calc(94vw / var(--zoom))",
+          maxHeight: "calc(88vh / var(--zoom))",
           overflow: "auto",
           background: "var(--surface-solid)",
           border: "1px solid var(--line-strong)",
