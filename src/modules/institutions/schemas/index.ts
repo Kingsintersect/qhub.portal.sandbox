@@ -69,6 +69,8 @@ export const institutionSchema = z.object({
       fontFamily: z.string().nullable().optional(),
     })
     .optional(),
+  // Whether, never where — the API deliberately does not send the host.
+  dedicatedDatabaseServer: z.boolean().default(false),
   provisionedAt: z.string().nullable(),
   createdAt: z.string().nullable(),
   domains: z.array(institutionDomainSchema),

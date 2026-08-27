@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 
 import { useRail } from "@/modules/platform-rail/use-rail"
@@ -226,20 +226,31 @@ export function ConsoleRail({ enabled }: { enabled: boolean }) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr auto",
+            gridTemplateColumns: "1fr auto auto",
             gap: "11px 14px",
             fontSize: 13.5,
             padding: "14px 2px 0",
             alignItems: "center",
           }}
         >
-          <Line label="Audited events · 24h" value={load?.activity24h ?? 0} />
           <Line label="Job queue depth" value={load?.queueDepth ?? 0} />
           <Line
-            label="Failed jobs"
-            value={load?.failedJobs ?? 0}
-            tone={(load?.failedJobs ?? 0) > 0 ? "neg" : undefined}
+            label="Failed jobs · 24h"
+            value={load?.failedJobs24h ?? 0}
+            tone={(load?.failedJobs24h ?? 0) > 0 ? "neg" : undefined}
           />
+          <Freshness capturedAt={load?.lastCapturedAt ?? null} />
+        </div>
+        <div
+          style={{
+            fontSize: 10.5,
+            color: "var(--txt4)",
+            padding: "12px 2px 0",
+            lineHeight: 1.5,
+          }}
+        >
+          Every figure here is measured — live concurrency and API percentiles
+          are not instrumented yet, so they are not shown.
         </div>
       </Panel>
     </aside>
@@ -369,10 +380,12 @@ function Line({
   label,
   value,
   tone,
+  note,
 }: {
   label: string
-  value: number
+  value: number | string
   tone?: "neg"
+  note?: string
 }) {
   return (
     <>
@@ -384,9 +397,67 @@ function Line({
           color: tone === "neg" ? "var(--neg)" : "var(--txt)",
         }}
       >
-        {value.toLocaleString()}
+        {typeof value === "number" ? value.toLocaleString() : value}
       </div>
+      <div style={{ fontSize: 12, color: "var(--txt4)" }}>{note ?? ""}</div>
     </>
+  )
+}
+
+/**
+ * How stale the rollup is.
+ *
+ * The one figure that can notice a stopped scheduler — every other number on
+ * this rail keeps rendering happily off data that stopped moving days ago.
+ * Turns negative-toned once it is well past the collection interval.
+ */
+function Freshness({ capturedAt }: { capturedAt: string | null }) {
+  // The clock is read in an effect, not during render: age is not a pure
+  // function of props, and it has to keep counting up between polls anyway —
+  // a value frozen at render is exactly the stale reading this line exists
+  // to catch.
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+
+    return () => clearInterval(id)
+  }, [])
+
+  if (!capturedAt) {
+    return (
+      <Line
+        label="Collector freshness"
+        value="never"
+        tone="neg"
+        note="poll 15m"
+      />
+    )
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.round((now - new Date(capturedAt).getTime()) / 1000)
+  )
+
+  const text =
+    seconds < 90
+      ? `${seconds}s ago`
+      : seconds < 5400
+        ? `${Math.round(seconds / 60)}m ago`
+        : `${Math.round(seconds / 3600)}h ago`
+
+  // The collector runs every fifteen minutes; twice that is late enough to
+  // mean something is wrong rather than merely between runs.
+  const stale = seconds > 1800
+
+  return (
+    <Line
+      label="Collector freshness"
+      value={text}
+      tone={stale ? "neg" : undefined}
+      note="poll 15m"
+    />
   )
 }
 

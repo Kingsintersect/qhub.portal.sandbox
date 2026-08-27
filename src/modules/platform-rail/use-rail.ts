@@ -26,7 +26,10 @@ export type RailData = {
     signIns24h: number
     activity24h: number
     queueDepth: number
-    failedJobs: number
+    /** Scoped to a day — a lifetime total never goes down. */
+    failedJobs24h: number
+    /** How stale the rollup is. The only way to notice a stopped scheduler. */
+    lastCapturedAt: string | null
     bars: Array<{ day: string; value: number }>
   }
 }

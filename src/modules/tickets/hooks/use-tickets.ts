@@ -51,6 +51,22 @@ export function useReplyToTicket(id: number) {
   })
 }
 
+export function useAcceptTicket(id: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => platformTicketsService.accept(id),
+    onSuccess: () => {
+      toast.success("Ticket accepted")
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not accept that ticket", {
+        description: errorMessage(error, "Try again."),
+      }),
+  })
+}
+
 export function useUpdateTicket(id: number) {
   const queryClient = useQueryClient()
 

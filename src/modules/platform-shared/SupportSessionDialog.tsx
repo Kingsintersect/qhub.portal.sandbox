@@ -27,12 +27,15 @@ export function SupportSessionDialog({
   slug,
   onClose,
   onOpened,
+  onReason,
 }: {
   tenantId: number
   name: string
   slug: string
   onClose: () => void
   onOpened: (session: SupportSession) => void
+  /** The reason, so the live frame can show the institution what it will read. */
+  onReason?: (reason: string) => void
 }) {
   const [reason, setReason] = useState("")
 
@@ -46,6 +49,7 @@ export function SupportSessionDialog({
         )
       ).data,
     onSuccess: (session) => {
+      onReason?.(reason)
       onOpened(session)
       onClose()
     },

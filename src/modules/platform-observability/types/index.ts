@@ -49,6 +49,8 @@ export type HealthCheck = {
 
 export type MetricPoint = {
   capturedAt: string | null
+  /** Null on captures taken before the score was recorded. */
+  healthScore: number | null
   students: number
   activeStudents: number
   lecturers: number

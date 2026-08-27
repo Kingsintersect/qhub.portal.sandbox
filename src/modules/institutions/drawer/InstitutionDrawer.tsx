@@ -1,6 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+
+import apiClient from "@/lib/clients/apiClient"
+import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
+import {
+  SupportSessionDialog,
+  SupportSessionFrame,
+  type SupportSession,
+} from "@/modules/platform-shared/SupportSessionDialog"
+import { EscalateDialog } from "@/modules/institutions/drawer/EscalateDialog"
 
 import type { Institution } from "@/modules/institutions/types"
 import {
@@ -30,6 +41,32 @@ export function InstitutionDrawer({
   onClose: () => void
 }) {
   const [tab, setTab] = useState<DrawerTab>("overview")
+  const [openingSession, setOpeningSession] = useState(false)
+  const [escalating, setEscalating] = useState(false)
+  const [session, setSession] = useState<SupportSession | null>(null)
+  const [reason, setReason] = useState("")
+
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
+
+  const act = useMutation({
+    mutationFn: async (path: string) =>
+      apiClient.post(
+        `/platform/tenants/${institution.id}/${path}`,
+        {},
+        { access_token: true }
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["platform"] })
+      void queryClient.invalidateQueries({
+        queryKey: ["platform-observability"],
+      })
+    },
+    onError: (e) =>
+      toast.error(
+        (e as { message?: string } | null)?.message ?? "That did not work."
+      ),
+  })
 
   // Mounted closed, then opened on the next frame, so the transform actually
   // animates instead of rendering already-open.
@@ -180,6 +217,50 @@ export function InstitutionDrawer({
               alignItems: "center",
             }}
           >
+            <button
+              type="button"
+              onClick={() => setOpeningSession(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 500,
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              Open tenant console
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEscalating(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "var(--accent-soft)",
+                color: "var(--accent)",
+                fontSize: 13,
+                fontWeight: 500,
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              Escalate
+            </button>
+
             {institution.status === "SUSPENDED" && (
               <Pill tone="neg">SUSPENDED · portal closed</Pill>
             )}
@@ -276,8 +357,177 @@ export function InstitutionDrawer({
             ].includes(tab) && <PendingTab />}
           </div>
         </div>
+
+        <footer
+          style={{
+            flex: "0 0 auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            padding: "13px 26px",
+            borderTop: "1px solid var(--line-strong)",
+            background: "var(--card)",
+          }}
+        >
+          <div
+            className="qhub-mono"
+            style={{
+              fontSize: 11.5,
+              color: "var(--txt3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {institution.slug}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--txt4)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            DPA signed · data resides on{" "}
+            {institution.dedicatedDatabaseServer
+              ? "this institution's own database server"
+              : "the shared cluster"}
+          </div>
+
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <FooterAction onClick={() => setTab("audit")}>
+              View audit log
+            </FooterAction>
+
+            <div
+              style={{
+                width: 1,
+                height: 20,
+                background: "var(--divider)",
+                margin: "0 4px",
+              }}
+            />
+
+            {institution.status === "ACTIVE" && (
+              <>
+                <FooterAction
+                  tone="neg"
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: `Suspend ${institution.name}?`,
+                      body: "Their portal closes on the next request. Nothing is deleted and every record is kept — resuming puts it straight back.",
+                      label: "Suspend tenant",
+                      danger: true,
+                    })
+
+                    if (ok) act.mutate("suspend")
+                  }}
+                >
+                  Suspend tenant
+                </FooterAction>
+
+                <FooterAction
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: `Archive ${institution.name}?`,
+                      body: "They come off the estate and their records are retained for 24 months, restorable throughout. This is not deletion.",
+                      label: "Archive",
+                      danger: true,
+                    })
+
+                    if (ok) act.mutate("archive")
+                  }}
+                >
+                  Archive
+                </FooterAction>
+              </>
+            )}
+
+            {institution.status !== "ACTIVE" && (
+              <FooterAction tone="accent" onClick={() => act.mutate("resume")}>
+                {institution.status === "ARCHIVED"
+                  ? "Restore"
+                  : "Resume tenant"}
+              </FooterAction>
+            )}
+          </div>
+        </footer>
       </div>
+
+      {openingSession && (
+        <SupportSessionDialog
+          tenantId={institution.id}
+          name={institution.name}
+          slug={institution.slug}
+          onReason={setReason}
+          onClose={() => setOpeningSession(false)}
+          onOpened={setSession}
+        />
+      )}
+
+      {session !== null && (
+        <SupportSessionFrame
+          session={session}
+          institution={institution.name}
+          slug={institution.slug}
+          reason={reason}
+          onEnd={() => setSession(null)}
+        />
+      )}
+
+      {escalating && (
+        <EscalateDialog
+          tenantId={institution.id}
+          name={institution.name}
+          onClose={() => setEscalating(false)}
+        />
+      )}
     </div>
+  )
+}
+
+/** One control in the drawer's footer bar. */
+function FooterAction({
+  children,
+  onClick,
+  tone,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  tone?: "neg" | "accent"
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        border: `1px solid ${tone === "accent" ? "var(--accent)" : "var(--line-strong)"}`,
+        background: "transparent",
+        color:
+          tone === "neg"
+            ? "var(--neg)"
+            : tone === "accent"
+              ? "var(--accent)"
+              : "var(--txt2)",
+        fontSize: 12.5,
+        fontWeight: 500,
+        padding: "9px 14px",
+        borderRadius: 10,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        fontFamily: "inherit",
+      }}
+    >
+      {children}
+    </button>
   )
 }
 

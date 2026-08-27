@@ -25,6 +25,16 @@ export const platformTicketsService = {
       >(`/platform/tickets/${id}/reply`, { body, isInternal }, AUTH)
     ).data,
 
+  /** Take a ticket on. tickets.read is enough — accepting is not managing. */
+  accept: async (id: number): Promise<Ticket> =>
+    (
+      await apiClient.post<{ data: Ticket }, Record<string, never>>(
+        `/platform/tickets/${id}/accept`,
+        {},
+        AUTH
+      )
+    ).data,
+
   update: async (
     id: number,
     payload: { status?: string; priority?: string; assignedTo?: number | null }
