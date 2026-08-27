@@ -21,9 +21,20 @@ const PAGE_SIZE = 8
  * of the rollup is that this costs the same whether there are five
  * institutions or five hundred.
  */
-export function InstitutionsView() {
+export function InstitutionsView({
+  initialOpenId,
+}: {
+  /**
+   * Opens straight into one institution's drawer.
+   *
+   * `/platform/<id>` is a real address people link to and bookmark, and it
+   * should land on the same drawer the list opens rather than a second,
+   * differently-built page for the same institution.
+   */
+  initialOpenId?: number
+} = {}) {
   const { data, isPending, isError } = useEstateOverview()
-  const [openId, setOpenId] = useState<number | null>(null)
+  const [openId, setOpenId] = useState<number | null>(initialOpenId ?? null)
 
   const [issuesOnly, setIssuesOnly] = useState(false)
   const [page, setPage] = useState(1)

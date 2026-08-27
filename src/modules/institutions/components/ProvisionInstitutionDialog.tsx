@@ -3,28 +3,7 @@
 import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm, useWatch } from "react-hook-form"
-import { Check, Loader2, Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import { useProvisionInstitution } from "@/modules/institutions/hooks/use-institution-mutations"
 import { provisionInstitutionSchema } from "@/modules/institutions/schemas"
 import type { ProvisionInstitutionPayload } from "@/modules/institutions/types"
@@ -39,14 +18,14 @@ import {
 import type { ProgramCategory } from "@/modules/program-setup/types"
 
 const STEPS = [
-  { title: "Institution" },
-  { title: "Academic profile" },
-  { title: "Branding" },
-  { title: "Administrator" },
+  "Institution",
+  "Academic profile",
+  "Branding",
+  "Administrator",
 ] as const
 
 /**
- * Onboards an institution.
+ * Onboards an institution, lifted from the draft.
  *
  * Split across steps because the answers are not interchangeable: the academic
  * profile decides what actually gets provisioned — how many periods the
@@ -163,7 +142,16 @@ export function ProvisionInstitutionDialog() {
   // fields they have not reached yet.
   const goNext = async () => {
     const valid = await form.trigger(stepFields[step] as never)
+
     if (valid) setStep((s) => Math.min(s + 1, STEPS.length - 1))
+  }
+
+  const close = () => {
+    form.reset()
+    setSlugTouched(false)
+    setProfileTouched(false)
+    setStep(0)
+    setOpen(false)
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -181,601 +169,697 @@ export function ProvisionInstitutionDialog() {
           fontFamily: values.branding.fontFamily || undefined,
         },
       } as ProvisionInstitutionPayload,
-      {
-        onSuccess: () => {
-          form.reset()
-          setSlugTouched(false)
-          setProfileTouched(false)
-          setStep(0)
-          setOpen(false)
-        },
-        onError: () => {},
-      }
+      { onSuccess: close, onError: () => {} }
     )
   })
 
   const isLastStep = step === STEPS.length - 1
+  const errors = form.formState.errors
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "var(--accent)",
+          color: "#fff",
+          fontSize: 13.5,
+          fontWeight: 500,
+          padding: "11px 18px",
+          borderRadius: 11,
+          border: "none",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          fontFamily: "inherit",
+        }}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Onboard institution
+      </button>
+    )
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 size-4" aria-hidden="true" />
-          Onboard institution
-        </Button>
-      </DialogTrigger>
+    <>
+      <button
+        type="button"
+        disabled
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "var(--accent)",
+          color: "#fff",
+          fontSize: 13.5,
+          fontWeight: 500,
+          padding: "11px 18px",
+          borderRadius: 11,
+          border: "none",
+          cursor: "default",
+          whiteSpace: "nowrap",
+          fontFamily: "inherit",
+          opacity: 0.6,
+        }}
+      >
+        Onboard institution
+      </button>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Onboard an institution</DialogTitle>
-          <DialogDescription>
-            What you choose here decides how the institution is set up — its
-            calendar, its structure and what it awards.
-          </DialogDescription>
-        </DialogHeader>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 110,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 30,
+        }}
+      >
+        <div
+          onClick={close}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(8,12,18,.5)",
+          }}
+        />
 
-        <ol
-          className="flex flex-wrap gap-x-4 gap-y-1 text-xs"
-          aria-label="Progress"
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Onboard an institution"
+          style={{
+            position: "relative",
+            width: 780,
+            maxWidth: "94vw",
+            maxHeight: "92vh",
+            overflowY: "auto",
+            background: "var(--surface-solid)",
+            borderRadius: 20,
+            boxShadow: "var(--shadow-pop)",
+            padding: "26px 30px",
+            color: "var(--txt)",
+          }}
         >
-          {STEPS.map((s, index) => (
-            <li
-              key={s.title}
-              aria-current={index === step ? "step" : undefined}
-              className={cn(
-                "flex items-center gap-1.5",
-                index === step
-                  ? "font-medium text-foreground"
-                  : index < step
-                    ? "text-muted-foreground"
-                    : "text-muted-foreground/60"
-              )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 6,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: "-0.015em",
+              }}
             >
-              {index < step ? (
-                <Check className="size-3.5" aria-hidden="true" />
-              ) : (
-                <span aria-hidden="true">{index + 1}.</span>
-              )}
-              {s.title}
-            </li>
-          ))}
-        </ol>
+              Onboard an institution
+            </div>
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          {step === 0 && (
-            <section className="space-y-4">
-              <Field
-                id="name"
-                label="Institution name"
-                error={form.formState.errors.name?.message}
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close"
+              style={{
+                marginLeft: "auto",
+                width: 32,
+                height: 32,
+                borderRadius: 9,
+                background: "var(--panel)",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <svg
+                style={{ stroke: "var(--icon-strong)" }}
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                aria-hidden="true"
               >
-                <Input
-                  id="name"
-                  placeholder="University of Lagos"
-                  {...form.register("name")}
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            style={{ fontSize: 12.5, color: "var(--txt3)", marginBottom: 18 }}
+          >
+            A tenant is provisioned empty — the institution loads its own people
+            and courses.
+          </div>
+
+          <div style={{ display: "flex", gap: 6, marginBottom: 22 }}>
+            {STEPS.map((label, i) => (
+              <div key={label} style={{ flex: 1 }}>
+                <div
+                  style={{
+                    height: 4,
+                    borderRadius: 999,
+                    background:
+                      i <= step ? "var(--accent)" : "var(--line-strong)",
+                  }}
                 />
-              </Field>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  id="slug"
-                  label="Slug"
-                  hint="Used for the institution's database name."
-                  error={form.formState.errors.slug?.message}
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: i <= step ? "var(--txt2)" : "var(--txt4)",
+                    marginTop: 6,
+                    fontWeight: i === step ? 600 : 400,
+                  }}
                 >
-                  <Input
-                    id="slug"
-                    placeholder="unilag"
-                    {...form.register("slug", {
-                      onChange: () => setSlugTouched(true),
-                    })}
-                  />
-                </Field>
-
-                <Field
-                  id="plan"
-                  label="Plan"
-                  hint="Optional."
-                  error={form.formState.errors.plan?.message}
-                >
-                  <Input
-                    id="plan"
-                    placeholder="pilot"
-                    {...form.register("plan")}
-                  />
-                </Field>
+                  {label}
+                </div>
               </div>
+            ))}
+          </div>
 
-              <Field
-                id="domain"
-                label="Host"
-                hint="The address students and staff will use."
-                error={form.formState.errors.domain?.message}
-              >
-                <Input
-                  id="domain"
-                  placeholder="unilag.qhub.ng"
-                  {...form.register("domain")}
+          {step === 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px 18px",
+              }}
+            >
+              <Field label="Institution name" span error={errors.name?.message}>
+                <Text
+                  {...form.register("name")}
+                  placeholder="e.g. University of Lagos"
                 />
               </Field>
-            </section>
+
+              <Field
+                label="Slug"
+                hint="Becomes the database name. Lowercase letters, digits and underscores."
+                error={errors.slug?.message}
+              >
+                <Text
+                  {...form.register("slug", {
+                    onChange: () => setSlugTouched(true),
+                  })}
+                  placeholder="unilag"
+                  mono
+                />
+              </Field>
+
+              <Field
+                label="Official domain"
+                hint="Admin accounts must use this domain."
+                error={errors.domain?.message}
+              >
+                <Text
+                  {...form.register("domain")}
+                  placeholder="unilag.edu.ng"
+                />
+              </Field>
+
+              <Field label="Plan" error={errors.plan?.message}>
+                <Text {...form.register("plan")} placeholder="pilot" />
+              </Field>
+            </div>
           )}
 
           {step === 1 && (
-            <section className="space-y-5">
-              <Field
-                id="programCategories"
-                label="Programme types offered"
-                hint="Select every kind this institution runs."
-                error={form.formState.errors.programCategories?.message}
-              >
-                <Controller
-                  control={form.control}
-                  name="programCategories"
-                  render={({ field }) => (
-                    <div className="grid gap-2 sm:grid-cols-2" role="group">
-                      {PROGRAM_CATEGORY_OPTIONS.map((option) => {
-                        const selected = field.value?.includes(option.value)
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={selected}
-                            onClick={() =>
-                              field.onChange(
-                                selected
-                                  ? field.value.filter(
-                                      (v: string) => v !== option.value
-                                    )
-                                  : [...(field.value ?? []), option.value]
-                              )
-                            }
-                            className={cn(
-                              "rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
-                              selected
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:bg-muted/50"
-                            )}
-                          >
-                            <span className="flex items-start justify-between gap-2 text-sm font-medium text-foreground">
-                              {option.label}
-                              {selected && (
-                                <Check
-                                  className="mt-0.5 size-4 shrink-0 text-primary"
-                                  aria-hidden="true"
-                                />
-                              )}
-                            </span>
-                            <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                              {option.description}
-                            </span>
-                          </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <Controller
+                control={form.control}
+                name="programCategories"
+                render={({ field }) => (
+                  <Field
+                    label="Programs they run — pick all that apply"
+                    hint="This decides what gets provisioned: the calendar, the structural nodes, and which award templates exist."
+                    error={errors.programCategories?.message}
+                  >
+                    <Chips
+                      options={PROGRAM_CATEGORY_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      selected={field.value ?? []}
+                      multiple
+                      onPick={(value) => {
+                        const current = field.value ?? []
+
+                        field.onChange(
+                          current.includes(value as never)
+                            ? current.filter((v) => v !== value)
+                            : [...current, value]
                         )
-                      })}
-                    </div>
-                  )}
+                      }}
+                    />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="calendarUnit"
+                render={({ field }) => (
+                  <Field label="Academic calendar">
+                    <Chips
+                      options={CALENDAR_UNIT_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      selected={[field.value]}
+                      onPick={(value) => {
+                        setProfileTouched(true)
+                        field.onChange(value)
+                      }}
+                    />
+                  </Field>
+                )}
+              />
+
+              <Field
+                label="Periods per session"
+                error={errors.periodsPerSession?.message}
+              >
+                <Text
+                  type="number"
+                  min={1}
+                  max={12}
+                  {...form.register("periodsPerSession", {
+                    valueAsNumber: true,
+                    onChange: () => setProfileTouched(true),
+                  })}
+                  mono
                 />
               </Field>
 
-              <Field
-                id="awardTypes"
-                label="What it awards"
-                error={form.formState.errors.awardTypes?.message}
-              >
-                <Controller
-                  control={form.control}
-                  name="awardTypes"
-                  render={({ field }) => (
-                    <div className="flex flex-wrap gap-2" role="group">
-                      {AWARD_TYPE_OPTIONS.map((option) => {
-                        const selected = field.value?.includes(option.value)
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            title={option.description}
-                            aria-pressed={selected}
-                            onClick={() => {
-                              setProfileTouched(true)
-                              field.onChange(
-                                selected
-                                  ? field.value.filter(
-                                      (v: string) => v !== option.value
-                                    )
-                                  : [...(field.value ?? []), option.value]
-                              )
-                            }}
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                              selected
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border text-muted-foreground hover:bg-muted"
-                            )}
-                          >
-                            {option.label}
-                          </button>
+              <Controller
+                control={form.control}
+                name="regulator"
+                render={({ field }) => (
+                  <Field label="Regulator">
+                    <Chips
+                      options={REGULATOR_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      selected={[field.value]}
+                      onPick={(value) => {
+                        setProfileTouched(true)
+                        field.onChange(value)
+                      }}
+                    />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="awardTypes"
+                render={({ field }) => (
+                  <Field
+                    label="Awards they issue"
+                    error={errors.awardTypes?.message}
+                  >
+                    <Chips
+                      options={AWARD_TYPE_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      selected={field.value ?? []}
+                      multiple
+                      onPick={(value) => {
+                        setProfileTouched(true)
+
+                        const current = field.value ?? []
+
+                        field.onChange(
+                          current.includes(value as never)
+                            ? current.filter((v) => v !== value)
+                            : [...current, value]
                         )
-                      })}
-                    </div>
-                  )}
-                />
-              </Field>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field id="regulator" label="Regulator">
-                  <Controller
-                    control={form.control}
-                    name="regulator"
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(v) => {
-                          setProfileTouched(true)
-                          field.onChange(v)
-                        }}
-                      >
-                        <SelectTrigger
-                          id="regulator"
-                          className="w-full min-w-0"
-                        >
-                          <SelectValue className="truncate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REGULATOR_OPTIONS.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </Field>
-
-                <Field id="calendarUnit" label="Academic periods">
-                  <Controller
-                    control={form.control}
-                    name="calendarUnit"
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(v) => {
-                          setProfileTouched(true)
-                          field.onChange(v)
-                        }}
-                      >
-                        <SelectTrigger
-                          id="calendarUnit"
-                          className="w-full min-w-0"
-                        >
-                          <SelectValue className="truncate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CALENDAR_UNIT_OPTIONS.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </Field>
-
-                <Field
-                  id="periodsPerSession"
-                  label="Per session"
-                  error={form.formState.errors.periodsPerSession?.message}
-                >
-                  <Input
-                    id="periodsPerSession"
-                    type="number"
-                    min="1"
-                    max="6"
-                    {...form.register("periodsPerSession", {
-                      valueAsNumber: true,
-                      onChange: () => setProfileTouched(true),
-                    })}
-                  />
-                </Field>
-              </div>
-            </section>
+                      }}
+                    />
+                  </Field>
+                )}
+              />
+            </div>
           )}
 
           {step === 2 && (
-            <section className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-3">
-                {(["primary", "accent", "sidebar"] as const).map((role) => (
-                  <Field
-                    key={role}
-                    id={`color-${role}`}
-                    label={
-                      role === "sidebar"
-                        ? "Sidebar"
-                        : role === "accent"
-                          ? "Accent"
-                          : "Primary"
-                    }
-                    error={
-                      form.formState.errors.branding?.colors?.[role]?.message
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Controller
-                        control={form.control}
-                        name={`branding.colors.${role}` as const}
-                        render={({ field }) => (
-                          <>
-                            <input
-                              id={`color-${role}`}
-                              type="color"
-                              value={field.value || "#000000"}
-                              onChange={(e) => field.onChange(e.target.value)}
-                              className="size-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
-                              aria-label={`${role} colour`}
-                            />
-                            {/* A hex field as well as the swatch: institutions
-                                arrive with a brand hex, not a colour wheel. */}
-                            <Input
-                              value={field.value ?? ""}
-                              onChange={(e) => field.onChange(e.target.value)}
-                              className="font-mono text-xs"
-                              aria-label={`${role} colour hex`}
-                            />
-                          </>
-                        )}
-                      />
-                    </div>
-                  </Field>
-                ))}
-              </div>
-
-              <BrandPreview
-                colors={colors}
-                name={nameValue || "Your institution"}
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  id="logoUrl"
-                  label="Logo URL"
-                  error={form.formState.errors.logoUrl?.message}
-                >
-                  <Input
-                    id="logoUrl"
-                    placeholder="https://…/logo.png"
-                    {...form.register("logoUrl")}
-                  />
-                </Field>
-                <Field
-                  id="fontFamily"
-                  label="Font family"
-                  hint="Optional. Falls back to the portal default."
-                >
-                  <Input
-                    id="fontFamily"
-                    placeholder="Georgia"
-                    {...form.register("branding.fontFamily")}
-                  />
-                </Field>
-              </div>
-
-              <Field
-                id="tagline"
-                label="Tagline"
-                error={form.formState.errors.tagline?.message}
-              >
-                <Input
-                  id="tagline"
-                  placeholder="Truth and Courage"
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px 18px",
+              }}
+            >
+              <Field label="Tagline" span error={errors.tagline?.message}>
+                <Text
                   {...form.register("tagline")}
+                  placeholder="Knowledge for service"
                 />
               </Field>
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field
-                  id="websiteUrl"
-                  label="Website"
-                  error={form.formState.errors.websiteUrl?.message}
-                >
-                  <Input
-                    id="websiteUrl"
-                    placeholder="https://…"
-                    {...form.register("websiteUrl")}
-                  />
-                </Field>
-                <Field
-                  id="supportEmail"
-                  label="Support email"
-                  error={form.formState.errors.supportEmail?.message}
-                >
-                  <Input
-                    id="supportEmail"
-                    type="email"
-                    {...form.register("supportEmail")}
-                  />
-                </Field>
-                <Field
-                  id="supportPhone"
-                  label="Support phone"
-                  error={form.formState.errors.supportPhone?.message}
-                >
-                  <Input id="supportPhone" {...form.register("supportPhone")} />
-                </Field>
-              </div>
-            </section>
+              <Field label="Website" error={errors.websiteUrl?.message}>
+                <Text
+                  {...form.register("websiteUrl")}
+                  placeholder="https://unilag.edu.ng"
+                />
+              </Field>
+
+              <Field label="Logo URL" error={errors.logoUrl?.message}>
+                <Text {...form.register("logoUrl")} placeholder="https://…" />
+              </Field>
+
+              <Field label="Support email" error={errors.supportEmail?.message}>
+                <Text
+                  {...form.register("supportEmail")}
+                  placeholder="support@unilag.edu.ng"
+                />
+              </Field>
+
+              <Field label="Support phone" error={errors.supportPhone?.message}>
+                <Text {...form.register("supportPhone")} placeholder="+234…" />
+              </Field>
+
+              <Field
+                label="Brand colours"
+                span
+                hint="Their portal is painted with these. Nothing in this console uses them."
+              >
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  {(
+                    Object.keys(DEFAULT_BRAND_COLORS) as Array<
+                      keyof typeof DEFAULT_BRAND_COLORS
+                    >
+                  ).map((key) => (
+                    <label
+                      key={key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 12.5,
+                        color: "var(--txt2)",
+                      }}
+                    >
+                      <input
+                        type="color"
+                        {...form.register(`branding.colors.${key}` as never)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          padding: 0,
+                          border: "1px solid var(--line-strong)",
+                          borderRadius: 8,
+                          background: "var(--panel)",
+                          cursor: "pointer",
+                        }}
+                      />
+                      {key}
+                    </label>
+                  ))}
+
+                  <div
+                    className="qhub-mono"
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      color: "var(--txt4)",
+                      alignSelf: "center",
+                    }}
+                  >
+                    {Object.values(colors ?? {}).join(" · ")}
+                  </div>
+                </div>
+              </Field>
+
+              <Field label="Font family" span>
+                <Text
+                  {...form.register("branding.fontFamily")}
+                  placeholder="Optional — their portal's typeface"
+                />
+              </Field>
+            </div>
           )}
 
           {step === 3 && (
-            <section className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                The account the institution signs in with to configure itself.
-              </p>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field id="adminFirstName" label="First name">
-                  <Input
-                    id="adminFirstName"
-                    {...form.register("adminFirstName")}
-                  />
-                </Field>
-                <Field id="adminLastName" label="Last name">
-                  <Input
-                    id="adminLastName"
-                    {...form.register("adminLastName")}
-                  />
-                </Field>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  id="adminEmail"
-                  label="Email"
-                  error={form.formState.errors.adminEmail?.message}
-                >
-                  <Input
-                    id="adminEmail"
-                    type="email"
-                    {...form.register("adminEmail")}
-                  />
-                </Field>
-                <Field
-                  id="adminUsername"
-                  label="Username"
-                  error={form.formState.errors.adminUsername?.message}
-                >
-                  <Input
-                    id="adminUsername"
-                    {...form.register("adminUsername")}
-                  />
-                </Field>
-              </div>
-
-              <Field
-                id="adminPassword"
-                label="Temporary password"
-                hint="Share this with the institution; they should change it on first sign-in."
-                error={form.formState.errors.adminPassword?.message}
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px 18px",
+                }}
               >
-                <Input
-                  id="adminPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  {...form.register("adminPassword")}
-                />
-              </Field>
-            </section>
+                <Field
+                  label="Admin email"
+                  span
+                  hint="Must be on the official domain. The invitation goes here."
+                  error={errors.adminEmail?.message}
+                >
+                  <Text
+                    {...form.register("adminEmail")}
+                    placeholder="registrar@unilag.edu.ng"
+                  />
+                </Field>
+
+                <Field
+                  label="First name"
+                  error={errors.adminFirstName?.message}
+                >
+                  <Text {...form.register("adminFirstName")} />
+                </Field>
+
+                <Field label="Last name" error={errors.adminLastName?.message}>
+                  <Text {...form.register("adminLastName")} />
+                </Field>
+
+                <Field label="Username" error={errors.adminUsername?.message}>
+                  <Text {...form.register("adminUsername")} mono />
+                </Field>
+
+                <Field
+                  label="Initial password"
+                  error={errors.adminPassword?.message}
+                >
+                  <Text type="password" {...form.register("adminPassword")} />
+                </Field>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: "13px 15px",
+                  borderRadius: 11,
+                  background: "var(--warn-bg)",
+                  fontSize: 12.5,
+                  color: "var(--txt2)",
+                  lineHeight: 1.55,
+                }}
+              >
+                Provisioning creates a live, empty tenant and emails the primary
+                admin at the official domain. It does not load any student data
+                — the institution does that itself.
+              </div>
+            </>
           )}
 
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginTop: 22,
+            }}
+          >
+            <button
               type="button"
-              variant="outline"
-              onClick={() =>
-                step === 0 ? setOpen(false) : setStep((s) => s - 1)
-              }
-              disabled={provision.isPending}
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              disabled={step === 0}
+              style={{
+                fontSize: 13,
+                color: step === 0 ? "var(--txt4)" : "var(--txt2)",
+                padding: "10px 6px",
+                background: "transparent",
+                border: "none",
+                cursor: step === 0 ? "default" : "pointer",
+                fontFamily: "inherit",
+              }}
             >
-              {step === 0 ? "Cancel" : "Back"}
-            </Button>
+              Back
+            </button>
 
-            {isLastStep ? (
-              <Button type="submit" disabled={provision.isPending}>
-                {provision.isPending && (
-                  <Loader2
-                    className="mr-2 size-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                )}
-                {provision.isPending ? "Provisioning…" : "Onboard institution"}
-              </Button>
-            ) : (
-              <Button type="button" onClick={goNext}>
-                Continue
-              </Button>
-            )}
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div
+              style={{
+                marginLeft: "auto",
+                fontSize: 12,
+                color: "var(--txt4)",
+              }}
+            >
+              Step {step + 1} of {STEPS.length}
+            </div>
+
+            <button
+              type="button"
+              disabled={provision.isPending}
+              onClick={() => {
+                if (isLastStep) void onSubmit()
+                else void goNext()
+              }}
+              style={{
+                background: provision.isPending
+                  ? "var(--panel)"
+                  : "var(--accent)",
+                color: provision.isPending ? "var(--txt4)" : "#fff",
+                fontSize: 13.5,
+                fontWeight: 500,
+                padding: "11px 22px",
+                borderRadius: 11,
+                border: "none",
+                cursor: provision.isPending ? "default" : "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              {provision.isPending
+                ? "Provisioning…"
+                : isLastStep
+                  ? "Provision institution"
+                  : "Continue"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 
-/** Shows the chosen palette on portal-shaped furniture, not bare swatches. */
-function BrandPreview({
-  colors,
-  name,
+/* ── pieces ──────────────────────────────────────────────────────────── */
+
+function Field({
+  label,
+  hint,
+  error,
+  span,
+  children,
 }: {
-  colors?: { primary?: string; accent?: string; sidebar?: string }
-  name: string
+  label: string
+  hint?: string
+  error?: string
+  span?: boolean
+  children: React.ReactNode
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <div className="flex">
-        <div
-          className="w-28 shrink-0 p-3 text-[10px] leading-tight"
-          style={{ background: colors?.sidebar ?? "transparent" }}
-        >
-          <span className="block font-semibold text-neutral-900">{name}</span>
-          <span className="mt-2 block text-neutral-600">Dashboard</span>
-          <span className="mt-1 block text-neutral-600">Students</span>
-        </div>
-        <div className="flex-1 space-y-2 p-3">
-          <div
-            className="h-2 w-24 rounded"
-            style={{ background: colors?.accent ?? "#eee" }}
-          />
-          <div
-            className="h-2 w-16 rounded"
-            style={{ background: colors?.accent ?? "#eee" }}
-          />
-          <span
-            className="inline-block rounded-md px-3 py-1.5 text-[11px] font-medium text-white"
-            style={{ background: colors?.primary ?? "#000" }}
-          >
-            Primary action
-          </span>
-        </div>
+    <div style={span ? { gridColumn: "1 / -1" } : undefined}>
+      <div style={{ fontSize: 12.5, color: "var(--txt3)", marginBottom: 7 }}>
+        {label}
       </div>
+
+      {children}
+
+      {error !== undefined && (
+        <div style={{ fontSize: 11.5, color: "var(--neg)", marginTop: 6 }}>
+          {error}
+        </div>
+      )}
+
+      {error === undefined && hint !== undefined && (
+        <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 6 }}>
+          {hint}
+        </div>
+      )}
     </div>
   )
 }
 
-function Field({
-  id,
-  label,
-  hint,
-  error,
-  children,
-}: {
-  id: string
-  label: string
-  hint?: string
-  error?: string
-  children: React.ReactNode
+const Text = function Text({
+  mono,
+  ref,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  mono?: boolean
+  ref?: React.Ref<HTMLInputElement>
 }) {
-  const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null]
-    .filter(Boolean)
-    .join(" ")
-
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <div aria-describedby={describedBy || undefined}>{children}</div>
-      {hint && (
-        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p
-          id={`${id}-error`}
-          role="alert"
-          className="text-xs font-medium text-destructive"
-        >
-          {error}
-        </p>
-      )}
+    <input
+      ref={ref}
+      {...props}
+      className={mono === true ? "qhub-mono" : undefined}
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        border: "1px solid var(--line-strong)",
+        borderRadius: 11,
+        background: "var(--panel)",
+        padding: "12px 14px",
+        fontSize: 14,
+        color: "var(--txt)",
+        outline: "none",
+        fontFamily: "inherit",
+      }}
+    />
+  )
+}
+
+function Chips({
+  options,
+  selected,
+  multiple,
+  onPick,
+}: {
+  options: Array<{ value: string; label: string }>
+  selected: readonly string[]
+  multiple?: boolean
+  onPick: (value: string) => void
+}) {
+  return (
+    <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+      {options.map((option) => {
+        const on = selected.includes(option.value)
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={multiple === true ? on : undefined}
+            onClick={() => onPick(option.value)}
+            style={{
+              fontSize: 12.5,
+              fontWeight: 500,
+              padding: "8px 13px",
+              borderRadius: 9,
+              cursor: "pointer",
+              color: on ? "var(--accent)" : "var(--txt2)",
+              background: on ? "var(--accent-soft)" : "transparent",
+              border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
+              fontFamily: "inherit",
+            }}
+          >
+            {option.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

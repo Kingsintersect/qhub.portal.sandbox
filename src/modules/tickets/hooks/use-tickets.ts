@@ -16,7 +16,7 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 export function useTicketQueue(
-  params: { status?: string; search?: string } = {}
+  params: { status?: string; search?: string; tenantId?: number } = {}
 ) {
   return useQuery({
     queryKey: ticketKeys.queue(params),
@@ -47,6 +47,28 @@ export function useReplyToTicket(id: number) {
     onError: (error) =>
       toast.error("Could not send that", {
         description: errorMessage(error, "Try again."),
+      }),
+  })
+}
+
+export function useLogTicketForTenant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: {
+      tenantId: number
+      subject: string
+      body: string
+      priority?: string
+      category?: string
+    }) => platformTicketsService.logForTenant(payload),
+    onSuccess: () => {
+      toast.success("Ticket logged")
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not log that ticket", {
+        description: errorMessage(error, "Nothing was created."),
       }),
   })
 }

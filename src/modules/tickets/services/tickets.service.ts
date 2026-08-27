@@ -25,6 +25,27 @@ export const platformTicketsService = {
       >(`/platform/tickets/${id}/reply`, { body, isInternal }, AUTH)
     ).data,
 
+  /**
+   * Log a ticket against an institution on their behalf.
+   *
+   * For issues staff spot before the institution reports them. Recorded as
+   * channel PLATFORM so the queue can tell "they asked us" from "we noticed".
+   */
+  logForTenant: async (payload: {
+    tenantId: number
+    subject: string
+    body: string
+    priority?: string
+    category?: string
+  }): Promise<Ticket> =>
+    (
+      await apiClient.post<{ data: Ticket }, typeof payload>(
+        "/platform/tickets/log",
+        payload,
+        AUTH
+      )
+    ).data,
+
   /** Take a ticket on. tickets.read is enough — accepting is not managing. */
   accept: async (id: number): Promise<Ticket> =>
     (

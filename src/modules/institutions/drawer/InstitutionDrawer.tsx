@@ -23,7 +23,9 @@ import { PeopleTab } from "@/modules/institutions/drawer/PeopleTab"
 import { FeatureFlagsTab } from "@/modules/institutions/drawer/FeatureFlagsTab"
 import { MaintenanceTab } from "@/modules/institutions/drawer/MaintenanceTab"
 import { AuditTab } from "@/modules/institutions/drawer/AuditTab"
-import { CourseImportPanel } from "@/modules/platform-operations/components/CourseImportPanel"
+import { BillingTab } from "@/modules/institutions/drawer/BillingTab"
+import { TicketsTab } from "@/modules/institutions/drawer/TicketsTab"
+import { BulkImportTab } from "@/modules/institutions/drawer/BulkImportTab"
 
 /**
  * The institution profile drawer, lifted from the draft.
@@ -339,22 +341,21 @@ export function InstitutionDrawer({
             {tab === "maint" && <MaintenanceTab institution={institution} />}
 
             {tab === "audit" && <AuditTab tenantId={institution.id} />}
-            {tab === "import" && (
-              <CourseImportPanel
-                institutionId={institution.id}
-                institutionName={institution.name}
+            {tab === "billing" && <BillingTab tenantId={institution.id} />}
+
+            {tab === "tickets" && (
+              <TicketsTab
+                tenantId={institution.id}
+                institution={institution.name}
               />
             )}
 
-            {![
-              "overview",
-              "students",
-              "lecturers",
-              "features",
-              "maint",
-              "audit",
-              "import",
-            ].includes(tab) && <PendingTab />}
+            {tab === "import" && (
+              <BulkImportTab
+                tenantId={institution.id}
+                institution={institution.name}
+              />
+            )}
           </div>
         </div>
 
@@ -528,33 +529,6 @@ function FooterAction({
     >
       {children}
     </button>
-  )
-}
-
-/**
- * A tab whose surface has not been lifted yet.
- *
- * Says so plainly rather than rendering an improvised stand-in — an invented
- * screen is harder to replace than an empty one, and this project's rule is
- * that surfaces come from the design.
- */
-function PendingTab() {
-  return (
-    <div
-      style={{
-        background: "var(--card)",
-        borderRadius: 18,
-        boxShadow: "var(--shadow-card)",
-        padding: "22px 24px",
-        fontSize: 13,
-        color: "var(--txt3)",
-        lineHeight: 1.6,
-        maxWidth: 560,
-      }}
-    >
-      This tab is not lifted yet. Its data and endpoints exist; the surface is
-      being built from the design rather than improvised.
-    </div>
   )
 }
 
