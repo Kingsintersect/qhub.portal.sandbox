@@ -187,3 +187,26 @@ export function useRunBilling() {
       }),
   })
 }
+
+/**
+ * Chase an unpaid invoice.
+ *
+ * The API allows one a day per invoice; the button reads "Reminded today"
+ * afterwards so nobody chases the same institution twice in an afternoon.
+ */
+export function useSendReminder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => billingService.sendReminder(id),
+    onSuccess: () => {
+      toast.success("Reminder sent.")
+      void queryClient.invalidateQueries({ queryKey: billingKeys.all })
+    },
+    onError: (error) =>
+      toast.error(
+        (error as { message?: string } | null)?.message ??
+          "That reminder could not be sent."
+      ),
+  })
+}

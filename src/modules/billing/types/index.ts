@@ -66,6 +66,17 @@ export interface Invoice {
   issuedOn: string | null
   dueOn: string | null
   notes: string | null
+
+  /**
+   * Raised by hand rather than by the billing run, so it has no period. The
+   * console shows ONE-OFF and the description in the period column — a blank
+   * cell there reads as missing data rather than as a deliberate one-off.
+   */
+  isManual: boolean
+
+  /** Drives "Reminded today", so nobody chases twice in an afternoon. */
+  remindedAt: string | null
+  reminderCount: number
 }
 
 export interface InvoiceDetail extends Invoice {

@@ -1,5 +1,5 @@
-import { BillingShell } from "@/modules/billing/components/BillingShell"
+import { BillingLedger } from "@/modules/billing/components/BillingLedger"
 
 export default function PlatformBillingPage() {
-  return <BillingShell />
+  return <BillingLedger />
 }

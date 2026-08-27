@@ -115,6 +115,16 @@ export const billingService = {
       )
     ).data,
 
+  /** Chase an open invoice. The API refuses more than one a day. */
+  sendReminder: async (id: number): Promise<Invoice> =>
+    (
+      await apiClient.post<{ data: Invoice }>(
+        `/platform/billing/invoices/${id}/remind`,
+        {},
+        AUTH
+      )
+    ).data,
+
   recordPayment: async (
     id: number,
     payload: {
