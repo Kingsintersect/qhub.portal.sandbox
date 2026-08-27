@@ -79,6 +79,14 @@ export function useResolveTask() {
   )
 }
 
+export function useCancelTask() {
+  return useTaskMutation<{ id: number; reason: string }>(
+    ({ id, reason }) => platformTasksService.cancel(id, reason),
+    () => "Task cancelled.",
+    "That task could not be cancelled."
+  )
+}
+
 export function useAddTaskStep() {
   return useTaskMutation<{ id: number; body: string }>(
     ({ id, body }) => platformTasksService.addStep(id, body),

@@ -100,6 +100,22 @@ export function useCreateSubscription() {
   })
 }
 
+export function useCancelSubscription() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => billingService.cancelSubscription(id),
+    onSuccess: () => {
+      // Say what actually happens, not just "cancelled" — nothing is deleted,
+      // the portal goes read-only, and that is the difference an operator
+      // needs to be sure of before they click it.
+      toast.success("Subscription cancelled — their portal goes read-only")
+      void queryClient.invalidateQueries({ queryKey: billingKeys.all })
+    },
+    onError: () => toast.error("Could not cancel that subscription"),
+  })
+}
+
 export function useUpdateSubscription(id: number) {
   const queryClient = useQueryClient()
 

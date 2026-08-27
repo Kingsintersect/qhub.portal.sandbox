@@ -60,6 +60,25 @@ export const billingService = {
 
   // --- Subscriptions -------------------------------------------------------
 
+  /** End a subscription. Nothing is deleted — the portal goes read-only. */
+  cancelSubscription: async (id: number): Promise<Subscription> =>
+    (
+      await apiClient.post<{ data: Subscription }, Record<string, never>>(
+        `/platform/billing/subscriptions/${id}/cancel`,
+        {},
+        AUTH
+      )
+    ).data,
+
+  changePlan: async (id: number, planId: number): Promise<Subscription> =>
+    (
+      await apiClient.post<{ data: Subscription }, { planId: number }>(
+        `/platform/billing/subscriptions/${id}/change-plan`,
+        { planId },
+        AUTH
+      )
+    ).data,
+
   subscriptions: async (
     params: { status?: string; tenantId?: number } = {}
   ): Promise<Subscription[]> =>

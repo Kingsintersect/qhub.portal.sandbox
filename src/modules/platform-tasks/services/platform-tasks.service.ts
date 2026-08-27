@@ -48,6 +48,22 @@ export const platformTasksService = {
       )
     ).data,
 
+  /**
+   * Cancel rather than resolve.
+   *
+   * The reason is required by the API and not optional here either — a
+   * cancelled task with no explanation is indistinguishable later from one
+   * that was simply dropped.
+   */
+  cancel: async (id: number, reason: string): Promise<PlatformTask> =>
+    (
+      await apiClient.post<{ data: PlatformTask }, { reason: string }>(
+        `/platform/tasks/${id}/cancel`,
+        { reason },
+        AUTH
+      )
+    ).data,
+
   resolve: async (id: number): Promise<PlatformTask> =>
     (
       await apiClient.post<{ data: PlatformTask }>(

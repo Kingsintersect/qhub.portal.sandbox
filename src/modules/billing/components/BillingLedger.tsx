@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
+import { SubscriptionsTable } from "@/modules/billing/components/SubscriptionsTable"
 import { formatMinor } from "@/modules/billing/lib/money"
 import {
   useInvoices,
@@ -136,7 +137,10 @@ export function BillingLedger() {
       </div>
 
       {view === "plans" ? (
-        <PlansView revenue={revenue} />
+        <>
+          <PlansView revenue={revenue} />
+          <SubscriptionsTable />
+        </>
       ) : (
         <>
           <div

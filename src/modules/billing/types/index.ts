@@ -47,6 +47,8 @@ export interface Subscription {
   trialEndsOn: string | null
   cancelledOn: string | null
   invoicedThrough: string | null
+  /** Base price normalised to a month. Null when the plan is gone. */
+  mrrMinor: number | null
 }
 
 export interface Invoice {

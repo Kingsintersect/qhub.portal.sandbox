@@ -7,6 +7,7 @@ import {
   useAcceptTask,
   useAddTaskStep,
   useCompleteTaskStep,
+  useCancelTask,
   useResolveTask,
   useTasks,
   useTeamMetrics,
@@ -217,6 +218,7 @@ function TaskRow({
 
   const accept = useAcceptTask()
   const resolve = useResolveTask()
+  const cancel = useCancelTask()
   const addStep = useAddTaskStep()
   const completeStep = useCompleteTaskStep()
 
@@ -495,6 +497,37 @@ function TaskRow({
                 }}
               >
                 Mark resolved
+              </button>
+
+              {/* Cancelling is not resolving. Resolved means the work was
+                  done; cancelled means it should not have been asked for, and
+                  counting the two together would make the resolution times
+                  measure work nobody did. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const reason = window.prompt(
+                    `Why is ${task.reference} being cancelled? Everyone on it sees this.`
+                  )
+
+                  if (reason !== null && reason.trim() !== "") {
+                    cancel.mutate({ id: task.id, reason: reason.trim() })
+                  }
+                }}
+                disabled={cancel.isPending}
+                style={{
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 9,
+                  background: "transparent",
+                  color: "var(--neg)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "7px 13px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancel task
               </button>
             </div>
           )}

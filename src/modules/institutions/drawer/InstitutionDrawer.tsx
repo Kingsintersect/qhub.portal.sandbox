@@ -26,6 +26,7 @@ import { AuditTab } from "@/modules/institutions/drawer/AuditTab"
 import { BillingTab } from "@/modules/institutions/drawer/BillingTab"
 import { TicketsTab } from "@/modules/institutions/drawer/TicketsTab"
 import { BulkImportTab } from "@/modules/institutions/drawer/BulkImportTab"
+import { InfrastructureTab } from "@/modules/institutions/drawer/InfrastructureTab"
 
 /**
  * The institution profile drawer, lifted from the draft.
@@ -339,6 +340,13 @@ export function InstitutionDrawer({
               <FeatureFlagsTab tenantId={institution.id} />
             )}
             {tab === "maint" && <MaintenanceTab institution={institution} />}
+
+            {tab === "infra" && (
+              <InfrastructureTab
+                tenantId={institution.id}
+                institution={institution.name}
+              />
+            )}
 
             {tab === "audit" && <AuditTab tenantId={institution.id} />}
             {tab === "billing" && <BillingTab tenantId={institution.id} />}
