@@ -30,6 +30,29 @@ export type Ticket = {
   raisedByEmail?: string | null
   firstRespondedAt?: string | null
   resolvedAt?: string | null
+
+  /** How it reached us: the institution asked, or we noticed. */
+  channel?: string | null
+
+  /**
+   * Assigned to a bare address with no staff account. Rendered in mono with
+   * "by email · no staff account", because a name and an address are
+   * different kinds of assignment.
+   */
+  assignedEmail?: string | null
+  assignedAt?: string | null
+  acceptedAt?: string | null
+
+  /** Assigned but nobody has taken it on — the amber state. */
+  awaitingAcceptance?: boolean
+
+  /**
+   * All derived from the clock. A stored breach flag needs a sweep to stay
+   * true, and a sweep that stops leaves the queue claiming it is healthy.
+   */
+  slaBreached?: boolean
+  slaMinutesRemaining?: number | null
+  responseDueAt?: string | null
 }
 
 export type TicketQueue = {

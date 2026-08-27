@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Lock, Search, Send } from "lucide-react"
+import { Loader2, Lock, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -17,25 +16,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
-import {
-  TicketPriorityLabel,
-  TicketStatusBadge,
-} from "@/modules/tickets/components/TicketBadges"
+import { TicketStatusBadge } from "@/modules/tickets/components/TicketBadges"
+import { TicketQueueTable } from "@/modules/tickets/components/TicketQueueTable"
 import { TicketThread } from "@/modules/tickets/components/TicketThread"
 import {
   usePlatformTicket,
   useReplyToTicket,
-  useTicketQueue,
   useUpdateTicket,
 } from "@/modules/tickets/hooks/use-tickets"
-
-const FILTERS = [
-  { label: "Active", value: "active" },
-  { label: "Open", value: "OPEN" },
-  { label: "Awaiting institution", value: "PENDING" },
-  { label: "Resolved", value: "RESOLVED" },
-  { label: "Closed", value: "CLOSED" },
-]
 
 /**
  * The support queue, with the selected ticket's thread beside it.
@@ -45,124 +33,24 @@ const FILTERS = [
  * each is friction an operator feels all day.
  */
 export function PlatformTicketQueue() {
-  const [status, setStatus] = useState("active")
-  const [search, setSearch] = useState("")
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
-  const queue = useTicketQueue({
-    status,
-    ...(search.trim() ? { search: search.trim() } : {}),
-  })
-
-  const tickets = queue.data?.data ?? []
-  const activeId = selectedId ?? tickets[0]?.id ?? null
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Support
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {queue.data
-            ? `${queue.data.meta.openCount} open · ${queue.data.meta.unassignedCount} unassigned`
-            : "Tickets raised by institutions."}
-        </p>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <TicketQueueTable onOpen={setSelectedId} selectedId={selectedId} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {selectedId !== null && (
         <div
-          className="flex flex-wrap gap-1"
-          role="group"
-          aria-label="Filter by status"
+          style={{
+            background: "var(--card)",
+            borderRadius: 20,
+            boxShadow: "var(--shadow-card)",
+            overflow: "hidden",
+          }}
         >
-          {FILTERS.map((filter) => (
-            <button
-              key={filter.value}
-              type="button"
-              aria-pressed={status === filter.value}
-              onClick={() => {
-                setStatus(filter.value)
-                setSelectedId(null)
-              }}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                status === filter.value
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {filter.label}
-            </button>
-          ))}
+          <TicketDetail ticketId={selectedId} />
         </div>
-
-        <div className="relative w-full sm:max-w-xs">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Subject or reference"
-            aria-label="Search tickets"
-            className="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-        <div className="space-y-2">
-          {queue.isPending &&
-            Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-
-          {!queue.isPending && tickets.length === 0 && (
-            <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Nothing here.
-            </p>
-          )}
-
-          {tickets.map((ticket) => (
-            <button
-              key={ticket.id}
-              type="button"
-              onClick={() => setSelectedId(ticket.id)}
-              aria-current={activeId === ticket.id ? "true" : undefined}
-              className={cn(
-                "w-full rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
-                activeId === ticket.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-muted/50"
-              )}
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {ticket.reference}
-                </span>
-                <TicketPriorityLabel priority={ticket.priority} />
-              </span>
-              <span className="mt-1 block text-sm font-medium text-foreground">
-                {ticket.subject}
-              </span>
-              <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{ticket.institution}</span>
-                <TicketStatusBadge status={ticket.status} />
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {activeId ? (
-          <TicketDetail ticketId={activeId} />
-        ) : (
-          <div className="grid place-items-center rounded-lg border border-dashed border-border p-10 text-sm text-muted-foreground">
-            Select a ticket.
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
