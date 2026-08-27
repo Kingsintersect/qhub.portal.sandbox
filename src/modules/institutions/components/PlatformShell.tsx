@@ -25,6 +25,7 @@ import {
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import { NotificationBell } from "@/modules/platform-notifications/components/NotificationBell"
 import { ConsoleRail } from "@/modules/platform-rail/ConsoleRail"
+import { ConfirmProvider } from "@/modules/platform-shared/ConfirmProvider"
 import {
   useNavCounts,
   type NavCounts,
@@ -218,225 +219,231 @@ export function PlatformShell({ children }: { children: ReactNode }) {
     item.exact ? pathname === item.href : pathname.startsWith(item.href)
 
   return (
-    <div
-      className="qhub-console"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        gap: 20,
-        alignItems: "flex-start",
-        padding: 22,
-      }}
-    >
-      <aside
+    <ConfirmProvider>
+      <div
+        className="qhub-console"
         style={{
-          position: "sticky",
-          top: 22,
-          width: 246,
-          flex: "0 0 246px",
-          height: "calc(100vh - 44px)",
+          minHeight: "100vh",
           display: "flex",
-          flexDirection: "column",
-          gap: 26,
-          padding: "6px 4px",
+          gap: 20,
+          alignItems: "flex-start",
+          padding: 22,
         }}
       >
-        <Link
-          href="/platform"
+        <aside
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 11,
-            padding: "6px 10px",
-            color: "inherit",
-            textDecoration: "none",
-          }}
-        >
-          <span
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 12,
-              background: "var(--logo-tile)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg
-              style={{ stroke: "var(--logo-mark)" }}
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              strokeWidth="1.6"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
-            </svg>
-          </span>
-          <span>
-            <span
-              style={{
-                display: "block",
-                fontSize: 15,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                color: "var(--txt)",
-              }}
-            >
-              QHub
-            </span>
-            <span
-              style={{ display: "block", fontSize: 11.5, color: "var(--txt3)" }}
-            >
-              Institutions manager
-            </span>
-          </span>
-        </Link>
-
-        <nav
-          style={{
+            position: "sticky",
+            top: 22,
+            width: 246,
+            flex: "0 0 246px",
+            height: "calc(100vh - 44px)",
             display: "flex",
             flexDirection: "column",
-            gap: 3,
-            whiteSpace: "nowrap",
-            overflowY: "auto",
-          }}
-          aria-label="Console sections"
-        >
-          {items.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              active={isActive(item)}
-              count={item.badge ? counts?.[item.badge] : undefined}
-            />
-          ))}
-        </nav>
-
-        <div
-          style={{
-            marginTop: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "0 8px",
+            gap: 26,
+            padding: "6px 4px",
           }}
         >
-          <ThemeToggle />
-          <span
+          <Link
+            href="/platform"
             style={{
-              fontSize: 11.5,
-              color: "var(--icon2)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {CONSOLE_VERSION}
-          </span>
-        </div>
-      </aside>
-
-      <main
-        style={{
-          flex: "1 1 auto",
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              flex: "1 1 auto",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              background: "var(--card)",
-              borderRadius: 999,
-              padding: "9px 10px",
-              boxShadow: "var(--shadow-sm)",
+              gap: 11,
+              padding: "6px 10px",
+              color: "inherit",
+              textDecoration: "none",
             }}
           >
             <span
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 999,
-                background: "var(--panel)",
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "var(--logo-tile)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                flex: "0 0 auto",
               }}
             >
-              <Search
-                size={16}
-                style={{ color: "var(--icon)" }}
+              <svg
+                style={{ stroke: "var(--logo-mark)" }}
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeWidth="1.6"
                 aria-hidden="true"
-              />
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
+              </svg>
             </span>
-            {/*
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  letterSpacing: "-0.01em",
+                  color: "var(--txt)",
+                }}
+              >
+                QHub
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 11.5,
+                  color: "var(--txt3)",
+                }}
+              >
+                Institutions manager
+              </span>
+            </span>
+          </Link>
+
+          <nav
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 3,
+              whiteSpace: "nowrap",
+              overflowY: "auto",
+            }}
+            aria-label="Console sections"
+          >
+            {items.map((item) => (
+              <NavLink
+                key={item.href}
+                item={item}
+                active={isActive(item)}
+                count={item.badge ? counts?.[item.badge] : undefined}
+              />
+            ))}
+          </nav>
+
+          <div
+            style={{
+              marginTop: "auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              padding: "0 8px",
+            }}
+          >
+            <ThemeToggle />
+            <span
+              style={{
+                fontSize: 11.5,
+                color: "var(--icon2)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {CONSOLE_VERSION}
+            </span>
+          </div>
+        </aside>
+
+        <main
+          style={{
+            flex: "1 1 auto",
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                flex: "1 1 auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background: "var(--card)",
+                borderRadius: 999,
+                padding: "9px 10px",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  background: "var(--panel)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flex: "0 0 auto",
+                }}
+              >
+                <Search
+                  size={16}
+                  style={{ color: "var(--icon)" }}
+                  aria-hidden="true"
+                />
+              </span>
+              {/*
               Wired to the institutions list, which is the only searchable
               index the API exposes today. Deliberately not a dead control:
               it goes somewhere real rather than pretending to search
               incidents and admins that have no search endpoint.
             */}
-            <input
-              placeholder="Search institutions…"
-              aria-label="Search institutions"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const q = (e.target as HTMLInputElement).value.trim()
-                  router.push(
-                    q ? `/platform?q=${encodeURIComponent(q)}` : "/platform"
-                  )
-                }
-              }}
-              style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                fontFamily: "inherit",
-                fontSize: 14.5,
-                color: "var(--txt)",
-                width: "100%",
-              }}
+              <input
+                placeholder="Search institutions…"
+                aria-label="Search institutions"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const q = (e.target as HTMLInputElement).value.trim()
+                    router.push(
+                      q ? `/platform?q=${encodeURIComponent(q)}` : "/platform"
+                    )
+                  }
+                }}
+                style={{
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  fontFamily: "inherit",
+                  fontSize: 14.5,
+                  color: "var(--txt)",
+                  width: "100%",
+                }}
+              />
+              <kbd
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--txt4)",
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 7,
+                  padding: "3px 7px",
+                  marginRight: 6,
+                  fontFamily: "inherit",
+                  flex: "0 0 auto",
+                }}
+              >
+                ⌘K
+              </kbd>
+            </div>
+
+            <NotificationBell />
+
+            <AccountMenu
+              username={session?.user?.username ?? "Platform"}
+              email={session?.user?.email ?? undefined}
             />
-            <kbd
-              style={{
-                fontSize: 11.5,
-                color: "var(--txt4)",
-                border: "1px solid var(--line-strong)",
-                borderRadius: 7,
-                padding: "3px 7px",
-                marginRight: 6,
-                fontFamily: "inherit",
-                flex: "0 0 auto",
-              }}
-            >
-              ⌘K
-            </kbd>
           </div>
 
-          <NotificationBell />
+          {children}
+        </main>
 
-          <AccountMenu
-            username={session?.user?.username ?? "Platform"}
-            email={session?.user?.email ?? undefined}
-          />
-        </div>
-
-        {children}
-      </main>
-
-      {/* Outside the view, as the draft places it: the rail is on every
+        {/* Outside the view, as the draft places it: the rail is on every
           screen, not part of any one module. */}
-      <ConsoleRail enabled={isPlatformUser} />
-    </div>
+        <ConsoleRail enabled={isPlatformUser} />
+      </div>
+    </ConfirmProvider>
   )
 }
 
