@@ -11,6 +11,8 @@ import { OverviewTab } from "@/modules/institutions/drawer/OverviewTab"
 import { PeopleTab } from "@/modules/institutions/drawer/PeopleTab"
 import { FeatureFlagsTab } from "@/modules/institutions/drawer/FeatureFlagsTab"
 import { MaintenanceTab } from "@/modules/institutions/drawer/MaintenanceTab"
+import { AuditTab } from "@/modules/institutions/drawer/AuditTab"
+import { CourseImportPanel } from "@/modules/platform-operations/components/CourseImportPanel"
 
 /**
  * The institution profile drawer, lifted from the draft.
@@ -255,12 +257,22 @@ export function InstitutionDrawer({
             )}
             {tab === "maint" && <MaintenanceTab institution={institution} />}
 
+            {tab === "audit" && <AuditTab tenantId={institution.id} />}
+            {tab === "import" && (
+              <CourseImportPanel
+                institutionId={institution.id}
+                institutionName={institution.name}
+              />
+            )}
+
             {![
               "overview",
               "students",
               "lecturers",
               "features",
               "maint",
+              "audit",
+              "import",
             ].includes(tab) && <PendingTab />}
           </div>
         </div>
