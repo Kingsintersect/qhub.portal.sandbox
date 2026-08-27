@@ -64,7 +64,7 @@ export function InfrastructureTab({
 }) {
   const confirm = useConfirm()
 
-  const { data } = useInfrastructure(tenantId)
+  const { data, isPending } = useInfrastructure(tenantId)
   const run = useInfrastructureOperation(tenantId)
   const setQuota = useSetStorageQuota(tenantId)
 
@@ -194,7 +194,7 @@ export function InfrastructureTab({
           alignItems: "start",
         }}
       >
-        <DatabaseCard data={data} />
+        <DatabaseCard data={data} loading={isPending} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div
@@ -284,12 +284,23 @@ export function InfrastructureTab({
   )
 }
 
-function DatabaseCard({ data }: { data: Infrastructure | undefined }) {
+function DatabaseCard({
+  data,
+  loading,
+}: {
+  data: Infrastructure | undefined
+  loading: boolean
+}) {
   const db = data?.database
   const migrations = db?.migrations
 
-  const migrationLabel =
-    migrations?.pending === null || migrations?.pending === undefined
+  // While this is loading nothing is known yet, and "UNREACHABLE" /
+  // "UNKNOWN" would read as a broken institution rather than a pending
+  // request. A loading state that looks like a failure state is worse than
+  // no state at all.
+  const migrationLabel = loading
+    ? "CHECKING"
+    : migrations?.pending === null || migrations?.pending === undefined
       ? "UNKNOWN"
       : migrations.pending === 0
         ? "CURRENT"
@@ -363,10 +374,18 @@ function DatabaseCard({ data }: { data: Infrastructure | undefined }) {
         <div
           style={{
             fontSize: 12,
-            color: db?.reachable === true ? "var(--accent)" : "var(--neg)",
+            color: loading
+              ? "var(--txt4)"
+              : db?.reachable === true
+                ? "var(--accent)"
+                : "var(--neg)",
           }}
         >
-          {db?.reachable === true ? "Reachable" : "Unreachable"}
+          {loading
+            ? "Checking…"
+            : db?.reachable === true
+              ? "Reachable"
+              : "Unreachable"}
         </div>
 
         <Key>Volume share</Key>
