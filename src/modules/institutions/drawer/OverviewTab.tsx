@@ -158,7 +158,7 @@ function HealthAndUsage({ series }: { series: MetricPoint[] }) {
         />
         <Legend
           color="var(--series2)"
-          label="Sign-ins"
+          label="Sign-ins · 24h"
           value={compact(sum(logins))}
           delta={pct(delta(logins))}
           deltaColor="var(--accent)"
