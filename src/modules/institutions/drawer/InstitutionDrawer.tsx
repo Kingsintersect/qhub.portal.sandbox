@@ -9,6 +9,8 @@ import {
 } from "@/modules/institutions/drawer/DrawerMenu"
 import { OverviewTab } from "@/modules/institutions/drawer/OverviewTab"
 import { PeopleTab } from "@/modules/institutions/drawer/PeopleTab"
+import { FeatureFlagsTab } from "@/modules/institutions/drawer/FeatureFlagsTab"
+import { MaintenanceTab } from "@/modules/institutions/drawer/MaintenanceTab"
 
 /**
  * The institution profile drawer, lifted from the draft.
@@ -248,9 +250,18 @@ export function InstitutionDrawer({
               <PeopleTab tenantId={institution.id} kind="lecturers" />
             )}
 
-            {!["overview", "students", "lecturers"].includes(tab) && (
-              <PendingTab />
+            {tab === "features" && (
+              <FeatureFlagsTab tenantId={institution.id} />
             )}
+            {tab === "maint" && <MaintenanceTab institution={institution} />}
+
+            {![
+              "overview",
+              "students",
+              "lecturers",
+              "features",
+              "maint",
+            ].includes(tab) && <PendingTab />}
           </div>
         </div>
       </div>
