@@ -102,7 +102,12 @@ export function OverviewTab({ institution }: { institution: Institution }) {
  * is activity events, which is real.
  */
 function HealthAndUsage({ series }: { series: MetricPoint[] }) {
-  const health = series.map((p) => p.healthScore ?? 0)
+  // Captures taken before the score existed carry null. They are dropped
+  // rather than zeroed — a zero reads as "totally broken", and a run of them
+  // would draw a flat line along the floor and then jump.
+  const health = series
+    .map((p) => p.healthScore)
+    .filter((v): v is number => v !== null)
   const logins = series.map((p) => p.logins24h)
   const events = series.map((p) => p.activity24h)
 
