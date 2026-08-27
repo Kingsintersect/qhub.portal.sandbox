@@ -73,6 +73,34 @@ export function useLogTicketForTenant() {
   })
 }
 
+export function useBulkTicketAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      ticketIds,
+      action,
+    }: {
+      ticketIds: number[]
+      action: "assign_to_me" | "resolve"
+    }) => platformTicketsService.bulk(ticketIds, action),
+    onSuccess: (result) => {
+      // Say what actually happened. "Done" on a batch where four of twenty
+      // were skipped is a lie the operator finds out about later.
+      toast.success(
+        result.skipped > 0
+          ? `${result.updated} updated · ${result.skipped} skipped`
+          : `${result.updated} updated`
+      )
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not apply that to the selection", {
+        description: errorMessage(error, "Nothing was changed."),
+      }),
+  })
+}
+
 export function useAcceptTicket(id: number) {
   const queryClient = useQueryClient()
 

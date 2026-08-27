@@ -78,6 +78,46 @@ export const platformAnnouncementsService = {
       )
     ).data,
 
+  /** Send a scheduled announcement immediately, ahead of its own clock. */
+  sendNow: async (id: number): Promise<PlatformAnnouncement> =>
+    (
+      await apiClient.post<
+        { data: PlatformAnnouncement },
+        Record<string, never>
+      >(`/platform/announcements/${id}/send-now`, {}, AUTH)
+    ).data,
+
+  /**
+   * Cancel a schedule without deleting the announcement.
+   *
+   * Distinct from delete on purpose: cancelling returns it to a draft the
+   * operator can fix and re-schedule, and deleting throws the writing away.
+   */
+  cancelSchedule: (id: number) =>
+    apiClient.delete<void>(`/platform/announcements/${id}/schedule`, AUTH),
+
+  /** Per-institution read stats, for the viewer. */
+  reads: async (
+    id: number
+  ): Promise<{
+    recipients: number
+    read: number
+    institutions: Array<{ id: number; name: string; readAt: string | null }>
+  }> =>
+    (
+      await apiClient.get<{
+        data: {
+          recipients: number
+          read: number
+          institutions: Array<{
+            id: number
+            name: string
+            readAt: string | null
+          }>
+        }
+      }>(`/platform/announcements/${id}/reads`, AUTH)
+    ).data,
+
   remove: (id: number) =>
     apiClient.delete<void>(`/platform/announcements/${id}`, AUTH),
 }

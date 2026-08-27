@@ -7,6 +7,7 @@ import {
   useDeleteRole,
   usePlatformPermissions,
   usePlatformRoles,
+  useUpdatePlatformUser,
   usePlatformUsers,
   useUpdateRolePermissions,
 } from "@/modules/platform-team/hooks/use-platform-team"
@@ -144,7 +145,9 @@ export function RolesView() {
         />
       )}
 
-      {tab === "people" && <People users={users ?? []} />}
+      {tab === "people" && (
+        <People users={users ?? []} roles={roles ?? []} canManage={canManage} />
+      )}
     </div>
   )
 }
@@ -644,7 +647,18 @@ function Matrix({
 
 // --- People -----------------------------------------------------------------
 
-function People({ users }: { users: PlatformUser[] }) {
+function People({
+  users,
+  roles,
+  canManage,
+}: {
+  users: PlatformUser[]
+  roles: PlatformRole[]
+  canManage: boolean
+}) {
+  const update = useUpdatePlatformUser()
+  const [assigning, setAssigning] = useState<number | null>(null)
+
   return (
     <div
       style={{
@@ -712,16 +726,146 @@ function People({ users }: { users: PlatformUser[] }) {
                     key={r.id}
                     className="qhub-mono"
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
                       fontSize: 11,
-                      color: "var(--accent)",
-                      background: "var(--accent-soft)",
-                      padding: "4px 10px",
+                      color: "var(--txt2)",
+                      border: "1px solid var(--line-strong)",
+                      background: "var(--panel)",
+                      padding: "5px 10px",
                       borderRadius: 999,
                     }}
                   >
                     {r.name}
+
+                    {/* The last role cannot be taken away here. An account
+                        with none can still sign in and do nothing, which is
+                        the state this table exists to shout about — removing
+                        the last one would quietly create it. */}
+                    {canManage && u.roles.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${r.name} from ${u.username}`}
+                        onClick={() =>
+                          update.mutate({
+                            id: u.id,
+                            payload: {
+                              roleIds: u.roles
+                                .filter((x) => x.id !== r.id)
+                                .map((x) => x.id),
+                            },
+                          })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          color: "var(--txt4)",
+                          fontSize: 11,
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          lineHeight: 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </span>
                 ))
+              )}
+
+              {canManage && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAssigning((current) =>
+                        current === u.id ? null : u.id
+                      )
+                    }
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 500,
+                      color: "var(--accent)",
+                      border: "1px dashed var(--accent-brd)",
+                      background: "transparent",
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    + Add role
+                  </button>
+
+                  {assigning === u.id && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 6px)",
+                        right: 0,
+                        zIndex: 50,
+                        width: 190,
+                        background: "var(--surface-solid)",
+                        border: "1px solid var(--line-strong)",
+                        borderRadius: 12,
+                        boxShadow: "0 16px 44px rgba(8,12,18,.25)",
+                        padding: 5,
+                      }}
+                    >
+                      {roles
+                        .filter(
+                          (r) => !u.roles.some((held) => held.id === r.id)
+                        )
+                        .map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            className="qhub-mono"
+                            onClick={() => {
+                              update.mutate({
+                                id: u.id,
+                                payload: {
+                                  roleIds: [...u.roles.map((x) => x.id), r.id],
+                                },
+                              })
+                              setAssigning(null)
+                            }}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 11px",
+                              borderRadius: 8,
+                              fontSize: 11.5,
+                              color: "var(--txt)",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {r.name}
+                          </button>
+                        ))}
+
+                      {roles.every((r) =>
+                        u.roles.some((held) => held.id === r.id)
+                      ) && (
+                        <div
+                          style={{
+                            padding: "8px 11px",
+                            fontSize: 11.5,
+                            color: "var(--txt4)",
+                          }}
+                        >
+                          They already hold every role.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

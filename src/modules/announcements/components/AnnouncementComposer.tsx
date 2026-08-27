@@ -6,10 +6,12 @@ import { AudiencePicker } from "@/modules/announcements/components/AudiencePicke
 import {
   useCreateAnnouncement,
   usePublishAnnouncement,
+  useUpdateAnnouncement,
 } from "@/modules/announcements/hooks/use-announcements"
 import type {
   AnnouncementAudience,
   AnnouncementSeverity,
+  PlatformAnnouncement,
 } from "@/modules/announcements/types"
 
 const SEVERITIES: Array<{ value: AnnouncementSeverity; label: string }> = [
@@ -28,24 +30,43 @@ const SEVERITIES: Array<{ value: AnnouncementSeverity; label: string }> = [
  */
 export function AnnouncementComposer({
   open,
+  editing,
   onOpenChange,
 }: {
   open: boolean
+  /**
+   * An unsent announcement being corrected rather than a new one.
+   *
+   * Only ever a scheduled one — once it has gone out, editing the copy would
+   * make the console disagree with what people already received.
+   */
+  editing?: PlatformAnnouncement
   onOpenChange: (open: boolean) => void
 }) {
   const create = useCreateAnnouncement()
   const publish = usePublishAnnouncement()
+  const update = useUpdateAnnouncement(editing?.id ?? 0)
 
-  const [title, setTitle] = useState("")
-  const [body, setBody] = useState("")
-  const [severity, setSeverity] = useState<AnnouncementSeverity>("INFO")
-  const [audience, setAudience] = useState<AnnouncementAudience>("ALL")
-  const [category, setCategory] = useState<string | null>(null)
+  const [title, setTitle] = useState(editing?.title ?? "")
+  const [body, setBody] = useState(editing?.body ?? "")
+  const [severity, setSeverity] = useState<AnnouncementSeverity>(
+    editing?.severity ?? "INFO"
+  )
+  const [audience, setAudience] = useState<AnnouncementAudience>(
+    editing?.audience ?? "ALL"
+  )
+  const [category, setCategory] = useState<string | null>(
+    editing?.audienceCategory ?? null
+  )
   const [tenantIds, setTenantIds] = useState<number[]>([])
-  const [expiresAt, setExpiresAt] = useState("")
-  const [notifyStaff, setNotifyStaff] = useState(false)
+  const [expiresAt, setExpiresAt] = useState(
+    editing?.expiresAt === null || editing?.expiresAt === undefined
+      ? ""
+      : editing.expiresAt.slice(0, 16)
+  )
+  const [notifyStaff, setNotifyStaff] = useState(editing?.notifyStaff ?? false)
 
-  const busy = create.isPending || publish.isPending
+  const busy = create.isPending || publish.isPending || update.isPending
 
   const audienceReady =
     audience === "ALL" ||
@@ -73,6 +94,28 @@ export function AnnouncementComposer({
 
   const submit = async (thenPublish: boolean) => {
     if (!ready) return
+
+    if (editing !== undefined) {
+      await update.mutateAsync({
+        title: title.trim(),
+        body: body.trim(),
+        severity,
+        audience,
+        audienceCategory: category,
+        tenantIds,
+        expiresAt: expiresAt || null,
+        notifyStaff,
+      })
+
+      if (thenPublish) {
+        await publish.mutateAsync({ id: editing.id, publish: true })
+      }
+
+      reset()
+      onOpenChange(false)
+
+      return
+    }
 
     const announcement = await create.mutateAsync({
       title: title.trim(),
@@ -138,10 +181,12 @@ export function AnnouncementComposer({
         <div
           style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.015em" }}
         >
-          New announcement
+          {editing === undefined ? "New announcement" : "Edit announcement"}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 4 }}>
-          This goes to the institutions QHub hosts, not to their students.
+          {editing === undefined
+            ? "This goes to the institutions QHub hosts, not to their students."
+            : "Not sent yet — these corrections reach everyone, because nobody has read it."}
         </div>
 
         <Label>TYPE</Label>
@@ -355,7 +400,7 @@ export function AnnouncementComposer({
                 fontFamily: "inherit",
               }}
             >
-              Save as draft
+              {editing === undefined ? "Save as draft" : "Save changes"}
             </button>
 
             <button

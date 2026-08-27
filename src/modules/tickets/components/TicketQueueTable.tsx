@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from "react"
 
-import { useTicketQueue } from "@/modules/tickets/hooks/use-tickets"
+import {
+  useBulkTicketAction,
+  useTicketQueue,
+} from "@/modules/tickets/hooks/use-tickets"
 import type { Ticket, TicketPriority } from "@/modules/tickets/types"
 
 const GRID =
@@ -27,6 +30,8 @@ export function TicketQueueTable({
 }) {
   const [tab, setTab] = useState<Tab>("active")
   const [selected, setSelected] = useState<number[]>([])
+
+  const bulk = useBulkTicketAction()
 
   const queue = useTicketQueue({ status: tab })
   const tickets = useMemo(() => queue.data?.data ?? [], [queue.data])
@@ -150,22 +155,72 @@ export function TicketQueueTable({
             >
               {selected.length} selected
             </div>
-            <button
-              type="button"
-              onClick={() => setSelected([])}
-              style={{
-                marginLeft: "auto",
-                fontSize: 11.5,
-                color: "var(--txt3)",
-                background: "none",
-                border: "none",
-                padding: "6px 8px",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Clear
-            </button>
+
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  bulk.mutate(
+                    { ticketIds: selected, action: "assign_to_me" },
+                    { onSuccess: () => setSelected([]) }
+                  )
+                }
+                style={{
+                  border: "1px solid var(--accent)",
+                  color: "var(--accent)",
+                  background: "var(--card)",
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  padding: "6px 12px",
+                  borderRadius: 9,
+                  cursor: bulk.isPending ? "default" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Assign to me
+              </button>
+
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  bulk.mutate(
+                    { ticketIds: selected, action: "resolve" },
+                    { onSuccess: () => setSelected([]) }
+                  )
+                }
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                  border: "none",
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  padding: "6px 12px",
+                  borderRadius: 9,
+                  cursor: bulk.isPending ? "default" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Resolve selected
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelected([])}
+                style={{
+                  fontSize: 11.5,
+                  color: "var(--txt3)",
+                  background: "none",
+                  border: "none",
+                  padding: "6px 8px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Clear
+              </button>
+            </div>
           </div>
         )}
 

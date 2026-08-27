@@ -13,7 +13,22 @@
  * on the other theme's ground.
  */
 
+/*
+ * The console renders at 75%.
+ *
+ * Its tables are dense by design — the audit log and the drawer's rolls are
+ * 960px of columns before anything wraps — and an operator working the estate
+ * wants the whole row on screen, not a horizontal scrollbar. `zoom` rather
+ * than `transform: scale()` because zoom re-lays-out at the new size, so
+ * everything below still measures and wraps correctly; scale would just
+ * shrink a full-size layout and leave the page the wrong shape.
+ *
+ * Viewport units are resolved BEFORE the zoom is applied, so a bare 100dvh
+ * would come out a third too tall and give every page a scrollbar it has not
+ * earned. Hence the divide.
+ */
 .qhub-console {
+  zoom: 0.75;
   --bg: #e8ebef;
   --card: #ffffff;
   --panel: #f5f7fa;

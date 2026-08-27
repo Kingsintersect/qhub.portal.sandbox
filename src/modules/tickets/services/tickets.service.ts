@@ -46,6 +46,23 @@ export const platformTicketsService = {
       )
     ).data,
 
+  /**
+   * Act on a selection at once.
+   *
+   * Reports partial success rather than failing the batch — one ticket
+   * someone else already resolved should not stop the other nineteen.
+   */
+  bulk: async (
+    ticketIds: number[],
+    action: "assign_to_me" | "resolve"
+  ): Promise<{ updated: number; skipped: number }> =>
+    (
+      await apiClient.post<
+        { data: { updated: number; skipped: number } },
+        { ticketIds: number[]; action: string }
+      >("/platform/tickets/bulk", { ticketIds, action }, AUTH)
+    ).data,
+
   /** Take a ticket on. tickets.read is enough — accepting is not managing. */
   accept: async (id: number): Promise<Ticket> =>
     (

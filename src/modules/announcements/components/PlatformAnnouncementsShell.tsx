@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react"
 
 import { AnnouncementComposer } from "@/modules/announcements/components/AnnouncementComposer"
+import { AnnouncementViewer } from "@/modules/announcements/components/AnnouncementViewer"
 import {
   useAnnouncements,
+  useCancelAnnouncementSchedule,
   useDeleteAnnouncement,
-  usePublishAnnouncement,
+  useSendAnnouncementNow,
 } from "@/modules/announcements/hooks/use-announcements"
 import type {
   AnnouncementSeverity,
@@ -29,10 +31,13 @@ export function PlatformAnnouncementsShell() {
   const [severity, setSeverity] = useState<AnnouncementSeverity | "">("")
   const [page, setPage] = useState(1)
   const [composing, setComposing] = useState(false)
+  const [viewing, setViewing] = useState<PlatformAnnouncement | null>(null)
+  const [editing, setEditing] = useState<PlatformAnnouncement | null>(null)
 
   const { data, isPending } = useAnnouncements()
-  const publish = usePublishAnnouncement()
   const remove = useDeleteAnnouncement()
+  const sendNow = useSendAnnouncementNow()
+  const cancelSchedule = useCancelAnnouncementSchedule()
 
   const all = useMemo(() => data?.data ?? [], [data])
 
@@ -225,10 +230,13 @@ export function PlatformAnnouncementsShell() {
             <Row
               key={a.id}
               announcement={a}
-              onSendNow={() => publish.mutate({ id: a.id, publish: true })}
+              onView={() => setViewing(a)}
+              onEdit={() => setEditing(a)}
+              onSendNow={() => sendNow.mutate(a.id)}
+              onCancelSchedule={() => cancelSchedule.mutate(a.id)}
               onDelete={() => remove.mutate(a.id)}
               deleting={remove.isPending}
-              sending={publish.isPending}
+              sending={sendNow.isPending}
             />
           ))}
         </div>
@@ -267,19 +275,42 @@ export function PlatformAnnouncementsShell() {
       </div>
 
       <AnnouncementComposer open={composing} onOpenChange={setComposing} />
+
+      {viewing !== null && (
+        <AnnouncementViewer
+          announcement={viewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
+
+      {editing !== null && (
+        <AnnouncementComposer
+          open
+          editing={editing}
+          onOpenChange={(next) => {
+            if (!next) setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }
 
 function Row({
   announcement: a,
+  onView,
+  onEdit,
   onSendNow,
+  onCancelSchedule,
   onDelete,
   deleting,
   sending,
 }: {
   announcement: PlatformAnnouncement
+  onView: () => void
+  onEdit: () => void
   onSendNow: () => void
+  onCancelSchedule: () => void
   onDelete: () => void
   deleting: boolean
   sending: boolean
@@ -397,16 +428,61 @@ function Row({
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+        {/* Always first, on every row whatever its state — the table truncates
+            the body to one line, and this is the only way to read what was
+            actually said. */}
+        <button
+          type="button"
+          onClick={onView}
+          title="View announcement"
+          aria-label={`View ${a.title}`}
+          style={{
+            width: 29,
+            height: 29,
+            borderRadius: 9,
+            border: "1px solid var(--line-strong)",
+            background: "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "var(--txt3)",
+            flex: "0 0 29px",
+          }}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+          </svg>
+        </button>
+
         {!a.isPublished &&
           (confirming === "send" ? (
             <>
               <Ghost onClick={onSendNow} disabled={sending} tone="accent">
                 Send it now
               </Ghost>
-              <Ghost onClick={() => setConfirming(null)}>Cancel</Ghost>
+              <Ghost onClick={() => setConfirming(null)}>Keep waiting</Ghost>
             </>
           ) : (
-            <Ghost onClick={() => setConfirming("send")}>Send now</Ghost>
+            <>
+              <Ghost onClick={onEdit}>Edit</Ghost>
+              <Ghost onClick={() => setConfirming("send")}>Send now</Ghost>
+              {/* Cancel returns it to a draft; Delete throws the writing away.
+                  Two different things, so two different buttons. */}
+              <Ghost tone="danger" onClick={onCancelSchedule}>
+                Cancel
+              </Ghost>
+            </>
           ))}
 
         {a.isPublished &&
@@ -415,7 +491,7 @@ function Row({
               <Ghost onClick={onDelete} disabled={deleting} tone="danger">
                 Delete — email copies stay sent
               </Ghost>
-              <Ghost onClick={() => setConfirming(null)}>Cancel</Ghost>
+              <Ghost onClick={() => setConfirming(null)}>Keep it</Ghost>
             </>
           ) : (
             <Ghost tone="muted" onClick={() => setConfirming("delete")}>

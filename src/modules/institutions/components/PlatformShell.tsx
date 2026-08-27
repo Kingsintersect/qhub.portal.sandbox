@@ -193,12 +193,22 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   }, [status, isPlatformUser, isUnauthenticatedRoute, router])
 
   if (isUnauthenticatedRoute) {
-    return <main className="qhub-console min-h-dvh">{children}</main>
+    return (
+      <main
+        className="qhub-console"
+        style={{ minHeight: "calc(100dvh / 0.75)" }}
+      >
+        {children}
+      </main>
+    )
   }
 
   if (status === "loading" || !isPlatformUser) {
     return (
-      <div className="qhub-console min-h-dvh" style={{ padding: 22 }}>
+      <div
+        className="qhub-console"
+        style={{ minHeight: "calc(100dvh / 0.75)", padding: 22 }}
+      >
         <div
           style={{
             height: 44,
@@ -223,7 +233,10 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       <div
         className="qhub-console"
         style={{
-          minHeight: "100vh",
+          // Viewport units resolve before the 75% zoom, so a bare 100vh would
+          // come out a third too tall and give the page a scrollbar it has
+          // not earned.
+          minHeight: "calc(100vh / 0.75)",
           display: "flex",
           gap: 20,
           alignItems: "flex-start",

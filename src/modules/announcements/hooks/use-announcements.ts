@@ -115,6 +115,48 @@ export function usePublishAnnouncement() {
   })
 }
 
+export function useSendAnnouncementNow() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => platformAnnouncementsService.sendNow(id),
+    onSuccess: () => {
+      toast.success("Sent")
+      void queryClient.invalidateQueries({ queryKey: announcementKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not send that", {
+        description: errorMessage(error, "Nothing was delivered."),
+      }),
+  })
+}
+
+export function useCancelAnnouncementSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => platformAnnouncementsService.cancelSchedule(id),
+    onSuccess: () => {
+      // Cancelling returns it to a draft rather than throwing the writing
+      // away — say which of the two happened.
+      toast.success("Schedule cancelled — it is a draft again")
+      void queryClient.invalidateQueries({ queryKey: announcementKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not cancel that schedule", {
+        description: errorMessage(error, "It is still scheduled."),
+      }),
+  })
+}
+
+export function useAnnouncementReads(id: number | null) {
+  return useQuery({
+    queryKey: [...announcementKeys.all, "reads", id],
+    queryFn: () => platformAnnouncementsService.reads(id as number),
+    enabled: id !== null && id > 0,
+  })
+}
+
 export function useDeleteAnnouncement() {
   const queryClient = useQueryClient()
 

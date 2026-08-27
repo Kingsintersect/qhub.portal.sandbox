@@ -19,6 +19,8 @@ export interface PlatformAnnouncement {
   audienceCategory: string | null
   isPublished: boolean
   isLive: boolean
+  /** Set while it is queued to go out on its own clock. */
+  scheduledFor: string | null
   publishedAt: string | null
   expiresAt: string | null
   notifyStaff: boolean
