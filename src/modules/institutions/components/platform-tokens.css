@@ -14,17 +14,23 @@
  */
 
 /*
- * The console is authored on a 1500px minimum-width desktop canvas — see
- * `.qhub-shell` at the foot of this file, which is where that width lives.
+ * The console renders at 80%.
  *
- * Per the design handoff: the ~75% the draft displays at is an artefact of
- * the design tool's own preview, not part of the design. Implemented at 100%
- * so every stated px value is true — 13px text is 13px — with the canvas
- * held at its authored width instead. Narrower viewports scroll horizontally
- * rather than shrinking the type, which is the deliberate trade: this console
- * targets large desktop monitors and has no responsive breakpoints in scope.
+ * The design handoff asks for 100% on a 1500px canvas and calls the ~75% its
+ * preview shows an artefact. This is a deliberate departure from that on the
+ * client's instruction: 80% is the density they want to work at.
+ *
+ * `zoom` rather than `transform: scale()` because zoom re-lays-out at the new
+ * size, so everything below still measures and wraps correctly; scale would
+ * shrink a full-size layout and leave the page the wrong shape.
+ *
+ * Viewport units resolve BEFORE the zoom is applied, so anything sized to the
+ * viewport divides by it — see the shell's min-heights — or it comes out a
+ * quarter too tall and earns a scrollbar it should not have.
  */
 .qhub-console {
+  zoom: 0.8;
+
   --bg: #e8ebef;
   --card: #ffffff;
   --panel: #f5f7fa;
@@ -185,16 +191,4 @@
 .qhub-mono {
   font-family: var(--font-mono), "Geist Mono", monospace;
   font-variant-numeric: tabular-nums;
-}
-
-/*
- * The authenticated shell's canvas.
- *
- * Scoped here rather than to `.qhub-console`, because the draft puts
- * `min-width:1500px` inside the authed branch only — the login is a centred
- * 400px card on a full-bleed image and would be the one screen a horizontal
- * scrollbar actively harmed.
- */
-.qhub-shell {
-  min-width: 1500px;
 }
