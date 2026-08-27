@@ -28,7 +28,7 @@ type Tab = NotificationKind | "all"
 export function NotificationsPage() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>("all")
-  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [unreadOnly] = useState(false)
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useNotificationPage({
@@ -57,31 +57,25 @@ export function NotificationsPage() {
   }
 
   return (
-    <div style={{ padding: "26px 30px", maxWidth: 980 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 16,
-        }}
-      >
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div>
           <h1
             style={{
-              fontSize: 21,
+              fontSize: 20,
               fontWeight: 600,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.015em",
               color: "var(--txt)",
               margin: 0,
             }}
           >
             Notifications
           </h1>
-          <p style={{ fontSize: 13, color: "var(--txt3)", marginTop: 5 }}>
-            Everything addressed to you. Ticket assignments are visible to the
-            whole team by design — muting a kind mutes the bell, not the record.
-          </p>
+          <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 3 }}>
+            {meta
+              ? `${meta.total} in total · ${meta.unread} unread`
+              : "Everything addressed to you"}
+          </div>
         </div>
 
         {(meta?.unread ?? 0) > 0 && (
@@ -90,12 +84,15 @@ export function NotificationsPage() {
             onClick={() => markAllRead.mutate()}
             disabled={markAllRead.isPending}
             style={{
+              marginLeft: "auto",
+              border: "1px solid var(--line-strong)",
+              borderRadius: 10,
+              background: "transparent",
+              color: "var(--txt2)",
               fontSize: 12.5,
-              color: "var(--accent)",
-              background: "none",
-              border: "none",
+              fontWeight: 500,
+              padding: "9px 16px",
               cursor: "pointer",
-              padding: 0,
               whiteSpace: "nowrap",
               fontFamily: "inherit",
             }}
@@ -105,15 +102,15 @@ export function NotificationsPage() {
         )}
       </div>
 
+      {/* The draft's kind tabs: one panel-ground pill group, sized to content. */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 6,
+          background: "var(--panel)",
+          borderRadius: 12,
+          padding: 3,
+          width: "fit-content",
           flexWrap: "wrap",
-          marginTop: 20,
-          paddingBottom: 12,
-          borderBottom: "1px solid var(--line)",
         }}
       >
         <TabChip
@@ -136,34 +133,19 @@ export function NotificationsPage() {
             />
           )
         })}
-
-        <label
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 12,
-            color: "var(--txt3)",
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={unreadOnly}
-            onChange={(e) => {
-              setUnreadOnly(e.target.checked)
-              setPage(1)
-            }}
-          />
-          Unread only
-        </label>
       </div>
 
-      <div style={{ marginTop: 4 }}>
+      <div
+        style={{
+          background: "var(--card)",
+          borderRadius: 20,
+          boxShadow: "var(--shadow-card)",
+          overflow: "hidden",
+        }}
+      >
         {isLoading && (
           <div
-            style={{ padding: "22px 2px", fontSize: 13, color: "var(--txt3)" }}
+            style={{ padding: "26px 24px", fontSize: 13, color: "var(--txt3)" }}
           >
             Loading…
           </div>
@@ -171,7 +153,7 @@ export function NotificationsPage() {
 
         {!isLoading && rows.length === 0 && (
           <div
-            style={{ padding: "26px 2px", fontSize: 13, color: "var(--txt3)" }}
+            style={{ padding: "26px 24px", fontSize: 13, color: "var(--txt3)" }}
           >
             No notifications match these filters.
           </div>
@@ -183,101 +165,120 @@ export function NotificationsPage() {
             type="button"
             onClick={() => open(n)}
             style={{
-              display: "block",
+              display: "flex",
+              gap: 12,
+              alignItems: "flex-start",
               width: "100%",
               textAlign: "left",
-              padding: "13px 14px",
+              padding: "14px 24px",
               borderBottom: "1px solid var(--line2)",
-              borderLeft: n.read
-                ? "2px solid transparent"
-                : "2px solid var(--accent)",
               borderTop: "none",
+              borderLeft: "none",
               borderRight: "none",
-              background: n.read ? "transparent" : "var(--row-open)",
+              background: "transparent",
               cursor: n.link ? "pointer" : "default",
               fontFamily: "inherit",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 4,
-              }}
-            >
+            <span style={{ marginTop: 2, display: "flex" }}>
               <NotificationKindBadge kind={n.kind} />
+            </span>
+
+            <span style={{ minWidth: 0, flex: 1 }}>
               <span
-                className="qhub-mono"
-                style={{ fontSize: 10.5, color: "var(--txt4)" }}
-              >
-                {n.createdAt
-                  ? new Date(n.createdAt).toLocaleString(undefined, {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : ""}
-              </span>
-              {n.actor && (
-                <span style={{ fontSize: 11, color: "var(--txt4)" }}>
-                  · {n.actor}
-                </span>
-              )}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--txt)",
-                fontWeight: n.read ? 400 : 500,
-                lineHeight: 1.5,
-              }}
-            >
-              {n.title}
-            </div>
-            {n.body && (
-              <div
                 style={{
-                  fontSize: 12,
-                  color: "var(--txt3)",
-                  marginTop: 2,
-                  lineHeight: 1.5,
+                  display: "block",
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  fontWeight: n.read ? 400 : 600,
+                  color: n.read ? "var(--txt2)" : "var(--txt)",
                 }}
               >
-                {n.body}
-              </div>
+                {n.title}
+              </span>
+              {n.body && (
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    color: "var(--txt3)",
+                    marginTop: 2,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {n.body}
+                </span>
+              )}
+            </span>
+
+            <span
+              style={{
+                flex: "0 0 auto",
+                fontSize: 11.5,
+                color: "var(--txt4)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {n.createdAt
+                ? new Date(n.createdAt).toLocaleString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : ""}
+            </span>
+
+            {!n.read && (
+              <span
+                style={{
+                  flex: "0 0 auto",
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background: "var(--accent)",
+                  marginTop: 6,
+                }}
+              />
             )}
           </button>
         ))}
-      </div>
 
-      {meta && meta.lastPage > 1 && (
+        {meta && meta.lastPage > 1 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 24px",
+              fontSize: 12.5,
+              color: "var(--txt3)",
+            }}
+          >
+            <span>
+              Page {meta.currentPage} of {meta.lastPage}
+            </span>
+            <span style={{ display: "flex", gap: 8 }}>
+              <PagerButton
+                label="Previous"
+                disabled={meta.currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              />
+              <PagerButton
+                label="Next"
+                disabled={meta.currentPage >= meta.lastPage}
+                onClick={() => setPage((p) => p + 1)}
+              />
+            </span>
+          </div>
+        )}
+
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 16,
-          }}
+          style={{ padding: "12px 24px", fontSize: 11.5, color: "var(--txt4)" }}
         >
-          <span style={{ fontSize: 12, color: "var(--txt3)" }}>
-            Page {meta.currentPage} of {meta.lastPage} · {meta.total} total
-          </span>
-          <span style={{ display: "flex", gap: 8 }}>
-            <PagerButton
-              label="Previous"
-              disabled={meta.currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            />
-            <PagerButton
-              label="Next"
-              disabled={meta.currentPage >= meta.lastPage}
-              onClick={() => setPage((p) => p + 1)}
-            />
-          </span>
+          Notifications older than 90 days are archived to the audit log.
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -301,26 +302,26 @@ function TabChip({
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        padding: "6px 11px",
-        fontSize: 12,
-        textTransform: "capitalize",
-        color: active ? "var(--accent)" : "var(--txt3)",
-        background: active ? "var(--accent-soft)" : "transparent",
+        fontSize: 12.5,
+        fontWeight: active ? 600 : 500,
+        color: active ? "var(--txt)" : "var(--txt3)",
+        background: active ? "var(--card)" : "transparent",
+        boxShadow: active ? "var(--shadow-sm)" : "none",
+        padding: "7px 14px",
+        borderRadius: 9,
         border: "none",
         cursor: "pointer",
+        textTransform: "capitalize",
         fontFamily: "inherit",
       }}
     >
       {label}
       {!!unread && unread > 0 && (
         <span
-          className="qhub-mono"
           style={{
-            fontSize: 9.5,
-            color: "#fff",
-            background: "var(--neg)",
-            padding: "1px 5px",
-            borderRadius: 7,
+            fontSize: 11,
+            fontWeight: 600,
+            color: active ? "var(--accent)" : "var(--txt4)",
           }}
         >
           {unread}
@@ -345,10 +346,11 @@ function PagerButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        fontSize: 12,
+        fontSize: 12.5,
         padding: "6px 12px",
-        border: "1px solid var(--line-strong)",
-        background: "var(--card)",
+        borderRadius: 9,
+        border: "none",
+        background: "var(--panel)",
         color: disabled ? "var(--txt4)" : "var(--txt2)",
         cursor: disabled ? "default" : "pointer",
         fontFamily: "inherit",
