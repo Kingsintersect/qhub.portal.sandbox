@@ -32,6 +32,17 @@ export type DirectoryPerson = {
   email: string | null
   affiliation: string | null
   status: string | null
+
+  /** Students only. Null on lecturers. */
+  level: string | null
+  cgpa: number | null
+
+  /**
+   * When they last signed in. Deliberately the only staff fact the console
+   * shows beyond identity — employment status is the institution's business,
+   * not the platform's.
+   */
+  lastActive: string | null
 }
 
 export type DirectoryResult = {

@@ -45,7 +45,7 @@ export const operationsService = {
 
   directory: (
     tenantId: number,
-    params: { kind: "lecturers" | "students"; search?: string }
+    params: { kind: "lecturers" | "students"; search?: string; limit?: number }
   ): Promise<DirectoryResult> =>
     apiClient.get<DirectoryResult>(`/platform/tenants/${tenantId}/directory`, {
       ...AUTH,
