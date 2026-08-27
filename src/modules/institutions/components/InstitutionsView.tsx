@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 
 import { useEstateOverview } from "@/modules/platform-observability/hooks/use-observability"
@@ -9,6 +8,8 @@ import type {
   HealthStatus,
 } from "@/modules/platform-observability/types"
 import { ProvisionInstitutionDialog } from "@/modules/institutions/components/ProvisionInstitutionDialog"
+import { InstitutionDrawer } from "@/modules/institutions/drawer/InstitutionDrawer"
+import { useInstitution } from "@/modules/institutions/hooks/use-institutions"
 
 const GRID = "1.5fr 120px 110px 130px 1.2fr 160px 40px"
 const PAGE_SIZE = 8
@@ -21,8 +22,8 @@ const PAGE_SIZE = 8
  * institutions or five hundred.
  */
 export function InstitutionsView() {
-  const router = useRouter()
   const { data, isPending, isError } = useEstateOverview()
+  const [openId, setOpenId] = useState<number | null>(null)
 
   const [issuesOnly, setIssuesOnly] = useState(false)
   const [page, setPage] = useState(1)
@@ -229,7 +230,7 @@ export function InstitutionsView() {
           <InstitutionRow
             key={row.id}
             row={row}
-            onOpen={() => router.push(`/platform/${row.id}`)}
+            onOpen={() => setOpenId(row.id)}
           />
         ))}
 
@@ -265,8 +266,35 @@ export function InstitutionsView() {
           </div>
         </div>
       </div>
+
+      {openId !== null && (
+        <InstitutionDrawerLoader
+          tenantId={openId}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   )
+}
+
+/**
+ * Loads the full institution before opening the drawer.
+ *
+ * The estate rollup carries enough for a row but not enough for a profile —
+ * lifecycle state, branding and maintenance all come from the tenant record.
+ */
+function InstitutionDrawerLoader({
+  tenantId,
+  onClose,
+}: {
+  tenantId: number
+  onClose: () => void
+}) {
+  const { data } = useInstitution(tenantId)
+
+  if (!data) return null
+
+  return <InstitutionDrawer institution={data} onClose={onClose} />
 }
 
 function InstitutionRow({
