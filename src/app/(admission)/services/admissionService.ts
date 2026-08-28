@@ -15,10 +15,12 @@ import apiClient, {
 } from "@/lib/clients/apiClient"
 import type {
   AdmissionStudent,
+  EntryMode,
   FeeSchedule,
   PaymentInitiationResponse,
   PaymentVerificationResponse,
   PaymentStatus,
+  StudyMode,
 } from "../types/admission"
 const AUTH = { access_token: true } as const
 
@@ -97,6 +99,12 @@ let mockStudent: AdmissionStudent = {
   is_admitted: false,
   session: "2025/2026",
   offer_expiry_date: null,
+  has_selected_program: false,
+  program_id: null,
+  program_name: null,
+  entry_mode: null,
+  study_mode: null,
+  start_term: null,
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,11 +128,82 @@ export const admissionService = {
     // Student Admission Progress spec §3. Composed server-side. Confirmed live 2026-08-25:
     // wrapped in a `data` envelope like every other endpoint in this backend (the doc's
     // "returns AdmissionStudent directly" was never actually true) — unwrap it here.
-    const { data } = await apiClient.get<{ data: AdmissionStudent }>(
-      "/admission/student",
+    //
+    // The has_selected_program/program_*/entry_mode/study_mode/start_term fields aren't
+    // part of the live response yet (see sandbox/MISSING_BACKEND_APIS.md §2.5) — default
+    // them defensively so the "Choice Program" step degrades to "not yet chosen" instead
+    // of throwing, until the backend adds them. Typed as Partial here since the real
+    // response genuinely omits them today, unlike the full AdmissionStudent contract.
+    const { data } = await apiClient.get<{
+      data: Omit<
+        AdmissionStudent,
+        | "has_selected_program"
+        | "program_id"
+        | "program_name"
+        | "entry_mode"
+        | "study_mode"
+        | "start_term"
+      > &
+        Partial<
+          Pick<
+            AdmissionStudent,
+            | "has_selected_program"
+            | "program_id"
+            | "program_name"
+            | "entry_mode"
+            | "study_mode"
+            | "start_term"
+          >
+        >
+    }>("/admission/student", AUTH)
+    return {
+      has_selected_program: false,
+      program_id: null,
+      program_name: null,
+      entry_mode: null,
+      study_mode: null,
+      start_term: null,
+      ...data,
+    }
+  },
+
+  /* ---------- Submit pre-application program choice ---------- */
+  async submitProgramChoice(payload: {
+    programId: number
+    entryMode: EntryMode
+    studyMode: StudyMode
+    startTerm: string
+  }): Promise<AdmissionStudent> {
+    // Proposed API: POST /admission/program-choice — not built on the backend yet, see
+    // sandbox/MISSING_BACKEND_APIS.md §2.5 for the full designed contract. 404s until
+    // the backend ships it; the frontend is wired against the designed shape already.
+    const { data } = await apiClient.post<{ data: AdmissionStudent }>(
+      "/admission/program-choice",
+      payload,
       AUTH
     )
     return data
+  },
+
+  /* ---------- Dev-only: Simulate program choice made ---------- */
+  async devSimulateProgramChosen(payload: {
+    programId: number
+    programName: string
+    entryMode: EntryMode
+    studyMode: StudyMode
+    startTerm: string
+  }): Promise<AdmissionStudent> {
+    await delay(500)
+    mockStudent = {
+      ...mockStudent,
+      has_selected_program: true,
+      program_id: payload.programId,
+      program_name: payload.programName,
+      entry_mode: payload.entryMode,
+      study_mode: payload.studyMode,
+      start_term: payload.startTerm,
+    }
+    return { ...mockStudent }
   },
 
   /* ---------- Initiate Application Payment ---------- */
@@ -318,6 +397,12 @@ export const admissionService = {
       is_admitted: false,
       session: "2025/2026",
       offer_expiry_date: null,
+      has_selected_program: false,
+      program_id: null,
+      program_name: null,
+      entry_mode: null,
+      study_mode: null,
+      start_term: null,
     }
     return { ...mockStudent }
   },
@@ -368,6 +453,20 @@ export const admissionQueryOptions = {
 }
 
 export const admissionMutationOptions = {
+  submitProgramChoice: () =>
+    createApiMutationOptions<
+      AdmissionStudent,
+      {
+        programId: number
+        entryMode: EntryMode
+        studyMode: StudyMode
+        startTerm: string
+      }
+    >({
+      mutationKey: [...admissionKeys.all, "program-choice"],
+      mutationFn: (payload) => admissionService.submitProgramChoice(payload),
+    }),
+
   initiateApplicationPayment: () =>
     createApiMutationOptions<PaymentInitiationResponse, void>({
       mutationKey: [
@@ -389,6 +488,22 @@ export const admissionMutationOptions = {
     createApiMutationOptions<PaymentInitiationResponse, number>({
       mutationKey: [...admissionKeys.all, "payments", "tuition", "initiate"],
       mutationFn: admissionService.initiateTuitionPayment,
+    }),
+
+  simulateProgramChosen: () =>
+    createApiMutationOptions<
+      AdmissionStudent,
+      {
+        programId: number
+        programName: string
+        entryMode: EntryMode
+        studyMode: StudyMode
+        startTerm: string
+      }
+    >({
+      mutationKey: [...admissionKeys.all, "dev", "program-chosen"],
+      mutationFn: (payload) =>
+        admissionService.devSimulateProgramChosen(payload),
     }),
 
   simulateAppPaymentPaid: () =>

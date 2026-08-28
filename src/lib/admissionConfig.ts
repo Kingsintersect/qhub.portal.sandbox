@@ -1,13 +1,35 @@
 import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 
 /* ------------------------------------------------------------------ */
-/*  Seed data for the dummy step registry (src/services/admissionStepsApi.ts). */
-/*  Mirrors the original hardcoded step lists: AdmissionStep enum      */
-/*  (process) + FormStep enum (application form).                     */
+/*  Catalog of the app's built-in ("known") step keys — the ones with a  */
+/*  hand-built section component on the student pages. Two uses:         */
+/*   1. KNOWN_PROCESS_STEP_KEYS / KNOWN_FORM_STEP_KEYS below, so the      */
+/*      admin config UI can badge admin-created steps as "Custom".       */
+/*   2. StepFormModal's create-time "Step Type" picker — selecting one   */
+/*      of these fixes the new step's `key` to the exact value its real  */
+/*      gating/screen logic expects, instead of deriving it from a       */
+/*      free-text label (which a typo can silently break — see           */
+/*      admission_features_workflow.md's "known step keys" note).        */
+/*  This is NOT live data and must never be used as a fallback for the   */
+/*  real step registry — src/services/admissionStepsApi.ts (backed by    */
+/*  the live GET /admissions/config/steps endpoint) is the single        */
+/*  source of truth for what students actually see.                      */
 /* ------------------------------------------------------------------ */
 
 export const DEFAULT_ADMISSION_STEPS: AdmissionStepDefinition[] = [
   // ─── Process steps ────────────────────────────────────────────────
+  {
+    id: 0,
+    group: "PROCESS",
+    key: "CHOICE_PROGRAM",
+    label: "Choice Program",
+    description:
+      "Applicant selects their desired program, entry mode, and study mode before paying the application fee.",
+    icon: "Settings",
+    enabled: true,
+    required: false,
+    order: 0,
+  },
   {
     id: 1,
     group: "PROCESS",
@@ -192,12 +214,6 @@ export const KNOWN_PROCESS_STEP_KEYS = new Set(
 export const KNOWN_FORM_STEP_KEYS = new Set(
   DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "FORM").map((s) => s.key)
 )
-
-export function getEnabledStepKeys(
-  steps: AdmissionStepDefinition[]
-): Set<string> {
-  return new Set(steps.filter((s) => s.enabled || s.required).map((s) => s.key))
-}
 
 export function sortByOrder(
   steps: AdmissionStepDefinition[]

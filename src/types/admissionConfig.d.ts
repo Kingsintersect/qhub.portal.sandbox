@@ -3,8 +3,9 @@
 // Controls which steps students see in:
 //   - src/app/(admission)/(routes)/process-admission/page.tsx
 //   - src/app/(admission)/(routes)/admission-application-form/page.tsx
-// Full CRUD — see src/services/admissionStepsApi.ts (dummy-backed today,
-// real endpoints documented in sandbox/admission/admission_features_workflow.md).
+// Full CRUD — see src/services/admissionStepsApi.ts, backed by the live
+// GET/POST/PATCH/DELETE /admissions/config/steps endpoints documented in
+// sandbox/admission/admission_features_workflow.md.
 // ──────────────────────────────────────────────
 
 export type AdmissionStepGroup = "PROCESS" | "FORM"

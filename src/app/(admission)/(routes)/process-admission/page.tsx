@@ -3,6 +3,8 @@
 import { useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { AlertTriangle } from "lucide-react"
+import EmptyState from "@/components/custom/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
@@ -14,11 +16,8 @@ import {
 import { admissionKeys } from "../../services/admissionService"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
 import {
-  DEFAULT_ADMISSION_STEPS,
-  getEnabledStepKeys,
-} from "@/lib/admissionConfig"
-import {
   AdmissionStepIndicator,
+  ChoiceProgramSection,
   ApplicationPaymentSection,
   ApplicationFormSection,
   AdmissionStatusSection,
@@ -27,6 +26,8 @@ import {
   AdmissionCompleteSection,
 } from "../../components"
 import { AdmissionStep } from "../../types/admission"
+
+const KNOWN_STEP_KEYS: readonly string[] = Object.values(AdmissionStep)
 import { GraduationCap, RotateCcw, Loader2 } from "lucide-react"
 import { useAdmissionStore } from "../../store/admissionStore"
 
@@ -38,13 +39,16 @@ export default function ProcessAdmissionPage() {
     isLoading: studentLoading,
     refetch,
   } = useStudentAdmission()
-  const { data: admissionConfig } = useQuery(
-    admissionStepsQueryOptions.config()
-  )
+  const {
+    data: admissionConfig,
+    isLoading: configLoading,
+    isError: configError,
+  } = useQuery(admissionStepsQueryOptions.config())
   const currentStep = useAdmissionStore((s) => s.currentStep)
   const setStepConfig = useAdmissionStore((s) => s.setStepConfig)
   const {
     resetAll,
+    simulateProgramChosen,
     simulateAppPaymentPaid,
     simulateApplied,
     simulateOffered,
@@ -54,10 +58,10 @@ export default function ProcessAdmissionPage() {
     simulateTuitionPaid,
   } = useDevSimulate()
 
-  /* Apply the admin-configured step toggles as soon as they load */
+  /* Apply the admin-configured step order/toggles as soon as they load */
   useEffect(() => {
     if (admissionConfig) {
-      setStepConfig(getEnabledStepKeys(admissionConfig.processSteps))
+      setStepConfig(admissionConfig.processSteps)
     }
   }, [admissionConfig, setStepConfig])
 
@@ -72,7 +76,10 @@ export default function ProcessAdmissionPage() {
     refetch()
   }
 
-  const isLoading = feesLoading || studentLoading
+  const isLoading = feesLoading || studentLoading || configLoading
+  const processSteps = admissionConfig?.processSteps ?? []
+  const configEmpty =
+    !configLoading && !configError && processSteps.length === 0
 
   return (
     <PermissionGate
@@ -112,15 +119,7 @@ export default function ProcessAdmissionPage() {
         >
           <AdmissionStepIndicator
             currentStep={currentStep}
-            stepDefinitions={
-              // GET /admissions/config/steps (the admin-customizable Step
-              // Registry) isn't built on the backend yet and 404s — fall
-              // back to the default step list so the indicator still
-              // renders something instead of an empty bar. Swaps to the
-              // real, admin-configured steps automatically once shipped.
-              admissionConfig?.processSteps ??
-              DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
-            }
+            stepDefinitions={processSteps}
           />
         </motion.div>
 
@@ -133,9 +132,42 @@ export default function ProcessAdmissionPage() {
           </div>
         )}
 
+        {/* Admission step configuration failed to load or is empty */}
+        {!isLoading && (configError || configEmpty) && (
+          <EmptyState
+            icon={AlertTriangle}
+            title={
+              configError
+                ? "Couldn't load the admission process configuration"
+                : "Admission process isn't configured yet"
+            }
+            description={
+              configError
+                ? "We couldn't reach the admission configuration service. Please refresh the page, or contact the admissions office if this keeps happening."
+                : "No admission process steps have been set up for this session yet. Please contact the admissions office to have the process configured."
+            }
+            action={
+              configError ? (
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
+                  Try again
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+
         {/* Step sections — AnimatePresence for smooth transitions */}
-        {!isLoading && student && fees && (
+        {!isLoading && !configError && !configEmpty && student && fees && (
           <AnimatePresence mode="wait">
+            {currentStep === AdmissionStep.CHOICE_PROGRAM && (
+              <ChoiceProgramSection
+                key="choice-program"
+                student={student}
+                fees={fees}
+                onRefresh={handleRefresh}
+              />
+            )}
+
             {currentStep === AdmissionStep.APPLICATION_PAYMENT && (
               <ApplicationPaymentSection
                 key="app-payment"
@@ -189,6 +221,22 @@ export default function ProcessAdmissionPage() {
                 onRefresh={handleRefresh}
               />
             )}
+
+            {/* A custom admin-created step with no matching UI yet — see the "Custom" badge in the admission config admin page */}
+            {!KNOWN_STEP_KEYS.includes(currentStep) && (
+              <motion.div
+                key="unknown-step"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <EmptyState
+                  icon={AlertTriangle}
+                  title="This step isn't available yet"
+                  description="The admissions office added a custom step here that doesn't have a page built for it yet. Please contact the admissions office to continue."
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
         )}
 
@@ -204,6 +252,26 @@ export default function ProcessAdmissionPage() {
               🛠 Development Controls — Simulate Workflow Steps
             </p>
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  simulateProgramChosen.mutate({
+                    programId: 1,
+                    programName: "B.Sc. Computer Science",
+                    entryMode: "UTME",
+                    studyMode: "online",
+                    startTerm: student?.session ?? "2026/2027",
+                  })
+                }
+                disabled={simulateProgramChosen.isPending}
+                className="gap-1.5 text-xs"
+              >
+                {simulateProgramChosen.isPending && (
+                  <Loader2 className="size-3 animate-spin" />
+                )}
+                Choice Program: Program Chosen
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -307,7 +375,10 @@ export default function ProcessAdmissionPage() {
               Current step:{" "}
               <span className="font-mono font-bold">{currentStep}</span> |
               Student: {student?.name ?? "—"} | Status:{" "}
-              {student?.admission_status ?? "—"}
+              {student?.admission_status ?? "—"} | has_selected_program:{" "}
+              <span className="font-mono">
+                {String(student?.has_selected_program)}
+              </span>
             </p>
           </motion.div>
         )}

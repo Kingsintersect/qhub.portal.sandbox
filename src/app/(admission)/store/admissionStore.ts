@@ -8,68 +8,79 @@ import type {
   FeeSchedule,
   AdmissionStep,
 } from "../types/admission"
-import {
-  getEnabledStepKeys,
-  DEFAULT_ADMISSION_STEPS,
-} from "@/lib/admissionConfig"
+import { AdmissionStep as Step } from "../types/admission"
+import { sortByOrder } from "@/lib/admissionConfig"
+import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 
 interface AdmissionState {
   student: AdmissionStudent | null
   fees: FeeSchedule | null
   currentStep: AdmissionStep
-  enabledStepKeys: Set<string>
+  /** The admin's PROCESS step registry rows, filtered to enabled/required and sorted by `order`. */
+  processSteps: AdmissionStepDefinition[]
 
   /* Actions */
   setStudent: (student: AdmissionStudent) => void
   setFees: (fees: FeeSchedule) => void
-  setStepConfig: (enabledKeys: Set<string>) => void
+  setStepConfig: (steps: AdmissionStepDefinition[]) => void
   computeStep: () => void
   reset: () => void
 }
 
+/** Whether the applicant has satisfied a given known process step, keyed by its registry `key`. */
+const STEP_COMPLETION: Partial<
+  Record<AdmissionStep, (student: AdmissionStudent) => boolean>
+> = {
+  [Step.CHOICE_PROGRAM]: (s) => s.has_selected_program,
+  [Step.APPLICATION_PAYMENT]: (s) => s.application_payment_status === "paid",
+  [Step.APPLICATION_FORM]: (s) => s.has_applied,
+  [Step.ADMISSION_STATUS]: (s) =>
+    s.admission_status !== "pending" &&
+    s.admission_status !== "rejected" &&
+    s.admission_status !== "declined" &&
+    s.admission_status !== "expired",
+  [Step.ACCEPTANCE_FEE]: (s) => s.acceptance_payment_status === "paid",
+  [Step.TUITION_PAYMENT]: (s) => s.tuition_payment_status === "paid",
+}
+
 /**
- * Derives the current step from the student's data and the admin-configured
- * set of enabled process steps (src/lib/admissionConfig.ts). Disabled,
- * non-required stages (e.g. Acceptance Fee) are treated as already satisfied.
- * This is the single source of truth for which section to display.
+ * Derives the current step by walking the admin-ordered, enabled process
+ * steps and returning the key of the first one not yet satisfied. This is
+ * the single source of truth for which section to display — order comes
+ * entirely from the step registry's `order` field, so admin reordering (or
+ * a newly added custom step like "Choice Program") changes real behavior,
+ * not just the visual indicator. A step with no known completion check
+ * (a genuinely custom key with no matching UI yet) is treated as
+ * automatically satisfied so applicants never get stuck on it.
  */
 function deriveStep(
   student: AdmissionStudent | null,
-  enabledKeys: Set<string>
+  orderedSteps: AdmissionStepDefinition[]
 ): AdmissionStep {
-  if (!student) return 0 // APPLICATION_PAYMENT
+  if (!student) {
+    return (orderedSteps[0]?.key as AdmissionStep) ?? Step.APPLICATION_PAYMENT
+  }
 
-  const isOn = (key: string) => enabledKeys.has(key)
+  for (const step of orderedSteps) {
+    if (step.key === Step.COMPLETED) continue
 
-  // Step 0 → Application payment not done (skippable if disabled)
-  if (
-    isOn("APPLICATION_PAYMENT") &&
-    student.application_payment_status !== "paid"
-  )
-    return 0
+    const checkCompletion = STEP_COMPLETION[step.key as AdmissionStep]
+    // No registered predicate at all — a genuinely custom key with no
+    // matching UI/gating logic yet. Skip it rather than trap the applicant.
+    if (!checkCompletion) continue
 
-  // Step 1 → Paid but has not applied yet (always required)
-  if (!student.has_applied) return 1
+    // A predicate DOES exist for this step — anything other than a strict
+    // `true` means "not done yet". This used to check `=== false`, which
+    // silently treated `null`/`undefined` as "satisfied" too. That's the
+    // wrong default for a known field like `has_selected_program`: the real
+    // backend doesn't return it yet, and depending on exactly how a
+    // not-fully-implemented field comes back (omitted vs. explicit `null`),
+    // the value here can be `undefined` or `null` rather than a clean
+    // `false` — either way it means "not chosen yet", not "safe to skip".
+    if (checkCompletion(student) !== true) return step.key as AdmissionStep
+  }
 
-  // Step 2 → Applied but admission not yet offered/accepted (always required)
-  if (
-    student.admission_status === "pending" ||
-    student.admission_status === "rejected" ||
-    student.admission_status === "declined" ||
-    student.admission_status === "expired"
-  )
-    return 2
-
-  // Step 3 → Admission offered or accepted, needs acceptance fee payment (skippable if disabled)
-  if (isOn("ACCEPTANCE_FEE") && student.acceptance_payment_status !== "paid")
-    return 3
-
-  // Step 4 → Tuition not paid (skippable if disabled)
-  if (isOn("TUITION_PAYMENT") && student.tuition_payment_status !== "paid")
-    return 4
-
-  // Step 5 → Everything done
-  return 5
+  return Step.COMPLETED
 }
 
 // `student`/`fees` are server data that already lives in React Query's cache
@@ -83,33 +94,37 @@ function deriveStep(
 export const useAdmissionStore = create<AdmissionState>()((set, get) => ({
   student: null,
   fees: null,
-  currentStep: 0,
-  enabledStepKeys: getEnabledStepKeys(
-    DEFAULT_ADMISSION_STEPS.filter((s) => s.group === "PROCESS")
-  ),
+  currentStep: Step.APPLICATION_PAYMENT,
+  // Empty until the real admin-configured step registry loads (see
+  // process-admission/page.tsx's setStepConfig effect) — this store no
+  // longer seeds itself from static/dummy step data.
+  processSteps: [],
 
   setStudent: (student) => {
     set({ student })
     // Recompute step whenever student data changes
-    set({ currentStep: deriveStep(student, get().enabledStepKeys) })
+    set({ currentStep: deriveStep(student, get().processSteps) })
   },
 
   setFees: (fees) => set({ fees }),
 
-  setStepConfig: (enabledKeys) => {
-    set({ enabledStepKeys: enabledKeys })
-    set({ currentStep: deriveStep(get().student, enabledKeys) })
+  setStepConfig: (steps) => {
+    const orderedSteps = sortByOrder(
+      steps.filter((s) => s.enabled || s.required)
+    )
+    set({ processSteps: orderedSteps })
+    set({ currentStep: deriveStep(get().student, orderedSteps) })
   },
 
   computeStep: () => {
-    const { student, enabledStepKeys } = get()
-    set({ currentStep: deriveStep(student, enabledStepKeys) })
+    const { student, processSteps } = get()
+    set({ currentStep: deriveStep(student, processSteps) })
   },
 
   reset: () =>
     set({
       student: null,
       fees: null,
-      currentStep: 0,
+      currentStep: Step.APPLICATION_PAYMENT,
     }),
 }))
