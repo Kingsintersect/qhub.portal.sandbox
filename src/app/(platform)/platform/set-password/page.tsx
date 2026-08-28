@@ -258,11 +258,13 @@ export default function PlatformSetPasswordPage() {
   return (
     <div
       style={{
-        // Divided by the zoom like every other viewport size in the
-        // console: 100vh resolves against the real viewport and is then
-        // scaled by it, so a bare one leaves a fifth of the page unpainted
-        // below the fold.
-        minHeight: "calc(100vh / var(--zoom))",
+        // Fills the shell exactly rather than setting its own viewport
+        // height: two stacked viewport-height boxes is what put a scrollbar
+        // on a page that should never have one.
+        height: "100%",
+        // The card scrolls inside instead of the page, on a window too short
+        // to hold it — clipping it would put the submit button out of reach.
+        overflowY: "auto",
         background: "url('/platform/login-bg.jpg') center / cover no-repeat",
         fontFamily: "var(--font-geist), Geist, 'Helvetica Neue', sans-serif",
         display: "flex",

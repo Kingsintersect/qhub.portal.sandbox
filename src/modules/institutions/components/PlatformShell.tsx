@@ -193,10 +193,13 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   }, [status, isPlatformUser, isUnauthenticatedRoute, router])
 
   if (isUnauthenticatedRoute) {
+    // Exactly the viewport, not a minimum: the login is a full-bleed image
+    // with a centred card and must never scroll the page. dvh rather than vh
+    // so a mobile browser's collapsing chrome cannot make it overflow.
     return (
       <main
         className="qhub-console"
-        style={{ minHeight: "calc(100dvh / var(--zoom))" }}
+        style={{ height: "100dvh", overflow: "hidden" }}
       >
         {children}
       </main>
