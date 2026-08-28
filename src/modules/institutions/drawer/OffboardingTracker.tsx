@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import apiClient from "@/lib/clients/apiClient"
 import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
+import { ErasureCertificate } from "@/modules/institutions/drawer/ErasureCertificate"
 
 export type Offboarding = {
   id: number
@@ -38,6 +39,7 @@ export function OffboardingTracker({ tenantId }: { tenantId: number }) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [typed, setTyped] = useState("")
+  const [showingCertificate, setShowingCertificate] = useState(false)
 
   const { data } = useQuery({
     queryKey: ["platform", "offboardings", tenantId],
@@ -430,7 +432,38 @@ export function OffboardingTracker({ tenantId }: { tenantId: number }) {
             {data.erasedAt ? new Date(data.erasedAt).toLocaleDateString() : ""}.
             The institution is gone; the certificate survives.
           </div>
+
+          {/* The sentence above promised something the console could not do
+              until this button existed. */}
+          {data.certificate !== null && (
+            <button
+              type="button"
+              onClick={() => setShowingCertificate(true)}
+              style={{
+                marginLeft: "auto",
+                border: "1px solid var(--accent)",
+                color: "var(--accent)",
+                background: "transparent",
+                fontSize: 11.5,
+                fontWeight: 500,
+                padding: "6px 12px",
+                borderRadius: 9,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+            >
+              View erasure certificate
+            </button>
+          )}
         </div>
+      )}
+
+      {showingCertificate && data?.certificate != null && (
+        <ErasureCertificate
+          certificate={data.certificate}
+          onClose={() => setShowingCertificate(false)}
+        />
       )}
     </div>
   )

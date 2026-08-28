@@ -1,6 +1,7 @@
 import apiClient from "@/lib/clients/apiClient"
 import type {
   Institution,
+  ProvisioningProgress,
   InstitutionListFilters,
   InstitutionListResponse,
   ProvisionInstitutionPayload,
@@ -27,6 +28,36 @@ export const institutionsService = {
     apiClient.get<Institution>(`/platform/tenants/${id}`, {
       access_token: true,
     }),
+
+  /** How far the run has got. Polled while the wizard's panel is open. */
+  provisioning: async (tenantId: number): Promise<ProvisioningProgress> =>
+    (
+      await apiClient.get<{ data: ProvisioningProgress }>(
+        `/platform/tenants/${tenantId}/provisioning`,
+        { access_token: true }
+      )
+    ).data,
+
+  /**
+   * Supply the password a paused run is waiting for.
+   *
+   * The only place this secret is ever accepted, by design — it is not
+   * collected in the wizard and not echoed back in the response.
+   */
+  resumeProvisioning: async (
+    tenantId: number,
+    password: string
+  ): Promise<ProvisioningProgress> =>
+    (
+      await apiClient.post<
+        { data: ProvisioningProgress },
+        { password: string }
+      >(
+        `/platform/tenants/${tenantId}/provisioning/resume`,
+        { password },
+        { access_token: true }
+      )
+    ).data,
 
   provision: (payload: ProvisionInstitutionPayload) =>
     apiClient.post<Institution, ProvisionInstitutionPayload>(

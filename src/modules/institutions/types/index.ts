@@ -2,6 +2,7 @@ import type { z } from "zod"
 
 import type {
   awardTypeSchema,
+  provisioningProgressSchema,
   calendarUnitSchema,
   institutionSchema,
   programCategorySchema,
@@ -19,6 +20,8 @@ export type UpdateInstitutionStatusPayload = z.infer<
 >
 
 export type InstitutionStatus = Institution["status"]
+
+export type ProvisioningProgress = z.infer<typeof provisioningProgressSchema>
 
 export type InstitutionListFilters = {
   status?: InstitutionStatus

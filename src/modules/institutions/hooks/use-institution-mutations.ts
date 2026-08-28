@@ -1,12 +1,13 @@
 "use client"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { institutionKeys } from "@/modules/institutions/hooks/query-keys"
 import { institutionsService } from "@/modules/institutions/services/institutions.service"
 import type {
   Institution,
+  ProvisioningProgress,
   ProvisionInstitutionPayload,
   UpdateInstitutionStatusPayload,
 } from "@/modules/institutions/types"
@@ -64,5 +65,59 @@ export function useUpdateInstitutionStatus() {
         description: errorMessage(error, "The change was not applied."),
       })
     },
+  })
+}
+
+/**
+ * How far a provisioning run has got.
+ *
+ * Polled rather than streamed: provisioning holds one PHP-FPM worker for its
+ * whole duration and the poll lands on a different one, which is the only
+ * reason the progress it reports is real rather than decorative.
+ */
+export function useProvisioningProgress(tenantId: number | null) {
+  return useQuery({
+    queryKey: ["platform", "provisioning", tenantId],
+    queryFn: () => institutionsService.provisioning(tenantId as number),
+    enabled: tenantId !== null && tenantId > 0,
+    // Stop polling once there is nothing left to watch. A run waiting on a
+    // person is not making progress, and neither is one that timed out.
+    refetchInterval: (query: { state: { data?: ProvisioningProgress } }) => {
+      const data = query.state.data
+
+      if (!data) return 3_000
+
+      const settled =
+        data.status === "SUCCEEDED" ||
+        data.status === "FAILED" ||
+        data.timedOut ||
+        data.awaitingCredential
+
+      return settled ? false : 3_000
+    },
+  })
+}
+
+export function useResumeProvisioning(tenantId: number | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (password: string) =>
+      institutionsService.resumeProvisioning(tenantId as number, password),
+    onSuccess: () => {
+      toast.success("Credential stored — provisioning resumed")
+      void queryClient.invalidateQueries({
+        queryKey: ["platform", "provisioning", tenantId],
+      })
+    },
+    onError: (error) =>
+      toast.error("Could not resume provisioning", {
+        description:
+          (
+            error as {
+              response?: { data?: { error?: { message?: string } } }
+            }
+          )?.response?.data?.error?.message ?? "The run is unchanged.",
+      }),
   })
 }

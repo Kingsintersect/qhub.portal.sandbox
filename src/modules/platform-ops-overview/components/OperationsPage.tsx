@@ -7,7 +7,17 @@ import {
   useEstateOverview,
   useEstateTrends,
 } from "@/modules/platform-observability/hooks/use-observability"
-import type { HealthStatus } from "@/modules/platform-observability/types"
+import type {
+  EstateInstitution,
+  HealthStatus,
+} from "@/modules/platform-observability/types"
+import { NoteDialog } from "@/modules/institutions/drawer/NoteDialog"
+import { EscalateDialog } from "@/modules/institutions/drawer/EscalateDialog"
+import {
+  SupportSessionDialog,
+  SupportSessionFrame,
+  type SupportSession,
+} from "@/modules/platform-shared/SupportSessionDialog"
 import { TrendsChart } from "@/modules/platform-ops-overview/components/TrendsChart"
 import { useProvisioningProgress } from "@/modules/platform-ops-overview/hooks/use-provisioning-progress"
 import {
@@ -142,24 +152,117 @@ export function SystemsOverviewPage() {
           overflow: "hidden",
         }}
       >
+        {/*
+         * Folder tabs, not pills.
+         *
+         * They sit on the page background and the active one is painted
+         * var(--card) so it merges into the card below — the 22px wedge
+         * skewed 18 degrees is what gives each tab its angled right edge and
+         * makes the active one read as continuous with the panel.
+         */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "14px 18px 0",
-            flexWrap: "wrap",
+            alignItems: "stretch",
+            background: "var(--bg)",
+            paddingTop: 8,
           }}
         >
-          {tabs.map(([value, label, count]) => (
-            <TabChip
-              key={value}
-              label={label}
-              badge={count}
-              active={tab === value}
-              onClick={() => setTab(value)}
-            />
-          ))}
+          {tabs.map(([value, label, count], i) => {
+            const on = tab === value
+            const activeIdx = tabs.findIndex(([v]) => v === tab)
+
+            return (
+              <div
+                key={value}
+                style={{ display: "flex", alignItems: "stretch" }}
+              >
+                {/* Suppressed beside the active tab so nothing crosses the
+                    seam where it joins the card. */}
+                <div
+                  style={{
+                    width: 1,
+                    alignSelf: "center",
+                    height: 16,
+                    background:
+                      i === 0 || on || i === activeIdx + 1
+                        ? "transparent"
+                        : "var(--divider)",
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setTab(value)}
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    padding: "13px 12px 15px 20px",
+                    fontSize: 13.5,
+                    fontWeight: on ? 600 : 400,
+                    color: on ? "var(--txt)" : "var(--txt3)",
+                    cursor: "pointer",
+                    background: on ? "var(--card)" : "transparent",
+                    border: "none",
+                    borderRadius: 0,
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {label}
+                  {count !== undefined && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "var(--neg)",
+                        background: "var(--neg-bg)",
+                        padding: "2px 7px",
+                        borderRadius: 999,
+                      }}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+
+                <div
+                  style={{
+                    width: 22,
+                    alignSelf: "stretch",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: -11,
+                      width: 22,
+                      background: on ? "var(--card)" : "transparent",
+                      transform: "skewX(18deg)",
+                      transformOrigin: "top left",
+                      borderRadius: "0 10px 0 0",
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+
+          <div
+            style={{
+              flex: "1 1 auto",
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              padding: "0 18px 6px",
+            }}
+          />
         </div>
 
         <div
@@ -187,11 +290,22 @@ export function SystemsOverviewPage() {
 
 // --- Tenant health ----------------------------------------------------------
 
-const HEALTH_GRID = "150px 1.1fr 1.5fr 90px 150px 130px"
+const HEALTH_GRID = "150px 1.1fr 1.5fr 90px 150px 130px 40px"
 
 function HealthTab() {
   const { data, isPending } = useEstateOverview()
   const rows = data?.institutions ?? []
+
+  const [openId, setOpenId] = useState<number | null>(null)
+
+  // The three surfaces the expanded row opens. Held here rather than in the
+  // panel so only one can ever be open at a time.
+  const [noting, setNoting] = useState<EstateInstitution | null>(null)
+  const [console_, setConsole] = useState<EstateInstitution | null>(null)
+  const [escalating, setEscalating] = useState<EstateInstitution | null>(null)
+
+  const [session, setSession] = useState<SupportSession | null>(null)
+  const [reason, setReason] = useState("")
 
   return (
     <>
@@ -212,6 +326,7 @@ function HealthTab() {
         <div>LEARNERS</div>
         <div>TENANT HEALTH</div>
         <div>OPEN ISSUES</div>
+        <div />
       </div>
 
       {isPending && <Loading />}
@@ -221,76 +336,452 @@ function HealthTab() {
       )}
 
       {rows.map((r) => (
+        <div key={r.id}>
+          <div
+            onClick={() => setOpenId(openId === r.id ? null : r.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                setOpenId(openId === r.id ? null : r.id)
+              }
+            }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: HEALTH_GRID,
+              columnGap: 18,
+              alignItems: "center",
+              padding: "13px 24px",
+              fontSize: 13.5,
+              borderTop: "1px solid var(--line2)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                color: "var(--txt2)",
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: healthDot(r.health),
+                }}
+              />
+              <span style={{ fontSize: 12.5 }}>
+                {r.capturedAt
+                  ? new Date(r.capturedAt).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short",
+                    })
+                  : "never"}
+              </span>
+            </div>
+            <div style={{ fontWeight: 500, color: "var(--txt)" }}>{r.name}</div>
+            <div style={{ color: "var(--txt2)" }}>{r.plan ?? "—"}</div>
+            <div
+              className="qhub-mono"
+              style={{ fontSize: 12.5, color: "var(--txt2)" }}
+            >
+              {r.students.toLocaleString()}
+            </div>
+            <div>
+              <span
+                className="qhub-mono"
+                style={{
+                  fontSize: 10.5,
+                  letterSpacing: ".06em",
+                  padding: "4px 9px",
+                  borderRadius: 7,
+                  ...healthTone(r.health),
+                }}
+              >
+                {healthLabel(r.health)}
+              </span>
+            </div>
+            <div
+              style={{
+                fontSize: 12.5,
+                color: r.issues > 0 ? "var(--neg)" : "var(--txt3)",
+              }}
+            >
+              {r.issues > 0 ? `${r.issues} failing` : "none"}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                color: "var(--txt4)",
+              }}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+                style={{
+                  transform: openId === r.id ? "rotate(180deg)" : "none",
+                  transition: "transform .18s",
+                }}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+
+          {openId === r.id && (
+            <HealthRowPanel
+              institution={r}
+              onNote={() => setNoting(r)}
+              onOpenConsole={() => setConsole(r)}
+              onEscalate={() => setEscalating(r)}
+            />
+          )}
+        </div>
+      ))}
+
+      {noting !== null && (
+        <NoteDialog
+          tenantId={noting.id}
+          institution={noting.name}
+          onClose={() => setNoting(null)}
+        />
+      )}
+
+      {console_ !== null && (
+        <SupportSessionDialog
+          tenantId={console_.id}
+          name={console_.name}
+          slug={console_.slug}
+          onReason={setReason}
+          onClose={() => setConsole(null)}
+          onOpened={setSession}
+        />
+      )}
+
+      {session !== null && (
+        <SupportSessionFrame
+          session={session}
+          institution={console_?.name ?? ""}
+          slug={console_?.slug ?? ""}
+          reason={reason}
+          onEnd={() => setSession(null)}
+        />
+      )}
+
+      {escalating !== null && (
+        <EscalateDialog
+          tenantId={escalating.id}
+          name={escalating.name}
+          onClose={() => setEscalating(null)}
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * The expanded institution row, lifted from the draft.
+ *
+ * A bordered panel inset from the row, not a nested table — it is a detail
+ * view of one institution, and the three actions along the bottom are the
+ * whole reason to open it: look inside, escalate, or write down what the next
+ * person needs to know.
+ */
+function HealthRowPanel({
+  institution,
+  onNote,
+  onOpenConsole,
+  onEscalate,
+}: {
+  institution: EstateInstitution
+  onNote: () => void
+  onOpenConsole: () => void
+  onEscalate: () => void
+}) {
+  return (
+    <div
+      style={{
+        margin: "0 16px 14px",
+        border: "1.5px solid var(--accent)",
+        borderRadius: 16,
+        background: "var(--panel-open)",
+        padding: "20px 22px",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.35fr 1fr 150px",
+          gap: 28,
+          alignItems: "start",
+        }}
+      >
         <div
-          key={r.id}
           style={{
             display: "grid",
-            gridTemplateColumns: HEALTH_GRID,
-            columnGap: 18,
-            alignItems: "center",
-            padding: "13px 24px",
+            gridTemplateColumns: "auto 1fr",
+            gap: "12px 22px",
             fontSize: 13.5,
-            borderTop: "1px solid var(--line2)",
+            alignItems: "center",
+            whiteSpace: "nowrap",
           }}
         >
-          <div
+          <div style={{ color: "var(--txt3)" }}>Programmes</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {institution.programCategories.length === 0 && (
+              <span style={{ color: "var(--txt3)" }}>None recorded</span>
+            )}
+            {institution.programCategories.map((category) => (
+              <span
+                key={category}
+                style={{
+                  fontSize: 12,
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: "1px solid var(--accent-brd)",
+                  color: "var(--accent)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {category.replace(/_/g, " ").toLowerCase()}
+              </span>
+            ))}
+          </div>
+
+          <div style={{ color: "var(--txt3)" }}>Plan</div>
+          <div>
+            <b style={{ fontWeight: 600 }}>{institution.plan ?? "none"}</b>
+          </div>
+
+          <div style={{ color: "var(--txt3)" }}>Learners</div>
+          <div>
+            <b style={{ fontWeight: 600 }}>
+              {institution.students.toLocaleString()}
+            </b>{" "}
+            <span style={{ color: "var(--txt3)" }}>
+              · {institution.lecturers.toLocaleString()} lecturers
+            </span>
+          </div>
+
+          <div style={{ color: "var(--txt3)" }}>Open issues</div>
+          <div>
+            <b
+              style={{
+                fontWeight: 600,
+                color: institution.issues > 0 ? "var(--neg)" : "var(--txt)",
+              }}
+            >
+              {institution.issues}
+            </b>{" "}
+            <span style={{ color: "var(--txt3)" }}>
+              ({healthLabel(institution.health).toLowerCase()})
+            </span>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 13.5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontWeight: 600 }}>Note</span>
+          </div>
+          <p
+            style={{
+              margin: "8px 0 14px",
+              color: "var(--txt2)",
+              lineHeight: 1.55,
+              textWrap: "pretty",
+            }}
+          >
+            Internal and timestamped. The institution never sees these.
+          </p>
+          <button
+            type="button"
+            onClick={onNote}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 9,
-              color: "var(--txt2)",
+              gap: 7,
+              color: "var(--accent)",
+              fontWeight: 500,
+              cursor: "pointer",
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: 13.5,
+              fontFamily: "inherit",
             }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                background: healthDot(r.health),
-              }}
-            />
-            <span style={{ fontSize: 12.5 }}>
-              {r.capturedAt
-                ? new Date(r.capturedAt).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                  })
-                : "never"}
-            </span>
-          </div>
-          <div style={{ fontWeight: 500, color: "var(--txt)" }}>{r.name}</div>
-          <div style={{ color: "var(--txt2)" }}>{r.plan ?? "—"}</div>
-          <div
-            className="qhub-mono"
-            style={{ fontSize: 12.5, color: "var(--txt2)" }}
-          >
-            {r.students.toLocaleString()}
-          </div>
-          <div>
-            <span
-              className="qhub-mono"
-              style={{
-                fontSize: 10.5,
-                letterSpacing: ".06em",
-                padding: "4px 9px",
-                borderRadius: 7,
-                ...healthTone(r.health),
-              }}
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden="true"
             >
-              {healthLabel(r.health)}
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: 12.5,
-              color: r.issues > 0 ? "var(--neg)" : "var(--txt3)",
-            }}
-          >
-            {r.issues > 0 ? `${r.issues} failing` : "none"}
-          </div>
+              <rect x="4" y="4" width="16" height="16" rx="4" />
+              <path d="M12 9v6M9 12h6" />
+            </svg>
+            New Note
+          </button>
         </div>
-      ))}
-    </>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <HealthDonut
+            health={institution.health}
+            issues={institution.issues}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginTop: 20,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onOpenConsole}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            background: "var(--accent)",
+            color: "#fff",
+            fontSize: 13.5,
+            fontWeight: 500,
+            padding: "11px 18px",
+            borderRadius: 11,
+            border: "none",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            fontFamily: "inherit",
+          }}
+        >
+          Open Tenant Console
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M7 17L17 7M9 7h8v8" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          onClick={onEscalate}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            fontSize: 13.5,
+            fontWeight: 500,
+            padding: "11px 18px",
+            borderRadius: 11,
+            border: "none",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            fontFamily: "inherit",
+          }}
+        >
+          Escalate to Engineering
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** The draft's ring, drawn from the institution's own health. */
+function HealthDonut({
+  health,
+  issues,
+}: {
+  health: HealthStatus
+  issues: number
+}) {
+  const tone =
+    health === "OK"
+      ? "var(--accent)"
+      : health === "WARN"
+        ? "var(--warn)"
+        : "var(--neg)"
+
+  // Full ring when healthy, and progressively less of one as issues mount.
+  const filled = Math.max(0.15, 1 - Math.min(issues, 6) / 6)
+  const circumference = 264
+
+  return (
+    <div style={{ position: "relative", width: 96, height: 96 }}>
+      <svg width="96" height="96" viewBox="0 0 96 96">
+        <circle
+          style={{ stroke: "var(--donut-track)" }}
+          cx="48"
+          cy="48"
+          r="42"
+          fill="none"
+          strokeWidth="6"
+        />
+        <circle
+          style={{ stroke: tone }}
+          cx="48"
+          cy="48"
+          r="42"
+          fill="none"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={`${Math.round(circumference * filled)} ${circumference}`}
+          transform="rotate(-90 48 48)"
+        />
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 600, color: tone }}>
+          {issues}
+        </div>
+        <div style={{ fontSize: 10.5, color: "var(--txt3)" }}>
+          {issues === 1 ? "issue" : "issues"}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -937,53 +1428,6 @@ function Chip({
       }}
     >
       {label}
-    </button>
-  )
-}
-
-function TabChip({
-  label,
-  badge,
-  active,
-  onClick,
-}: {
-  label: string
-  badge?: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        padding: "7px 13px",
-        fontSize: 12.5,
-        border: "none",
-        background: active ? "var(--accent-soft)" : "transparent",
-        color: active ? "var(--accent)" : "var(--txt3)",
-        cursor: "pointer",
-        fontFamily: "inherit",
-      }}
-    >
-      {label}
-      {!!badge && badge > 0 && (
-        <span
-          className="qhub-mono"
-          style={{
-            fontSize: 9.5,
-            color: "#fff",
-            background: "var(--neg)",
-            padding: "1px 5px",
-            borderRadius: 7,
-          }}
-        >
-          {badge}
-        </span>
-      )}
     </button>
   )
 }

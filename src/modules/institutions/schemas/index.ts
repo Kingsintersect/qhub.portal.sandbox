@@ -24,10 +24,33 @@ export const institutionDomainSchema = z.object({
 
 export const provisioningRunSchema = z.object({
   id: z.number(),
-  status: z.enum(["RUNNING", "SUCCEEDED", "FAILED"]),
+  status: z.string(),
   steps: z.array(z.string()),
   error: z.string().nullable(),
   finishedAt: z.string().nullable(),
+})
+
+/** One step of the run, as the progress endpoint reports it. */
+export const provisioningStepSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  done: z.boolean(),
+})
+
+export const provisioningProgressSchema = z.object({
+  status: z.string(),
+  completed: z.number(),
+  total: z.number(),
+  percent: z.number(),
+  steps: z.array(provisioningStepSchema),
+  /** The step being attempted when it stopped — why a failed run is readable. */
+  failedAt: z.string().nullable(),
+  error: z.string().nullable(),
+  /** Stopped at step 1 waiting for a dedicated server's password. */
+  awaitingCredential: z.boolean().default(false),
+  pauseExpiresAt: z.string().nullable().default(null),
+  /** Waited past the deadline; the tenant record has been cleaned up. */
+  timedOut: z.boolean().default(false),
 })
 
 export const institutionSchema = z.object({
@@ -120,6 +143,19 @@ export const brandingSchema = z.object({
 
 export const provisionInstitutionSchema = z.object({
   name: z.string().min(2, "Institution name is required").max(200),
+
+  /*
+   * The dedicated database server, if they bring one.
+   *
+   * There is deliberately no password here. A run given a host without one
+   * pauses at step 1 and waits for it to be entered once, into a prompt that
+   * is the only place that secret ever exists in a browser — putting it in
+   * this form would defeat the whole arrangement.
+   */
+  dbHost: z.string().max(255).optional(),
+  dbPort: z.number().int().min(1).max(65535).optional(),
+  dbUsername: z.string().max(190).optional(),
+  dbSslCa: z.string().max(500).optional(),
   slug: z
     .string()
     .min(2)
