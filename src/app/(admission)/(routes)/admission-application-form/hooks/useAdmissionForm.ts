@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { formStorage } from "@/lib/storage"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import { admissionQueryOptions } from "../../../services/admissionService"
 import {
   fetchMyProfile,
   submitApplication,
@@ -29,6 +30,8 @@ import {
   DEFAULT_FORM_VALUES,
   STEP_FIELDS,
   getActiveFormSteps,
+  getFieldLabel,
+  collectFormErrors,
   type FormDefaultValues,
 } from "../types/form-types"
 
@@ -53,12 +56,15 @@ export interface UseAdmissionFormReturn {
   isLoading: boolean
   isSubmitting: boolean
   isSubmitted: boolean
+  /** True once the user has clicked "Submit Application" at least once — gates the error summary. */
+  submitAttempted: boolean
   goToStep: (step: FormStep) => void
   nextStep: () => Promise<boolean>
   prevStep: () => void
   submitForm: () => Promise<void>
   saveProgress: () => Promise<void>
   resetForm: () => Promise<void>
+  clearStep: (step: FormStep) => Promise<void>
   isStepValid: (step: FormStep) => boolean
   getStepErrors: (step: FormStep) => string[]
   direction: 1 | -1
@@ -72,6 +78,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [direction, setDirection] = useState<1 | -1>(1)
   const hasLoadedRef = useRef(false)
   const skipNextAutoSaveRef = useRef(true)
@@ -81,13 +88,20 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     admissionStepsQueryOptions.config()
   )
   const { data: sessions } = useAcademicSessions()
+  // If the applicant already made a real pre-application program choice (the
+  // "Choice Program" process step), PROGRAM_SELECTION drops out of
+  // activeSteps below and this pre-fills its fields instead of asking again.
+  const { data: admissionStudent } = useQuery(admissionQueryOptions.student())
   const activeSessionId = useMemo(
     () => sessions?.find((s) => s.isActive)?.id ?? null,
     [sessions]
   )
   const activeSteps = useMemo(() => {
-    return getActiveFormSteps(admissionConfig?.formSteps ?? [])
-  }, [admissionConfig])
+    return getActiveFormSteps(
+      admissionConfig?.formSteps ?? [],
+      !!admissionStudent?.has_selected_program
+    )
+  }, [admissionConfig, admissionStudent?.has_selected_program])
   const totalSteps = activeSteps.length
 
   // If a disabled step was reached/saved before the admin turned it off, snap to the nearest active one.
@@ -149,6 +163,39 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
 
     loadSavedData()
   }, [form])
+
+  // ─── TEMPORARY: enforce the Program Selection placeholder default ───────
+  // A draft saved before DEFAULT_FORM_VALUES.programId/entryMode got their
+  // temporary non-empty defaults (see form-types.ts) restores the old
+  // 0/"" values via the load effect above, silently overriding the new
+  // default. Force it back to a valid value here so testing isn't blocked
+  // by stale IndexedDB data. Remove alongside the other TEMPORARY markers
+  // once Choice Program is live and this step is retired.
+  useEffect(() => {
+    if (isLoading) return
+    if (!form.getValues("programId")) {
+      form.setValue("programId", DEFAULT_FORM_VALUES.programId)
+      form.clearErrors("programId")
+    }
+    if (!form.getValues("entryMode")) {
+      form.setValue("entryMode", DEFAULT_FORM_VALUES.entryMode)
+      form.clearErrors("entryMode")
+    }
+  }, [isLoading, form])
+
+  // ─── Pre-fill program choice from the earlier "Choice Program" step ─────
+  useEffect(() => {
+    if (isLoading || !admissionStudent?.has_selected_program) return
+    if (!admissionStudent.program_id || !admissionStudent.entry_mode) return
+
+    form.setValue("programId", admissionStudent.program_id)
+    form.setValue("entryMode", admissionStudent.entry_mode)
+    form.setValue("studyMode", admissionStudent.study_mode ?? "online")
+    form.setValue(
+      "startTerm",
+      admissionStudent.start_term ?? DEFAULT_FORM_VALUES.startTerm
+    )
+  }, [admissionStudent, isLoading, form])
 
   // ─── Save progress to IndexedDB ─────────────────────────────────────────
   const saveProgress = useCallback(async () => {
@@ -238,7 +285,20 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const nextStep = useCallback(async (): Promise<boolean> => {
     const isValid = await validateCurrentStep()
     if (!isValid) {
-      toast.error("Please fix the errors before proceeding.")
+      const fields = new Set(STEP_FIELDS[currentStep])
+      const stepErrors = collectFormErrors(form.formState.errors).filter((e) =>
+        fields.has(e.field)
+      )
+      const first = stepErrors[0]
+      const extra =
+        stepErrors.length > 1
+          ? ` (+${stepErrors.length - 1} more issue${stepErrors.length > 2 ? "s" : ""})`
+          : ""
+      toast.error(
+        first
+          ? `${getFieldLabel(first.field)}: ${first.message}${extra}`
+          : "Please review the highlighted fields before proceeding."
+      )
       return false
     }
 
@@ -252,7 +312,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
 
     await saveProgress()
     return true
-  }, [currentStep, activeSteps, validateCurrentStep, saveProgress])
+  }, [currentStep, activeSteps, validateCurrentStep, saveProgress, form])
 
   const prevStep = useCallback(() => {
     const idx = activeSteps.indexOf(currentStep)
@@ -305,18 +365,10 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   // ─── Get step-specific errors ────────────────────────────────────────────
   const getStepErrors = useCallback(
     (step: FormStep): string[] => {
-      const fields = STEP_FIELDS[step]
-      const errors = form.formState.errors
-      const stepErrors: string[] = []
-
-      fields.forEach((field) => {
-        const error = errors[field as keyof FormDefaultValues]
-        if (error?.message) {
-          stepErrors.push(error.message as string)
-        }
-      })
-
-      return stepErrors
+      const fields = new Set(STEP_FIELDS[step])
+      return collectFormErrors(form.formState.errors)
+        .filter((e) => fields.has(e.field))
+        .map((e) => e.message)
     },
     [form.formState.errors]
   )
@@ -324,6 +376,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   // ─── Submit full form ────────────────────────────────────────────────────
   const submitForm = useCallback(async () => {
     setIsSubmitting(true)
+    setSubmitAttempted(true)
     try {
       const values = form.getValues()
       const result = await odlProgramSchema.safeParseAsync(values)
@@ -368,15 +421,52 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   }, [form, activeSessionId])
 
   // ─── Reset form ──────────────────────────────────────────────────────────
+  // Deliberately does NOT call saveProgress() afterward — that would
+  // re-persist STEP_STORAGE_KEY/completedSteps from their stale pre-reset
+  // closure values, silently undoing the removeItem calls below. Clearing
+  // storage and leaving it empty is correct: the next mount's load-effect
+  // finds nothing to restore and falls through to the current
+  // DEFAULT_FORM_VALUES exactly as intended.
   const resetForm = useCallback(async () => {
     form.reset(DEFAULT_FORM_VALUES)
     setCurrentStep(FormStep.PERSONAL_INFO)
     setCompletedSteps(new Set())
+    setSubmitAttempted(false)
     await formStorage.clearFormData(FORM_STORAGE_KEY)
     localStorage.removeItem(STEP_STORAGE_KEY)
     localStorage.removeItem(`${STEP_STORAGE_KEY}_completed`)
     toast.info("Form has been reset.")
   }, [form])
+
+  // ─── Clear just the current step's fields back to their defaults ────────
+  // Uses form.reset() over the whole values object (rather than per-field
+  // setValue calls) because reset() is what reliably forces every watch()
+  // subscriber — including file-preview components — to re-render with the
+  // cleared value; individual setValue calls were silently not "sticking"
+  // visually for some field types.
+  const clearStep = useCallback(
+    async (step: FormStep) => {
+      const clearedFields = Object.fromEntries(
+        STEP_FIELDS[step].map((field) => [
+          field,
+          DEFAULT_FORM_VALUES[field as keyof FormDefaultValues],
+        ])
+      ) as Partial<FormDefaultValues>
+
+      form.reset(
+        { ...form.getValues(), ...clearedFields },
+        { keepDirty: false, keepTouched: false, keepIsSubmitted: false }
+      )
+      setCompletedSteps((prev) => {
+        const next = new Set(prev)
+        next.delete(step)
+        return next
+      })
+      await saveProgress()
+      toast.info("Step cleared.")
+    },
+    [form, saveProgress]
+  )
 
   return {
     form,
@@ -387,12 +477,14 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     isLoading,
     isSubmitting,
     isSubmitted,
+    submitAttempted,
     goToStep,
     nextStep,
     prevStep,
     submitForm,
     saveProgress,
     resetForm,
+    clearStep,
     isStepValid,
     getStepErrors,
     direction,

@@ -20,6 +20,7 @@ import { filterNavGroupsByFeatureFlags } from "@/lib/feature-flags/featureAccess
 import { useAppStore, useSidebarStore } from "@/store"
 import Logo from "@/components/branding/Logo"
 import { UNIVERSITY_NAME } from "@/config/global.config"
+import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog"
 
 const roleMeta: Record<string, { label: string; cls: string }> = {
   STUDENT: {
@@ -268,6 +269,7 @@ export default function Sidebar() {
   const { collapsed, toggle } = useSidebarStore()
   const { data: featureFlagsResponse } = useFeatureFlags("default")
   const logoRef = useRef<HTMLDivElement>(null)
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
   const handleLogout = async () => {
     await logoutFromBackend()
@@ -394,7 +396,7 @@ export default function Sidebar() {
           </AnimatePresence>
           {!collapsed && (
             <button
-              onClick={handleLogout}
+              onClick={() => setLogoutDialogOpen(true)}
               className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
               title="Logout"
             >
@@ -419,6 +421,12 @@ export default function Sidebar() {
           )}
         </button>
       </div>
+
+      <LogoutConfirmDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        onConfirm={handleLogout}
+      />
     </motion.aside>
   )
 }

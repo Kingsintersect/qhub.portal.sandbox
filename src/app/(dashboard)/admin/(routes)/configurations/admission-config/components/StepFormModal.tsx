@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -11,14 +11,35 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import {
   ADMISSION_STEP_ICON_NAMES,
   getStepIcon,
 } from "@/lib/admissionStepIcons"
-import type { AdmissionStepDefinition } from "@/types/admissionConfig"
+import { DEFAULT_ADMISSION_STEPS } from "@/lib/admissionConfig"
+import type {
+  AdmissionStepDefinition,
+  AdmissionStepGroup,
+} from "@/types/admissionConfig"
+
+/** Sentinel `stepType` value meaning "not one of the built-in types — free-text label/key". */
+export const CUSTOM_STEP_TYPE = "CUSTOM"
 
 const stepFormSchema = z.object({
+  // Which built-in type (its canonical `key`) to create, or CUSTOM_STEP_TYPE.
+  // Only read on create — editing never changes a step's key. Keeping the
+  // key decoupled from the label like this is the whole point: picking a
+  // built-in type fixes the exact key its real gating/screen logic expects,
+  // so a label typo can no longer silently break it the way free-text
+  // label-to-key slugifying did before.
+  stepType: z.string().min(1),
   label: z.string().min(2, "Label must be at least 2 characters").max(100),
   description: z.string().max(300).optional(),
   icon: z.string().min(1, "Pick an icon"),
@@ -32,6 +53,9 @@ interface StepFormModalProps {
   open: boolean
   onClose: () => void
   groupLabel: string
+  group: AdmissionStepGroup
+  /** Keys already used in this group — built-in types already taken are excluded from the picker. */
+  existingKeys: string[]
   editing: AdmissionStepDefinition | null
   onSubmit: (values: StepFormValues) => Promise<void> | void
   isSubmitting: boolean
@@ -39,6 +63,7 @@ interface StepFormModalProps {
 
 function toDefaults(step: AdmissionStepDefinition | null): StepFormValues {
   return {
+    stepType: CUSTOM_STEP_TYPE,
     label: step?.label ?? "",
     description: step?.description ?? "",
     icon: step?.icon ?? "ListChecks",
@@ -51,6 +76,8 @@ export default function StepFormModal({
   open,
   onClose,
   groupLabel,
+  group,
+  existingKeys,
   editing,
   onSubmit,
   isSubmitting,
@@ -66,6 +93,27 @@ export default function StepFormModal({
   }, [open, editing])
 
   const required = form.watch("required")
+  const stepType = form.watch("stepType")
+
+  const knownOptions = useMemo(
+    () =>
+      DEFAULT_ADMISSION_STEPS.filter(
+        (s) => s.group === group && !existingKeys.includes(s.key)
+      ),
+    [group, existingKeys]
+  )
+
+  const handleStepTypeChange = (value: string) => {
+    form.setValue("stepType", value)
+    if (value === CUSTOM_STEP_TYPE) return
+    const known = knownOptions.find((s) => s.key === value)
+    if (!known) return
+    // Pre-fill from the catalog — still fully editable afterward. The key
+    // is what's fixed, not the label, so customizing wording here is safe.
+    form.setValue("label", known.label)
+    form.setValue("description", known.description)
+    form.setValue("icon", known.icon)
+  }
 
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(required ? { ...values, enabled: true } : values)
@@ -100,6 +148,32 @@ export default function StepFormModal({
       }
     >
       <div className="space-y-4">
+        {!editing && (
+          <div className="space-y-1.5">
+            <Label>Step Type</Label>
+            <Select value={stepType} onValueChange={handleStepTypeChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a step type" />
+              </SelectTrigger>
+              <SelectContent>
+                {knownOptions.map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_STEP_TYPE}>
+                  Custom (no matching page yet)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {stepType === CUSTOM_STEP_TYPE
+                ? "A custom step is saved and shown here, but has no real page/behavior on the student side yet."
+                : "This type has real behavior already built — its key is fixed, so you can freely edit the label below without breaking it."}
+            </p>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label htmlFor="step-label">Label</Label>
           <Input

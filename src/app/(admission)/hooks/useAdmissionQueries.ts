@@ -68,6 +68,22 @@ export function useStudentAdmission() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Submit Pre-Application Program Choice                               */
+/* ------------------------------------------------------------------ */
+
+export function useSubmitProgramChoice() {
+  const setStudent = useAdmissionStore((s) => s.setStudent)
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    ...admissionMutationOptions.submitProgramChoice(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
+}
+
+/* ------------------------------------------------------------------ */
 /*  Initiate Application Payment                                        */
 /* ------------------------------------------------------------------ */
 
@@ -169,6 +185,13 @@ export function useDevSimulate() {
   const setStudent = useAdmissionStore((s) => s.setStudent)
   const queryClient = useQueryClient()
 
+  const simulateProgramChosen = useMutation({
+    ...admissionMutationOptions.simulateProgramChosen(),
+    onSuccess: async (data) => {
+      await syncAdmissionStudent(queryClient, setStudent, data)
+    },
+  })
+
   const simulateAppPaymentPaid = useMutation({
     ...admissionMutationOptions.simulateAppPaymentPaid(),
     onSuccess: async (data) => {
@@ -226,6 +249,7 @@ export function useDevSimulate() {
   })
 
   return {
+    simulateProgramChosen,
     simulateAppPaymentPaid,
     simulateApplied,
     simulateOffered,

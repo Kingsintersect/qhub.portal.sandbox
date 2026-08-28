@@ -28,6 +28,11 @@ import type {
   ApplicantAcademicRecord,
   UpdateApplicationPayload,
 } from "@/types/school"
+import {
+  useCountries,
+  useStates,
+  useLocalGovernments,
+} from "@/modules/demographics/hooks/use-demographics"
 
 const statusVariantMap: Record<
   ApplicationReviewStatus,
@@ -94,6 +99,27 @@ export default function MyApplicationPage() {
     },
     onError: () => toast.error("Failed to remove document"),
   })
+
+  // Nationality/State of Origin/LGA are now backed selects, cascading off
+  // the currently-saved value rather than free-form local edit state — each
+  // EditableField commits one field at a time, so the next level's options
+  // naturally recompute once the query refetches after a save.
+  const { data: countries = [] } = useCountries()
+  const countryId =
+    countries.find((c) => c.name === application?.personal_info?.nationality)
+      ?.id ?? null
+  const { data: states = [] } = useStates(countryId)
+  const stateId =
+    states.find((s) => s.name === application?.personal_info?.state_of_origin)
+      ?.id ?? null
+  const { data: lgas = [] } = useLocalGovernments(stateId)
+
+  const countryOptions = countries.map((c) => ({
+    value: c.name,
+    label: c.name,
+  }))
+  const stateOptions = states.map((s) => ({ value: s.name, label: s.name }))
+  const lgaOptions = lgas.map((l) => ({ value: l.name, label: l.name }))
 
   const handleFieldSave = (
     section: keyof UpdateApplicationPayload,
@@ -366,12 +392,14 @@ export default function MyApplicationPage() {
               label="Nationality"
               value={personal_info.nationality}
               editable={isEditable}
+              options={countryOptions}
               onSave={(v) => handleFieldSave("personal_info", "nationality", v)}
             />
             <EditableField
               label="State of Origin"
               value={personal_info.state_of_origin}
               editable={isEditable}
+              options={stateOptions}
               onSave={(v) =>
                 handleFieldSave("personal_info", "state_of_origin", v)
               }
@@ -380,6 +408,7 @@ export default function MyApplicationPage() {
               label="LGA"
               value={personal_info.lga}
               editable={isEditable}
+              options={lgaOptions}
               onSave={(v) => handleFieldSave("personal_info", "lga", v)}
             />
             <EditableField

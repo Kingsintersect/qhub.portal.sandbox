@@ -20,6 +20,7 @@ import {
   Edit,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAllPrograms } from "@/hooks/useCourseStructure"
 import { FormStep } from "../../types/form-types"
 import type { FormDefaultValues } from "../../types/form-types"
 
@@ -87,6 +88,8 @@ interface ReviewSectionProps {
   icon: React.ElementType
   isCompleted: boolean
   onEdit: () => void
+  /** Hides the edit button — for sections chosen at an earlier step and shown here read-only. */
+  editable?: boolean
   children: React.ReactNode
 }
 
@@ -95,6 +98,7 @@ function ReviewSection({
   icon: Icon,
   isCompleted,
   onEdit,
+  editable = true,
   children,
 }: ReviewSectionProps) {
   return (
@@ -120,13 +124,15 @@ function ReviewSection({
                 </>
               )}
             </Badge>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Edit className="size-4" />
-            </button>
+            {editable && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Edit className="size-4" />
+              </button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-3">{children}</CardContent>
@@ -148,6 +154,10 @@ export default function ReviewStep({
   const values = watch()
   const agreeToTerms = watch("agreeToTerms")
   const isActive = (step: FormStep) => activeSteps.includes(step)
+  const { data: programsData } = useAllPrograms()
+  const selectedProgram = programsData?.data?.find(
+    (p) => p.id === values.programId
+  )
 
   return (
     <motion.div
@@ -172,6 +182,8 @@ export default function ReviewStep({
         isCompleted={completedSteps.has(FormStep.PERSONAL_INFO)}
         onEdit={() => onEditStep(FormStep.PERSONAL_INFO)}
       >
+        <ReviewField label="Nationality" value={values.nationality} />
+        <ReviewField label="State of Origin" value={values.state_of_origin} />
         <ReviewField label="Local Gov. Area" value={values.lga} />
         <ReviewField label="Religion" value={values.religion} />
         <ReviewField label="Date of Birth" value={values.dob} />
@@ -359,22 +371,47 @@ export default function ReviewStep({
         </ReviewSection>
       )}
 
-      {/* Program Selection */}
-      <ReviewSection
-        step={FormStep.PROGRAM_SELECTION}
-        title="Program Selection"
-        icon={Settings}
-        isCompleted={completedSteps.has(FormStep.PROGRAM_SELECTION)}
-        onEdit={() => onEditStep(FormStep.PROGRAM_SELECTION)}
-      >
-        <ReviewField label="Start Term" value={values.startTerm} />
-        <ReviewField
-          label="Study Mode"
-          value={
-            values.studyMode === "online" ? "Online Learning" : "On-Campus"
-          }
-        />
-      </ReviewSection>
+      {/* Program Selection — hidden once the applicant already made this
+          choice earlier at the "Choice Program" step (see getActiveFormSteps
+          in ../../types/form-types.ts); shown here as read-only in that case. */}
+      {isActive(FormStep.PROGRAM_SELECTION) ? (
+        <ReviewSection
+          step={FormStep.PROGRAM_SELECTION}
+          title="Program Selection"
+          icon={Settings}
+          isCompleted={completedSteps.has(FormStep.PROGRAM_SELECTION)}
+          onEdit={() => onEditStep(FormStep.PROGRAM_SELECTION)}
+        >
+          <ReviewField label="Program" value={selectedProgram?.name} />
+          <ReviewField label="Entry Mode" value={values.entryMode} />
+          <ReviewField label="Start Term" value={values.startTerm} />
+          <ReviewField
+            label="Study Mode"
+            value={
+              values.studyMode === "online" ? "Online Learning" : "On-Campus"
+            }
+          />
+        </ReviewSection>
+      ) : (
+        <ReviewSection
+          step={FormStep.PROGRAM_SELECTION}
+          title="Program Selection"
+          icon={Settings}
+          isCompleted={!!selectedProgram && !!values.entryMode}
+          onEdit={() => {}}
+          editable={false}
+        >
+          <ReviewField label="Program" value={selectedProgram?.name} />
+          <ReviewField label="Entry Mode" value={values.entryMode} />
+          <ReviewField label="Start Term" value={values.startTerm} />
+          <ReviewField
+            label="Study Mode"
+            value={
+              values.studyMode === "online" ? "Online Learning" : "On-Campus"
+            }
+          />
+        </ReviewSection>
+      )}
 
       {/* Terms & Conditions */}
       <motion.div {...fadeInUp}>

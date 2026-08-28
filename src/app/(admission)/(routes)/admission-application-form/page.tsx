@@ -2,6 +2,7 @@
 
 import { FormProvider } from "react-hook-form"
 import { AnimatePresence, motion } from "framer-motion"
+import { AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
@@ -20,7 +21,12 @@ import {
   ProgramSelectionStep,
   ReviewStep,
 } from "./components/steps"
-import { FormStep } from "./types/form-types"
+import {
+  FormStep,
+  getFieldLabel,
+  getStepForField,
+  collectFormErrors,
+} from "./types/form-types"
 
 const slideVariants = {
   enter: (direction: number) => ({
@@ -110,15 +116,29 @@ export default function AdmissionApplicationFormPage() {
     isLoading,
     isSubmitting,
     isSubmitted,
+    submitAttempted,
     goToStep,
     nextStep,
     prevStep,
     submitForm,
     saveProgress,
+    resetForm,
+    clearStep,
     direction,
   } = useAdmissionForm()
 
   const currentStepPosition = activeSteps.indexOf(currentStep)
+
+  const submitErrors = submitAttempted
+    ? collectFormErrors(form.formState.errors).map(
+        ({ path, field, message }) => ({
+          field: path,
+          message,
+          step: getStepForField(field),
+          label: getFieldLabel(field),
+        })
+      )
+    : []
 
   if (isLoading) {
     return (
@@ -208,6 +228,44 @@ export default function AdmissionApplicationFormPage() {
                 </AnimatePresence>
               </CardContent>
 
+              {/* Submit error summary — every outstanding error, visible right above the footer */}
+              {submitErrors.length > 0 && (
+                <div className="px-6 sm:px-8">
+                  <div
+                    role="alert"
+                    className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+                  >
+                    <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
+                      <AlertCircle className="size-4 shrink-0" />
+                      {submitErrors.length === 1
+                        ? "Please fix 1 error before submitting:"
+                        : `Please fix ${submitErrors.length} errors before submitting:`}
+                    </p>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {submitErrors.map(({ field, message, step, label }) => (
+                        <li key={field} className="text-sm text-destructive">
+                          {step !== undefined ? (
+                            <button
+                              type="button"
+                              onClick={() => goToStep(step)}
+                              className="text-left underline-offset-2 hover:underline"
+                            >
+                              <span className="font-medium">{label}:</span>{" "}
+                              {message}
+                            </button>
+                          ) : (
+                            <>
+                              <span className="font-medium">{label}:</span>{" "}
+                              {message}
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
               {/* Navigation */}
               <div className="px-6 pb-6 sm:px-8">
                 <FormNavigation
@@ -219,6 +277,8 @@ export default function AdmissionApplicationFormPage() {
                   onPrev={prevStep}
                   onSubmit={submitForm}
                   onSave={saveProgress}
+                  onClearStep={() => clearStep(currentStep)}
+                  onClearForm={resetForm}
                 />
               </div>
             </Card>

@@ -3,25 +3,13 @@
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { getStepIcon } from "@/lib/admissionStepIcons"
+import { sortByOrder } from "@/lib/admissionConfig"
 import type { AdmissionStepDefinition } from "@/types/admissionConfig"
-import { AdmissionStep } from "../types/admission"
-
-// Fixed order + AdmissionStep enum mapping — process-step order encodes real
-// payment-gate dependencies (see admissionStore.ts's deriveStep) and isn't
-// admin-reorderable, unlike application form steps. Label/icon are still
-// pulled live from the registry so admin edits show up here.
-const STEP_SLOTS = [
-  { step: AdmissionStep.APPLICATION_PAYMENT, key: "APPLICATION_PAYMENT" },
-  { step: AdmissionStep.APPLICATION_FORM, key: "APPLICATION_FORM" },
-  { step: AdmissionStep.ADMISSION_STATUS, key: "ADMISSION_STATUS" },
-  { step: AdmissionStep.ACCEPTANCE_FEE, key: "ACCEPTANCE_FEE" },
-  { step: AdmissionStep.TUITION_PAYMENT, key: "TUITION_PAYMENT" },
-  { step: AdmissionStep.COMPLETED, key: "COMPLETED" },
-] as const
+import type { AdmissionStep } from "../types/admission"
 
 interface AdmissionStepIndicatorProps {
   currentStep: AdmissionStep
-  /** Registry rows for the PROCESS group — custom/unknown keys are ignored (no gating logic exists for them yet). */
+  /** Registry rows for the PROCESS group, in admin order — drives both the labels/icons and the actual sequence position (see admissionStore.ts's deriveStep). */
   stepDefinitions: AdmissionStepDefinition[]
 }
 
@@ -29,19 +17,18 @@ export function AdmissionStepIndicator({
   currentStep,
   stepDefinitions,
 }: AdmissionStepIndicatorProps) {
-  const byKey = new Map(stepDefinitions.map((s) => [s.key, s]))
-  const steps = STEP_SLOTS.map((slot) => ({
-    ...slot,
-    def: byKey.get(slot.key),
-  })).filter(({ def }) => def && (def.enabled || def.required))
+  const steps = sortByOrder(
+    stepDefinitions.filter((s) => s.enabled || s.required)
+  )
+  const currentIdx = steps.findIndex((s) => s.key === currentStep)
 
   return (
     <div className="w-full overflow-x-auto py-2">
       <div className="flex min-w-[600px] items-center justify-between gap-1 px-2">
         {steps.map((step, idx) => {
-          const isCompleted = step.step < currentStep
-          const isActive = step.step === currentStep
-          const Icon = getStepIcon(step.def?.icon)
+          const isCompleted = currentIdx !== -1 && idx < currentIdx
+          const isActive = idx === currentIdx
+          const Icon = getStepIcon(step.icon)
 
           return (
             <div key={step.key} className="flex flex-1 items-center">
@@ -99,7 +86,7 @@ export function AdmissionStepIndicator({
                         : "text-muted-foreground"
                   )}
                 >
-                  {step.def?.label}
+                  {step.label}
                 </span>
               </div>
 

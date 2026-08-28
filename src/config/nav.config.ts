@@ -38,6 +38,7 @@ import {
   Award,
   UserCheck,
   CalendarCheck,
+  MapPin,
 } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
@@ -438,6 +439,12 @@ const adminNav: NavGroup[] = [
         matchExactOnly: true,
         icon: BookOpen,
       },
+      {
+        title: "Demographics",
+        href: "/manager/configurations/demographics",
+        matchExactOnly: true,
+        icon: MapPin,
+      },
     ],
   },
   {
@@ -621,6 +628,12 @@ const superAdminNav: NavGroup[] = [
             href: "/admin/configurations/clearance-types",
             matchExactOnly: true,
             icon: ListChecks,
+          },
+          {
+            title: "Demographics",
+            href: "/admin/configurations/demographics",
+            matchExactOnly: true,
+            icon: MapPin,
           },
         ],
       },
