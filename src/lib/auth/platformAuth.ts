@@ -101,6 +101,20 @@ export const loginWithPlatformBackend = async (payload: {
     const message =
       (error as { message?: string } | null)?.message ?? "Sign-in failed."
 
+    // Server-side only, and deliberately loud: every failure below collapses
+    // into INVALID_CREDENTIALS for the browser, which is right for the user
+    // and useless for diagnosing an outage. The real cause belongs in the
+    // logs, where a wrong base URL or an unreachable API is distinguishable
+    // from a genuinely wrong password.
+    if (typeof window === "undefined") {
+      console.error("[platform-login] failed", {
+        baseUrl: payload.apiBaseUrl,
+        status,
+        message,
+        code: (error as { code?: string } | null)?.code,
+      })
+    }
+
     if (status === 403) {
       // 403 covers two different refusals and the console must not merge
       // them: one is fixable by the person, the other is not.
