@@ -88,7 +88,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         // every colour below resolve to nothing) nor the zoom, and the dialog
         // comes out unpainted and at the wrong scale.
         <div
-          className="qhub-console"
+          className="qhub-console qhub-zoomed"
           style={{
             position: "fixed",
             inset: 0,

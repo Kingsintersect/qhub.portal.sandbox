@@ -14,22 +14,16 @@
  */
 
 /*
- * The console renders at 80%.
+ * Tokens only. The zoom lives on `.qhub-zoomed` below.
  *
- * The design handoff asks for 100% on a 1500px canvas and calls the ~75% its
- * preview shows an artefact. This is a deliberate departure from that on the
- * client's instruction: 80% is the density they want to work at.
- *
- * `zoom` rather than `transform: scale()` because zoom re-lays-out at the new
- * size, so everything below still measures and wraps correctly; scale would
- * shrink a full-size layout and leave the page the wrong shape.
- *
- * Viewport units resolve BEFORE the zoom is applied, so anything sized to the
- * viewport divides by it — see the shell's min-heights — or it comes out a
- * quarter too tall and earns a scrollbar it should not have.
+ * Splitting the two lets the login and set-password pages take the console's
+ * colours without its scale — they are a centred 400px card on a full-bleed
+ * image, and shrinking that serves nothing. `--zoom: 1` here means every
+ * `calc(… / var(--zoom))` in the codebase stays written the same way and
+ * simply resolves to a no-op on the unzoomed surfaces.
  */
 .qhub-console {
-  zoom: 0.8;
+  --zoom: 1;
 
   /*
    * The same factor, readable by calc().
@@ -202,4 +196,24 @@
 .qhub-mono {
   font-family: var(--font-mono), "Geist Mono", monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The console renders at 80%.
+ *
+ * The design handoff asks for 100% on a 1500px canvas and calls the ~75% its
+ * preview shows an artefact. This is a deliberate departure from that on the
+ * client's instruction: 80% is the density they want to work at.
+ *
+ * `zoom` rather than `transform: scale()` because zoom re-lays-out at the new
+ * size, so everything below still measures and wraps correctly; scale would
+ * shrink a full-size layout and leave the page the wrong shape.
+ *
+ * Viewport units resolve BEFORE the zoom is applied and are then scaled by
+ * it, so anything sized to the viewport divides by `--zoom` — or it comes out
+ * a fifth short and leaves the bottom of the page unpainted.
+ */
+.qhub-zoomed {
+  zoom: 0.8;
+  --zoom: 0.8;
 }

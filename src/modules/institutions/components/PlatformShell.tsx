@@ -206,7 +206,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   if (status === "loading" || !isPlatformUser) {
     return (
       <div
-        className="qhub-console"
+        className="qhub-console qhub-zoomed"
         style={{ minHeight: "calc(100dvh / var(--zoom))", padding: 22 }}
       >
         <div
@@ -231,7 +231,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   return (
     <ConfirmProvider>
       <div
-        className="qhub-console"
+        className="qhub-console qhub-zoomed"
         style={{
           // Viewport units resolve before the 80% zoom, so a bare 100vh comes
           // out a quarter too tall and earns a scrollbar it should not have.
