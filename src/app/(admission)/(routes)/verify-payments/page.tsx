@@ -20,52 +20,47 @@ import {
 // ─── Payment Type Resolution ────────────────────────────────────────────────
 type PaymentType = "application" | "acceptance" | "tuition"
 
-interface PaymentTypeConfig {
-  type: PaymentType
-  title: string
-  /** Base fee amount (before gateway processor fees) */
-  baseAmount: number
-}
-
-const PAYMENT_TYPES: PaymentTypeConfig[] = [
-  {
-    type: "application",
-    title: "Verifying Application Payment",
-    baseAmount: APPLICATION_FEE_AMOUNT,
-  },
-  {
-    type: "acceptance",
-    title: "Verifying Acceptance Fee Payment",
-    baseAmount: ACCEPTANCE_FEE_AMOUNT,
-  },
-  {
-    type: "tuition",
-    title: "Verifying Tuition Payment",
-    baseAmount: TUITION_FEE_AMOUNT,
-  },
+/** Base fee amounts (before gateway processor fees) — used only as a fallback below. */
+const PAYMENT_TYPE_AMOUNTS: { type: PaymentType; baseAmount: number }[] = [
+  { type: "application", baseAmount: APPLICATION_FEE_AMOUNT },
+  { type: "acceptance", baseAmount: ACCEPTANCE_FEE_AMOUNT },
+  { type: "tuition", baseAmount: TUITION_FEE_AMOUNT },
 ]
 
 /**
- * Resolve the payment type from the transaction amount.
- * Credo's `transAmount` includes the processor fee, so we compare
- * against each base amount with a tolerance to absorb gateway charges.
+ * Resolve which fee type a Credo gateway redirect is for. Each initiate
+ * endpoint is fee-type-specific (`/fees/payments/{application,acceptance,
+ * tuition}/initiate`), so the backend already knows the type and echoes it
+ * back on the redirect via `feeType` (e.g. "Application Fee") — matching on
+ * that directly is reliable and doesn't depend on the exact fee amount.
+ *
+ * Falls back to guessing from `transAmount` only if `feeType` is missing —
+ * that heuristic breaks the moment a fee amount changes or a gateway
+ * processing fee pushes the total outside the assumed tolerance window, so
+ * it's a last resort, not the primary signal.
  */
-function resolvePaymentType(
-  transAmount: string | null
-): PaymentTypeConfig | null {
+function resolvePaymentType(searchParams: URLSearchParams): PaymentType | null {
+  const feeType = searchParams.get("feeType")?.toLowerCase() ?? ""
+  if (feeType.includes("application")) return "application"
+  if (feeType.includes("acceptance")) return "acceptance"
+  if (feeType.includes("tuition")) return "tuition"
+
+  const transAmount = searchParams.get("transAmount")
   if (!transAmount) return null
 
   const amount = parseFloat(transAmount)
   if (isNaN(amount)) return null
 
   // Sort descending so a higher amount can't accidentally match a lower tier
-  const sorted = [...PAYMENT_TYPES].sort((a, b) => b.baseAmount - a.baseAmount)
+  const sorted = [...PAYMENT_TYPE_AMOUNTS].sort(
+    (a, b) => b.baseAmount - a.baseAmount
+  )
 
   for (const config of sorted) {
     // transAmount >= baseAmount (processor fee makes it slightly higher)
     // and within a reasonable upper bound (base + 5 % cap)
     if (amount >= config.baseAmount && amount <= config.baseAmount * 1.05) {
-      return config
+      return config.type
     }
   }
 
@@ -120,11 +115,10 @@ function VerifyPaymentContent() {
   const searchParams = useSearchParams()
   const reference =
     searchParams.get("transRef") ?? searchParams.get("reference") ?? ""
-  const transAmount = searchParams.get("transAmount")
 
   const paymentType = useMemo(
-    () => resolvePaymentType(transAmount),
-    [transAmount]
+    () => resolvePaymentType(searchParams),
+    [searchParams]
   )
 
   if (!reference) {
@@ -157,7 +151,7 @@ function VerifyPaymentContent() {
     )
   }
 
-  switch (paymentType.type) {
+  switch (paymentType) {
     case "application":
       return <VerifyApplication reference={reference} />
     case "acceptance":

@@ -49,7 +49,15 @@ export async function submitApplication(
     value: string | number | boolean | undefined | null
   ) => {
     if (value === undefined || value === null || value === "") return
-    form.append(key, String(value))
+    // Laravel's `boolean` validation rule only accepts true/false/1/0/"1"/"0"
+    // (strict in_array check) — NOT the strings "true"/"false" that
+    // String(value) would produce, so every has_disability/has_sponsor/
+    // is_next_of_kin_primary_contact/awaiting_result submission was failing
+    // backend validation with "must be true or false" until this mapped
+    // booleans to "1"/"0" specifically.
+    const serialized =
+      typeof value === "boolean" ? (value ? "1" : "0") : String(value)
+    form.append(key, serialized)
   }
 
   // Identity — from the logged-in user's own profile, not re-collected.

@@ -1,4 +1,5 @@
 import type { z } from "zod"
+import type { FieldError, FieldErrors } from "react-hook-form"
 import {
   User,
   Heart,
@@ -129,6 +130,18 @@ export const FORM_STEP_KEYS: Record<FormStep, string> = {
  * created that don't match one of the 9 built-in FormStep values) have no
  * matching UI component yet and are silently excluded — see
  * sandbox/admission/admission_features_workflow.md.
+ *
+ * PROGRAM_SELECTION is excluded only once the applicant has a confirmed
+ * pre-application program choice on record (`programAlreadyChosen` — from
+ * `AdmissionStudent.has_selected_program`, set at the earlier "Choice
+ * Program" PROCESS step, before the application fee). Until that choice
+ * actually exists — which today is always, since the backend endpoint it
+ * needs doesn't exist yet, see sandbox/REFACTOR_BACKEND_APIS.md — this step
+ * stays in the form, because otherwise programId/entryMode would never be
+ * collectible anywhere and every submission would fail validation with no
+ * way for the applicant to fix it. It ignores the admin's enabled/required
+ * toggle for this key entirely (that toggle is now hidden from the admin
+ * config panel too — see admission-config/page.tsx).
  */
 export function getActiveFormSteps(
   stepDefinitions: {
@@ -136,7 +149,8 @@ export function getActiveFormSteps(
     enabled: boolean
     required: boolean
     order: number
-  }[]
+  }[],
+  programAlreadyChosen: boolean
 ): FormStep[] {
   const byKey = new Map(stepDefinitions.map((s) => [s.key, s]))
 
@@ -146,13 +160,14 @@ export function getActiveFormSteps(
       isOptional: step.isOptional,
       def: byKey.get(FORM_STEP_KEYS[step.id]),
     }))
-    // If the registry row is missing entirely (e.g. deleted), fall back to
-    // whether this step is optional by design — a deleted optional step
-    // stays excluded, a deleted non-optional one defensively stays included
-    // rather than silently breaking the form.
-    .filter(({ def, isOptional }) =>
-      def ? def.enabled || def.required : !isOptional
-    )
+    .filter(({ step, def, isOptional }) => {
+      if (step === FormStep.PROGRAM_SELECTION) return !programAlreadyChosen
+      // If the registry row is missing entirely (e.g. deleted), fall back to
+      // whether this step is optional by design — a deleted optional step
+      // stays excluded, a deleted non-optional one defensively stays included
+      // rather than silently breaking the form.
+      return def ? def.enabled || def.required : !isOptional
+    })
     .sort((a, b) => (a.def?.order ?? 0) - (b.def?.order ?? 0))
     .map(({ step }) => step)
 
@@ -165,7 +180,10 @@ export const STEP_STORAGE_KEY = "odl_admission_step"
 
 // ─── Default Form Values ─────────────────────────────────────────────────────
 export const DEFAULT_FORM_VALUES: FormDefaultValues = {
-  nationality: "Nigerian",
+  // Now sourced from the Countries select (src/modules/demographics) — a
+  // plain default string would just fail to match any real Country's name
+  // and leave the select looking unselected, so this starts blank instead.
+  nationality: "",
   state_of_origin: "",
   lga: "",
   religion: "",
@@ -212,8 +230,13 @@ export const DEFAULT_FORM_VALUES: FormDefaultValues = {
   first_sitting_result: undefined,
   second_sitting_result: undefined,
 
-  programId: 0,
-  entryMode: "" as "UTME" | "DIRECT_ENTRY" | "TRANSFER" | "",
+  // TEMPORARY defaults — Program Selection is slated for removal once the
+  // "Choice Program" pre-application step (sandbox/REFACTOR_BACKEND_APIS.md)
+  // is backed by a real endpoint; until then this unblocks submission
+  // without requiring a manual pick. Remove these two hardcoded values (back
+  // to `0`/`""`) once that happens.
+  programId: 1,
+  entryMode: "UTME" as "UTME" | "DIRECT_ENTRY" | "TRANSFER" | "",
   startTerm: "2026/2027 - 100 level - 1st Semester",
   studyMode: "online",
 
@@ -280,6 +303,145 @@ export const STEP_FIELDS: Record<FormStep, string[]> = {
     "studyMode",
   ],
   [FormStep.REVIEW]: ["agreeToTerms"],
+}
+
+/** Reverse lookup of STEP_FIELDS — which step a given field name lives on, for the submit error summary. */
+const FIELD_TO_STEP = new Map<string, FormStep>(
+  Object.entries(STEP_FIELDS).flatMap(([step, fields]) =>
+    fields.map((field) => [field, Number(step) as FormStep] as const)
+  )
+)
+
+export function getStepForField(field: string): FormStep | undefined {
+  return FIELD_TO_STEP.get(field)
+}
+
+/** Human-readable labels for the submit error summary — falls back to a prettified field name for anything missing here. */
+export const FIELD_LABELS: Record<string, string> = {
+  nationality: "Nationality",
+  state_of_origin: "State of Origin",
+  lga: "Local Government Area",
+  religion: "Religion",
+  dob: "Date of Birth",
+  gender: "Gender",
+  hometown: "Hometown",
+  hometown_address: "Hometown Address",
+  contact_address: "Contact Address",
+  has_disability: "Has Disability",
+  disability: "Disability Description",
+  has_sponsor: "Has Sponsor",
+  sponsor_name: "Sponsor's Name",
+  sponsor_relationship: "Sponsor's Relationship",
+  sponsor_email: "Sponsor's Email",
+  sponsor_contact_address: "Sponsor's Contact Address",
+  sponsor_phone_number: "Sponsor's Phone Number",
+  next_of_kin_name: "Next of Kin's Full Name",
+  next_of_kin_relationship: "Next of Kin's Relationship",
+  next_of_kin_phone_number: "Next of Kin's Phone Number",
+  next_of_kin_address: "Next of Kin's Address",
+  next_of_kin_email: "Next of Kin's Email",
+  is_next_of_kin_primary_contact: "Next of Kin as Primary Contact",
+  next_of_kin_alternate_phone_number: "Next of Kin's Alternate Phone",
+  next_of_kin_occupation: "Next of Kin's Occupation",
+  next_of_kin_workplace: "Next of Kin's Workplace",
+  passport: "Passport Photograph",
+  first_school_leaving: "First School Leaving Certificate",
+  o_level: "O-Level Certificate",
+  other_documents: "Other Documents",
+  combined_result: "Result Type",
+  awaiting_result: "Awaiting Result",
+  first_sitting_type: "First Sitting Exam Type",
+  first_sitting_year: "First Sitting Exam Year",
+  first_sitting_exam_number: "First Sitting Exam Number",
+  second_sitting_type: "Second Sitting Exam Type",
+  second_sitting_year: "Second Sitting Exam Year",
+  second_sitting_exam_number: "Second Sitting Exam Number",
+  first_sitting_result: "First Sitting Result Document",
+  second_sitting_result: "Second Sitting Result Document",
+  programId: "Program",
+  entryMode: "Entry Mode",
+  startTerm: "Start Term",
+  studyMode: "Study Mode",
+  agreeToTerms: "Terms & Conditions Agreement",
+}
+
+export function getFieldLabel(field: string): string {
+  return (
+    FIELD_LABELS[field] ??
+    field
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  )
+}
+
+export interface FlatFormError {
+  /** Full path including array index, e.g. "other_documents.1" — for React keys only. */
+  path: string
+  /** Top-level field name, e.g. "other_documents" — for label/step lookups. */
+  field: string
+  message: string
+}
+
+function isFieldErrorLeaf(node: unknown): node is FieldError {
+  return (
+    !!node &&
+    typeof node === "object" &&
+    "message" in node &&
+    typeof (node as FieldError).message === "string"
+  )
+}
+
+/**
+ * Flattens react-hook-form's FieldErrors into a plain list of messages.
+ * A field like `other_documents` (multiple file upload) validates as an
+ * array — RHF represents a single bad file as
+ * `errors.other_documents = [undefined, { message: "..." }]`, not a single
+ * top-level `.message`. Reading `errors.other_documents?.message` directly
+ * (as both the per-field inline error and the old step-navigation toast
+ * did) silently finds nothing in that case — this walks arrays/nested
+ * objects so a per-item error is never lost.
+ */
+export function collectFormErrors(
+  errors: FieldErrors,
+  parentPath = ""
+): FlatFormError[] {
+  const results: FlatFormError[] = []
+
+  for (const [key, value] of Object.entries(errors)) {
+    if (value === undefined || value === null) continue
+    const path = parentPath ? `${parentPath}.${key}` : key
+    const field = parentPath ? parentPath.split(".")[0] : key
+
+    if (isFieldErrorLeaf(value)) {
+      results.push({ path, field, message: value.message! })
+      continue
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item, idx) => {
+        if (!item) return
+        if (isFieldErrorLeaf(item)) {
+          results.push({
+            path: `${path}.${idx}`,
+            field,
+            message: item.message!,
+          })
+        } else if (typeof item === "object") {
+          results.push(
+            ...collectFormErrors(item as FieldErrors, `${path}.${idx}`)
+          )
+        }
+      })
+      continue
+    }
+
+    if (typeof value === "object") {
+      results.push(...collectFormErrors(value as FieldErrors, path))
+    }
+  }
+
+  return results
 }
 
 // ─── Per-Step Schema Types ───────────────────────────────────────────────────

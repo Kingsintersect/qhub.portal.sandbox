@@ -59,7 +59,11 @@ export default function ProgramSelectionStep() {
   const studyMode = watch("studyMode")
   const programId = watch("programId")
 
-  const { data: programsData, isLoading: isLoadingPrograms } = useAllPrograms()
+  const {
+    data: programsData,
+    isLoading: isLoadingPrograms,
+    isError: isProgramsError,
+  } = useAllPrograms()
   const { data: sessions } = useAcademicSessions()
 
   const activeSession = useMemo(
@@ -77,6 +81,21 @@ export default function ProgramSelectionStep() {
     value: String(p.id),
     label: `${p.name} (${p.code})`,
   }))
+  const noProgramsAvailable =
+    !isLoadingPrograms && !isProgramsError && programOptions.length === 0
+
+  // TEMPORARY: DEFAULT_FORM_VALUES.programId is a hardcoded placeholder (see
+  // form-types.ts) that may not correspond to a real Program in this
+  // deployment, which the backend rejects at submit time ("The selected
+  // program id is invalid"). Once the real program list loads, self-correct
+  // to an actually-selectable program instead of trusting the placeholder.
+  useEffect(() => {
+    if (!programsData?.data?.length) return
+    const currentIsValid = programsData.data.some((p) => p.id === programId)
+    if (!currentIsValid) {
+      setValue("programId", programsData.data[0].id, { shouldValidate: true })
+    }
+  }, [programsData, programId, setValue])
 
   const entryModeOptions = ENTRY_MODES.map((mode) => ({
     value: mode,
@@ -104,12 +123,18 @@ export default function ProgramSelectionStep() {
               shouldDirty: true,
             })
           }
-          disabled={isLoadingPrograms}
+          disabled={isLoadingPrograms || isProgramsError || noProgramsAvailable}
         >
           <SelectTrigger className="w-full">
             <SelectValue
               placeholder={
-                isLoadingPrograms ? "Loading programs…" : "Select a program"
+                isLoadingPrograms
+                  ? "Loading programs…"
+                  : isProgramsError
+                    ? "Couldn't load programs"
+                    : noProgramsAvailable
+                      ? "No programs available"
+                      : "Select a program"
               }
             />
           </SelectTrigger>
@@ -121,6 +146,18 @@ export default function ProgramSelectionStep() {
             ))}
           </SelectContent>
         </Select>
+        {isProgramsError && (
+          <p className="text-sm text-destructive">
+            Couldn&apos;t load the list of programs. Please refresh the page or
+            contact the admissions office if this keeps happening.
+          </p>
+        )}
+        {noProgramsAvailable && (
+          <p className="text-sm text-muted-foreground">
+            No programs have been set up for this institution yet. Please
+            contact the admissions office.
+          </p>
+        )}
         {errors.programId?.message && (
           <p className="text-sm text-destructive">{errors.programId.message}</p>
         )}

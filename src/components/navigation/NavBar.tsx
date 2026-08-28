@@ -10,6 +10,7 @@ import ThemeToggle from "../ThemeToggle"
 import Logo from "@/components/branding/Logo"
 import { roleDashboardPath, UserRole } from "@/config/nav.config"
 import { cn } from "@/lib/utils"
+import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog"
 
 const PUBLIC_LINKS = [
   { href: "/about", label: "About" },
@@ -25,12 +26,18 @@ const isActive = (pathname: string, href: string) =>
 export default function NavBar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
   const { data: session, status } = useSession()
   const pathname = usePathname()
 
   const isAuthenticated = status === "authenticated"
   const role = session?.user?.role as UserRole | undefined
   const dashboardHref = (role && roleDashboardPath[role]) ?? "/auth/signin"
+
+  const handleLogout = async () => {
+    await logoutFromBackend()
+    await signOut({ callbackUrl: "/" })
+  }
 
   useEffect(() => {
     const onScroll = () => {
@@ -127,10 +134,7 @@ export default function NavBar() {
 
             {isAuthenticated && (
               <button
-                onClick={async () => {
-                  await logoutFromBackend()
-                  await signOut({ callbackUrl: "/" })
-                }}
+                onClick={() => setLogoutDialogOpen(true)}
                 title="Log out"
                 aria-label="Log out"
                 className="hidden rounded-md p-2 text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive sm:inline-flex"
@@ -218,10 +222,7 @@ export default function NavBar() {
 
               {isAuthenticated && (
                 <button
-                  onClick={async () => {
-                    await logoutFromBackend()
-                    await signOut({ callbackUrl: "/" })
-                  }}
+                  onClick={() => setLogoutDialogOpen(true)}
                   className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-destructive uppercase transition-colors hover:bg-destructive/10"
                 >
                   <LogOut className="h-4 w-4" />
@@ -232,6 +233,12 @@ export default function NavBar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <LogoutConfirmDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        onConfirm={handleLogout}
+      />
     </nav>
   )
 }

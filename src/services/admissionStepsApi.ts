@@ -48,7 +48,15 @@ function fromRaw(raw: RawAdmissionStep): AdmissionStepDefinition {
   return {
     id: raw.id,
     group: raw.group,
-    key: raw.key,
+    // Normalized once, at the boundary, so every downstream consumer
+    // (admissionStore.ts's STEP_COMPLETION lookup, KNOWN_*_STEP_KEYS,
+    // AdmissionStepIndicator, the process-admission page switch) can match
+    // against exact-case constants like "CHOICE_PROGRAM" without depending
+    // on the backend preserving whatever casing/whitespace slugifyKey()
+    // originally sent. A silent mismatch here doesn't error — it just makes
+    // the step's own completion check unrecognized, so it gets silently
+    // treated as already-satisfied and skipped in the student-facing flow.
+    key: raw.key.trim().toUpperCase(),
     order: raw.order,
     label: raw.label,
     description: raw.description,
@@ -118,11 +126,14 @@ export const admissionStepsApi = {
     )
   },
 
+  /** admission_features_workflow.md's original spec says POST, but the live
+   * backend rejects that (405 — "Supported methods: PATCH", confirmed
+   * 2026-08-27) — use PATCH to match actual deployed behavior. */
   async reorder(
     group: AdmissionStepGroup,
     orderedIds: number[]
   ): Promise<AdmissionStepDefinition[]> {
-    const res = await apiClient.post<{ data: RawAdmissionStep[] }>(
+    const res = await apiClient.patch<{ data: RawAdmissionStep[] }>(
       "/admissions/config/steps/reorder",
       { group, orderedIds },
       AUTH

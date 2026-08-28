@@ -28,7 +28,10 @@ import type {
   AdmissionStepGroup,
 } from "@/types/admissionConfig"
 import StepConfigPanel from "./components/StepConfigPanel"
-import StepFormModal, { type StepFormValues } from "./components/StepFormModal"
+import StepFormModal, {
+  CUSTOM_STEP_TYPE,
+  type StepFormValues,
+} from "./components/StepFormModal"
 
 function slugifyKey(label: string, existingKeys: string[]): string {
   const base =
@@ -67,6 +70,17 @@ export default function AdmissionConfigPage() {
     removeMutation.isPending ||
     reorderMutation.isPending
 
+  const processSteps = processQuery.data ?? []
+  // PROGRAM_SELECTION is superseded by the "Choice Program" PROCESS step
+  // (program/entry-mode/study-mode choice now happens before the application
+  // fee, not inside the form — see getActiveFormSteps in
+  // admission-application-form/types/form-types.ts) and is never rendered in
+  // the live form anymore, so it's hidden here too rather than left as a
+  // toggle that does nothing.
+  const formSteps = (formQuery.data ?? []).filter(
+    (s) => s.key !== "PROGRAM_SELECTION"
+  )
+
   const invalidateAll = () =>
     queryClient.invalidateQueries({ queryKey: admissionStepsKeys.all })
 
@@ -87,8 +101,7 @@ export default function AdmissionConfigPage() {
     step: AdmissionStepDefinition,
     direction: "up" | "down"
   ) => {
-    const items =
-      group === "PROCESS" ? (processQuery.data ?? []) : (formQuery.data ?? [])
+    const items = group === "PROCESS" ? processSteps : formSteps
     const idx = items.findIndex((s) => s.id === step.id)
     const swapWith = direction === "up" ? idx - 1 : idx + 1
     if (swapWith < 0 || swapWith >= items.length) return
@@ -111,11 +124,15 @@ export default function AdmissionConfigPage() {
 
   const handleFormSubmit = async (values: StepFormValues) => {
     if (!formModal) return
+    // `stepType` only exists to drive the create-time key picker in
+    // StepFormModal — it's never part of the actual step payload sent to
+    // the backend (editing never touches key at all).
+    const { stepType, ...stepValues } = values
     try {
       if (formModal.editing) {
         await updateMutation.mutateAsync({
           id: formModal.editing.id,
-          payload: values,
+          payload: stepValues,
         })
         toast.success("Step updated")
       } else {
@@ -123,15 +140,21 @@ export default function AdmissionConfigPage() {
           (formModal.group === "PROCESS"
             ? processQuery.data
             : formQuery.data) ?? []
-        const key = slugifyKey(
-          values.label,
-          groupItems.map((s) => s.key)
-        )
+        // A built-in type's key is exactly what its gating/screen logic
+        // expects, chosen from the picker — no slugifying, no typo risk.
+        // Only a genuinely custom type still derives its key from the label.
+        const key =
+          stepType === CUSTOM_STEP_TYPE
+            ? slugifyKey(
+                stepValues.label,
+                groupItems.map((s) => s.key)
+              )
+            : stepType
         const order =
           groupItems.reduce((max, s) => Math.max(max, s.order), 0) + 1
         await createMutation.mutateAsync({
-          ...values,
-          description: values.description ?? "",
+          ...stepValues,
+          description: stepValues.description ?? "",
           group: formModal.group,
           key,
           order,
@@ -179,8 +202,6 @@ export default function AdmissionConfigPage() {
     )
   }
 
-  const processSteps = processQuery.data ?? []
-  const formSteps = formQuery.data ?? []
   const enabledProcess = processSteps.filter((s) => s.enabled || s.required)
   const enabledForm = formSteps.filter((s) => s.enabled || s.required)
 
@@ -258,10 +279,14 @@ export default function AdmissionConfigPage() {
             icon={GraduationCap}
             items={processSteps}
             knownKeys={KNOWN_PROCESS_STEP_KEYS}
+            reorderable
             onToggle={handleToggle}
             onEdit={(step) => setFormModal({ group: "PROCESS", editing: step })}
             onDelete={setDeleting}
             onAdd={() => setFormModal({ group: "PROCESS", editing: null })}
+            onReorder={(step, direction) =>
+              handleReorder("PROCESS", step, direction)
+            }
             disabled={isMutating}
           />
         </motion.div>
@@ -298,6 +323,12 @@ export default function AdmissionConfigPage() {
             ? "Admission Process"
             : "Application Form"
         }
+        group={formModal?.group ?? "PROCESS"}
+        existingKeys={(
+          (formModal?.group === "PROCESS"
+            ? processQuery.data
+            : formQuery.data) ?? []
+        ).map((s) => s.key)}
         editing={formModal?.editing ?? null}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}

@@ -312,6 +312,27 @@ export class ApiClient {
         meta: requestConfig._requestMeta?.meta,
       }
 
+      // This instance defaults every request to Content-Type: application/json
+      // (see the constructor). Axios's own default transformRequest treats
+      // that explicit header as an instruction to convert a FormData body to
+      // JSON via its formDataToJSON() helper before stringifying — which
+      // silently turns every File/Blob entry into "{}" (JSON.stringify has
+      // nothing to serialize on a File). Any multipart upload (file uploads
+      // across the app) would otherwise submit empty file placeholders while
+      // every other field looks fine. Strip the header here so axios takes
+      // the plain FormData passthrough path and lets the browser set the
+      // correct multipart boundary itself.
+      if (requestConfig.data instanceof FormData) {
+        const headers = new AxiosHeaders(
+          requestConfig.headers as
+            | AxiosHeaders
+            | Record<string, string>
+            | undefined
+        )
+        headers.delete("Content-Type")
+        requestConfig.headers = headers
+      }
+
       if (requestConfig._accessToken) {
         const token = this.pickAuthToken()
         if (token) {
