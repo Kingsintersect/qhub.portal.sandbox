@@ -8,6 +8,8 @@ import {
   useSetStorageQuota,
 } from "@/modules/platform-infrastructure/hooks/use-infrastructure"
 import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
+import { useMfaStatus } from "@/modules/platform-settings/hooks/use-platform-settings"
+import { ComputeCard } from "@/modules/institutions/drawer/ComputeCard"
 import type {
   InfraBackup,
   Infrastructure,
@@ -65,6 +67,7 @@ export function InfrastructureTab({
   const confirm = useConfirm()
 
   const { data, isPending } = useInfrastructure(tenantId)
+  const { data: mfa } = useMfaStatus()
   const run = useInfrastructureOperation(tenantId)
   const setQuota = useSetStorageQuota(tenantId)
 
@@ -278,6 +281,16 @@ export function InfrastructureTab({
           <BackupsCard backups={data?.backups ?? []} />
         </div>
       </div>
+
+      <ComputeCard
+        tenantId={tenantId}
+        institution={institution}
+        compute={data?.compute}
+        mfaEnrolled={mfa?.enabled === true}
+        onGoToSettings={() => {
+          window.location.href = "/platform/settings"
+        }}
+      />
 
       <NotProvisioned />
     </div>

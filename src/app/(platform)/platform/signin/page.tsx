@@ -191,7 +191,11 @@ export default function PlatformSigninPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        // Divided by the zoom like every other viewport size in the
+        // console: 100vh resolves against the real viewport and is then
+        // scaled by it, so a bare one leaves a fifth of the page unpainted
+        // below the fold.
+        minHeight: "calc(100vh / var(--zoom))",
         background: "url('/platform/login-bg.jpg') center / cover no-repeat",
         fontFamily: "var(--font-geist), Geist, 'Helvetica Neue', sans-serif",
         display: "flex",

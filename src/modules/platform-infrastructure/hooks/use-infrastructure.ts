@@ -84,6 +84,44 @@ export function useInfrastructureOperation(tenantId: number) {
   })
 }
 
+/**
+ * The compute gate.
+ *
+ * Separate from useInfrastructureOperation because it carries a code and
+ * fails in its own particular way — "that code was not accepted" and "this
+ * account has no authenticator" are different problems with different fixes,
+ * and the API distinguishes them.
+ */
+export function useComputeGate(tenantId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (code: string | null): Promise<void> => {
+      if (code === null) {
+        await infrastructureService.disableComputeWrites(tenantId)
+
+        return
+      }
+
+      await infrastructureService.enableComputeWrites(tenantId, code)
+    },
+    onSuccess: (_result, code) => {
+      toast.success(
+        code === null
+          ? "Compute writes closed"
+          : "Compute writes open for 10 minutes"
+      )
+      void queryClient.invalidateQueries({
+        queryKey: infrastructureKeys.tenant(tenantId),
+      })
+    },
+    onError: (error) =>
+      toast.error("Compute writes were not opened", {
+        description: errorMessage(error, "The gate is unchanged."),
+      }),
+  })
+}
+
 export function useSetStorageQuota(tenantId: number) {
   const queryClient = useQueryClient()
 

@@ -20,6 +20,17 @@ export const infrastructureService = {
   disableWrites: async (tenantId: number) =>
     apiClient.delete<void>(`${base(tenantId)}/writes`, AUTH),
 
+  /** A TOTP or recovery code — the API accepts either. */
+  enableComputeWrites: async (tenantId: number, code: string) =>
+    apiClient.post<{ data: Infrastructure["compute"] }, { code: string }>(
+      `${base(tenantId)}/compute/writes`,
+      { code },
+      AUTH
+    ),
+
+  disableComputeWrites: async (tenantId: number) =>
+    apiClient.delete<void>(`${base(tenantId)}/compute/writes`, AUTH),
+
   migrate: async (tenantId: number) =>
     apiClient.post<{ data: unknown }, Record<string, never>>(
       `${base(tenantId)}/migrate`,

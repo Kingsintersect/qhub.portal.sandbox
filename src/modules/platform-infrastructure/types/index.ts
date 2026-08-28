@@ -54,5 +54,17 @@ export type Infrastructure = {
     openedBy: string | null
     minutes: number
   }
+  /**
+   * The second gate. Parallel to `writes`, never the same one — opening
+   * storage writes does not open compute.
+   */
+  compute: {
+    enabled: boolean
+    expiresAt: string | null
+    openedBy: string | null
+    minutes: number
+    /** False until a provider is chosen and wired; nothing works before then. */
+    providerConfigured: boolean
+  }
   backups: InfraBackup[]
 }

@@ -290,7 +290,7 @@ export function SystemsOverviewPage() {
 
 // --- Tenant health ----------------------------------------------------------
 
-const HEALTH_GRID = "150px 1.1fr 1.5fr 90px 150px 130px 40px"
+const HEALTH_GRID = "150px 1.5fr 110px 110px 150px 110px 40px"
 
 function HealthTab() {
   const { data, isPending } = useEstateOverview()
@@ -320,7 +320,7 @@ function HealthTab() {
           color: "var(--txt4)",
         }}
       >
-        <div>LAST SYNC</div>
+        <div>LAST CAPTURE</div>
         <div>INSTITUTION</div>
         <div>PLAN</div>
         <div>LEARNERS</div>
@@ -404,13 +404,16 @@ function HealthTab() {
                 {healthLabel(r.health)}
               </span>
             </div>
+            {/* An em-dash at zero, not the word "none" — the column is a
+                count, and a healthy institution should read as blank rather
+                than as something to parse. */}
             <div
               style={{
-                fontSize: 12.5,
-                color: r.issues > 0 ? "var(--neg)" : "var(--txt3)",
+                color: r.issues === 0 ? "var(--txt4)" : "var(--neg)",
+                fontWeight: r.issues === 0 ? 400 : 600,
               }}
             >
-              {r.issues > 0 ? `${r.issues} failing` : "none"}
+              {r.issues === 0 ? "—" : r.issues}
             </div>
 
             <div
