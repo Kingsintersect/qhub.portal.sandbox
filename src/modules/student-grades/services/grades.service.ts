@@ -699,12 +699,13 @@ class GradesService {
     return res.data
   }
 
-  // ── Term Result Summary — proposed (SECONDARY_SCHOOL / SIMPLE_AVERAGE) ──────
-  // See sandbox/schema-moodel-sync-refactor/api-v2.md
-  // §"GET /students/me/results" and MISSING_BACKEND_APIS.md §2.16. Only
-  // called for a student whose Program.programCategory is SECONDARY_SCHOOL —
-  // every CREDIT_WEIGHTED_GPA program (the default) keeps using the real
-  // getStudentTranscript above, unchanged. 404s until the backend ships this.
+  // ── Term Result Summary (SECONDARY_SCHOOL / SIMPLE_AVERAGE) ─────────────────
+  // Confirmed live — see sandbox/schema-moodel-sync-refactor/api-v2.md
+  // §"GET /students/me/results"; tracked as MISSING_BACKEND_APIS.md §2.16,
+  // now shipped by the backend team. Only called for a student whose
+  // Program.programCategory is SECONDARY_SCHOOL — every CREDIT_WEIGHTED_GPA
+  // program (the default) keeps using the real getStudentTranscript above,
+  // unchanged.
 
   async getMyTermResults(): Promise<TermResultEntry[]> {
     const res = await apiClient.get<{

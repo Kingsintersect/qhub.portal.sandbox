@@ -318,12 +318,10 @@ export const usersApi = {
     return { data: mapStudent(raw) }
   },
 
-  // Proposed — see MISSING_BACKEND_APIS.md §1.1. No endpoint today lets a
-  // logged-in student resolve their own Student.id (`/auth/me` only returns
-  // User fields, and `/users/students/:id` needs the id already known). Built
-  // against this designed self-scoped contract so `useMyStudentId` — and
-  // every student-facing "my own record" screen that depends on it — starts
-  // working the moment the backend adds it; until then this 404s.
+  // MISSING_BACKEND_APIS.md §1.1, now shipped by the backend team —
+  // resolves the current JWT's own Student.id directly (`/auth/me` only
+  // returns User fields, and `/users/students/:id` needs the id already
+  // known). Powers `useMyStudentId` and every "my own record" screen.
   async getMyStudent(): Promise<ApiSingleResponse<Student>> {
     const raw = await apiClient.get<WireStudent>("/users/students/me", AUTH)
     return { data: mapStudent(raw) }
@@ -348,8 +346,8 @@ export const usersApi = {
   },
 
   /* ── Tutors (Lecturers) ── */
-  // `facultyName` is a proposed param (only `departmentId` is confirmed real
-  // today) — see MISSING_BACKEND_APIS.md §2.8.
+  // `facultyName`/`departmentName` filters per MISSING_BACKEND_APIS.md §2.8,
+  // now shipped by the backend team.
   async listTutors(
     filters?: UserQueryFilters
   ): Promise<ApiListResponse<Tutor>> {
@@ -378,11 +376,9 @@ export const usersApi = {
     return { data: mapTutor(raw) }
   },
 
-  // Proposed — see MISSING_BACKEND_APIS.md §"GET /users/lecturers/me". Mirrors
-  // getMyStudent()'s gap: no endpoint today lets a logged-in tutor resolve
-  // their own Lecturer.id (needed to look up "my assigned courses" via
-  // getTutorCourses). Built against this designed self-scoped contract;
-  // 404s until the backend adds it.
+  // MISSING_BACKEND_APIS.md §1.1b, now shipped by the backend team — mirrors
+  // getMyStudent(): resolves the current JWT's own Lecturer.id, needed to
+  // look up "my assigned courses" via getTutorCourses.
   async getMyLecturer(): Promise<ApiSingleResponse<Tutor>> {
     const raw = await apiClient.get<WireLecturer>("/users/lecturers/me", AUTH)
     return { data: mapTutor(raw) }
@@ -586,10 +582,10 @@ export const usersApi = {
   },
 
   /* ── Stats ──
-   * Proposed new endpoint — see MISSING_BACKEND_APIS.md §"GET /users/stats". Built
-   * against that spec now; until it ships this 404s and `useUserStats` surfaces the
-   * request error like any other failed query (no client-side fallback computation, per
-   * the "don't fake it" convention used across this module). */
+   * MISSING_BACKEND_APIS.md §"GET /users/stats", now shipped by the backend
+   * team. `useUserStats` surfaces a request error like any other failed
+   * query if this ever fails (no client-side fallback computation, per the
+   * "don't fake it" convention used across this module). */
   async getStats(): Promise<ApiSingleResponse<UserStats>> {
     const res = await apiClient.get<{
       data: {

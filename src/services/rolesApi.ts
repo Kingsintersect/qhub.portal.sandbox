@@ -51,9 +51,9 @@ export const rolesApi = {
     return apiClient.delete<{ message: string }>(`/auth/roles/${id}`, AUTH)
   },
 
-  // Proposed — see MISSING_BACKEND_APIS.md §"POST /auth/roles/:id/duplicate".
-  // No bruno endpoint exists yet; built against the designed contract
-  // (same response shape as Create, name suffixed "(Copy)").
+  // MISSING_BACKEND_APIS.md §"POST /auth/roles/:id/duplicate", now shipped by
+  // the backend team. Not yet in bruno. Same response shape as Create, name
+  // suffixed "(Copy)".
   duplicate: async (id: number): Promise<ApiSingleResponse<Role>> => {
     return apiClient.post<ApiSingleResponse<Role>>(
       `/auth/roles/${id}/duplicate`,
@@ -90,9 +90,9 @@ export const permissionsApi = {
     return { data: all, total: all.length }
   },
 
-  // Proposed — bruno's Permissions collection documents list+create only
-  // (Show/Delete are not part of the spec). Built against a designed
-  // contract; see MISSING_BACKEND_APIS.md for the confirmation ask.
+  // bruno's Permissions collection documents list+create only (Show/Delete
+  // weren't part of the original spec) — per MISSING_BACKEND_APIS.md, now
+  // confirmed shipped by the backend team even though bruno isn't updated yet.
   getById: async (id: number): Promise<ApiSingleResponse<Permission>> => {
     return apiClient.get<ApiSingleResponse<Permission>>(
       `/auth/permissions/${id}`,
@@ -121,7 +121,7 @@ export const permissionsApi = {
     )
   },
 
-  // Proposed — see note on getById above.
+  // See note on getById above — now shipped by the backend team.
   delete: async (id: number): Promise<{ message: string }> => {
     return apiClient.delete<{ message: string }>(
       `/auth/permissions/${id}`,

@@ -21,6 +21,8 @@ import {
   useFaculties,
   useLevels,
 } from "@/hooks/useCourseStructure"
+import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import { useSemesters } from "@/hooks/useSemesters"
 import { useResolveCategoryMapping } from "../../hooks/use-sync-mutations"
 import type { CategorySyncResponse } from "../../types"
 import type { AcademicUnitLinkKind } from "@/types/school"
@@ -30,11 +32,16 @@ interface CategoryResolveDialogProps {
   onClose: () => void
 }
 
+// AcademicUnitLinkKind includes "semester" — it was missing here, which made
+// a pulled Semester category (e.g. "First Semester") permanently
+// unresolvable: there was no way to even select the right kind of entity to
+// link it to.
 const ENTITY_KINDS: AcademicUnitLinkKind[] = [
   "faculty",
   "department",
   "program",
   "level",
+  "semester",
 ]
 
 // Resolves one flagged (needsMapping: true) row pulled from Moodle with no
@@ -50,6 +57,10 @@ export function CategoryResolveDialog({
   const [entityId, setEntityId] = useState<number | null>(null)
   const [typeCode, setTypeCode] = useState("")
   const [parentId, setParentId] = useState<number | null>(null)
+  // Semesters are scoped per academic session (unlike Faculty/Department/
+  // Program/Level, which are global) — need a session picked before the
+  // Entity combobox has anything to look up.
+  const [sessionId, setSessionId] = useState<number | null>(null)
 
   const resolve = useResolveCategoryMapping()
   const { data: typesData } = useUnitTypes()
@@ -60,6 +71,14 @@ export function CategoryResolveDialog({
   const { data: departmentsData } = useAllDepartments()
   const { data: programsData } = useAllPrograms()
   const { data: levelsData } = useLevels()
+  const { data: sessions } = useAcademicSessions()
+  const activeSessionId = useMemo(
+    () => sessions?.find((s) => s.isActive)?.id ?? sessions?.[0]?.id ?? null,
+    [sessions]
+  )
+  // Default to the active session until the admin explicitly picks another one.
+  const effectiveSessionId = sessionId ?? activeSessionId
+  const { data: semestersData } = useSemesters(effectiveSessionId)
 
   const entityOptions: ComboboxOption[] = useMemo(() => {
     switch (entityKind) {
@@ -86,10 +105,22 @@ export function CategoryResolveDialog({
           value: l.id,
           label: l.name,
         }))
+      case "semester":
+        return (semestersData ?? []).map((s) => ({
+          value: s.id,
+          label: s.name,
+        }))
       default:
         return []
     }
-  }, [entityKind, facultiesData, departmentsData, programsData, levelsData])
+  }, [
+    entityKind,
+    facultiesData,
+    departmentsData,
+    programsData,
+    levelsData,
+    semestersData,
+  ])
 
   const parentOptions: ComboboxOption[] = (unitsData?.data ?? []).map((u) => ({
     value: u.id,
@@ -215,6 +246,29 @@ export function CategoryResolveDialog({
                 </SelectContent>
               </Select>
             </div>
+            {entityKind === "semester" && (
+              <div className="space-y-1.5">
+                <Label>Academic Session</Label>
+                <Select
+                  value={effectiveSessionId ? String(effectiveSessionId) : ""}
+                  onValueChange={(v) => {
+                    setSessionId(Number(v))
+                    setEntityId(null)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sessions ?? []).map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Entity</Label>
               <Combobox

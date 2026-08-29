@@ -1,12 +1,12 @@
 // ─── Grading Schemes Service ────────────────────────────────────────────────
 //
-// Proposed — see sandbox/schema-moodel-sync-refactor/api-v2.md
-// §"Grading Schemes — /grading-schemes" (the authoritative contract) and
-// sandbox/MISSING_BACKEND_APIS.md for the tracked gap. 404s until the
-// backend ships it. Does not touch the already-real `GET /grade-scales`
-// (grades.service.ts's getGradeScales) — that endpoint keeps serving the
-// institution's default scheme's scales exactly as before; this is purely
-// additive, for institutions/programs that need a second scheme.
+// Confirmed live — see sandbox/schema-moodel-sync-refactor/api-v2.md
+// §"Grading Schemes — /grading-schemes" (the authoritative contract);
+// tracked as MISSING_BACKEND_APIS.md §2.16, now shipped by the backend team.
+// Does not touch the already-real `GET /grade-scales` (grades.service.ts's
+// getGradeScales) — that endpoint keeps serving the institution's default
+// scheme's scales exactly as before; this is purely additive, for
+// institutions/programs that need a second scheme.
 
 import apiClient, {
   createApiMutationOptions,

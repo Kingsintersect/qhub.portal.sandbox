@@ -6,11 +6,11 @@
  * CLAUDE.md §13). No `bruno/director/` collection exists, so this module
  * composes real endpoints from the User, Academic, and Fee modules wherever
  * possible instead of inventing bespoke Director endpoints — per §2.8's own
- * recommendation. A handful of genuine aggregates (enrollment trend, revenue
- * trend, faculty/level/gender/designation breakdowns) have no real backing
- * anywhere yet; those are called against a designed, documented contract and
- * will 404 until the backend ships them — see the per-function comments below
- * and §2.8 for the full spec of each.
+ * recommendation. The handful of genuine aggregates that had no real backing
+ * anywhere (enrollment trend, revenue trend, faculty/level/gender/designation
+ * breakdowns) were called against a designed, documented contract — now
+ * shipped by the backend team, per the per-function comments below and §2.8
+ * for the full spec of each.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -262,10 +262,10 @@ export const directorService = {
     }
   },
 
-  // Proposed GET /enrollments/trend?months= — see MISSING_BACKEND_APIS.md
-  // §2.8. No time-series aggregate exists anywhere in the Enrollment module
-  // (bruno/enrollment/*.bru is all point-in-time/filtered lists). 404s until
-  // the backend ships it.
+  // GET /enrollments/trend?months= — MISSING_BACKEND_APIS.md §2.8, now
+  // shipped by the backend team. No time-series aggregate existed anywhere
+  // in the Enrollment module before this (bruno/enrollment/*.bru is all
+  // point-in-time/filtered lists).
   async fetchEnrollmentData(): Promise<EnrollmentDataPoint[]> {
     const res = await apiClient.get<{
       data: { month: string; newEnrollments: number; totalActive: number }[]
@@ -277,7 +277,7 @@ export const directorService = {
     }))
   },
 
-  // Proposed extension of GET /users/stats's `byFaculty` — see §2.8.
+  // Extension of GET /users/stats's `byFaculty` — see §2.8, now shipped.
   async fetchFacultyDistribution(): Promise<FacultyDistribution[]> {
     const stats = await usersApi.getStats()
     const byFaculty = stats.data.by_faculty ?? []
@@ -305,9 +305,10 @@ export const directorService = {
         ? parseFloat(((totalCollected / totalExpected) * 100).toFixed(1))
         : 0
 
-    // Proposed GET /fees/reports/collections-trend — see §2.8. No time-series
-    // aggregate exists anywhere in the Fee module today; degrades to an empty
-    // chart rather than sinking the whole tab if it 404s.
+    // GET /fees/reports/collections-trend — see §2.8, now shipped by the
+    // backend team. No time-series aggregate existed anywhere in the Fee
+    // module before this; kept the try/catch below so a transient failure
+    // degrades to an empty chart rather than sinking the whole tab.
     let monthlyTrend: FinancialSummary["monthlyTrend"] = []
     try {
       const res = await apiClient.get<{

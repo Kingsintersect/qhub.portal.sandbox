@@ -21,7 +21,8 @@ export interface GradeScale {
 }
 
 // ─── Grading Schemes ──────────────────────────────────────────────────────────
-// Proposed — see sandbox/schema-moodel-sync-refactor/api-v2.md
+// Confirmed live (MISSING_BACKEND_APIS.md §2.16, now shipped) — see
+// sandbox/schema-moodel-sync-refactor/api-v2.md
 // §"Grading Schemes — /grading-schemes". Lets a Program opt into a scheme
 // other than the institution's default credit-weighted GPA — e.g. WAEC's
 // 9-point simple average for a SECONDARY_SCHOOL program, or pass/fail for a
@@ -151,11 +152,12 @@ export interface StudentTranscript {
 }
 
 // ─── Term Result Summary (non-credit-weighted, e.g. WAEC) ───────────────────
-// Proposed — see sandbox/schema-moodel-sync-refactor/api-v2.md
+// Confirmed live (MISSING_BACKEND_APIS.md §2.16, now shipped) — see
+// sandbox/schema-moodel-sync-refactor/api-v2.md
 // §"GET /students/me/results" (SECONDARY_SCHOOL / SIMPLE_AVERAGE branch).
 // Used instead of StudentTranscript/CgpaHistory for a Program whose
 // `programCategory` is SECONDARY_SCHOOL — a simple average + class
-// position, not a credit-weighted GPA. See MISSING_BACKEND_APIS.md §2.16.
+// position, not a credit-weighted GPA.
 
 export interface TermResultSubject {
   courseCode: string

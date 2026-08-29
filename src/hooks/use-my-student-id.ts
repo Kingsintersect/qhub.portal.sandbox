@@ -5,15 +5,12 @@ import { usersApi, usersKeys } from "@/services/usersApi"
 import { useAppStore } from "@/store/appStore"
 import { UserRole } from "@/config/nav.config"
 
-// Real backend gap — see MISSING_BACKEND_APIS.md §1.1. `GET /auth/me` returns
-// only User fields, and `GET /users/students/:id` needs the caller to already
-// know their own Student.id — there's no `/users/students/me` (yet). Wired
-// against that proposed contract via `usersApi.getMyStudent()` so this hook
-// starts resolving a real id the moment the backend adds it; until then the
-// request 404s and every consumer degrades to `studentId: null`, same as
-// before, but honestly (a failed request) rather than a hardcoded stub. Kept
-// global (not module-scoped) because it's shared by student-grades, document,
-// hostel, and clearance.
+// MISSING_BACKEND_APIS.md §1.1, now shipped by the backend team —
+// `GET /users/students/me` resolves the current JWT's Student.id directly
+// via `usersApi.getMyStudent()`, so every consumer (student-grades,
+// document, hostel, clearance) gets a real id. `studentId: null` can still
+// occur transiently (loading) or for a genuinely non-student caller. Kept
+// global (not module-scoped) because it's shared across those 4+ modules.
 export function useMyStudentId(): {
   studentId: number | null
   programId: number | null

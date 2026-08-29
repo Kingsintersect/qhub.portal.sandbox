@@ -14,6 +14,7 @@ import {
   FileText,
   GraduationCap,
   Loader2,
+  Sparkles,
   User,
   XCircle,
 } from "lucide-react"
@@ -23,12 +24,19 @@ import SectionCard from "@/components/custom/SectionCard"
 import DocumentList from "@/components/custom/DocumentList"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
+import { ZoomableImage } from "@/components/custom/ZoomableImage"
+import { getFileKind } from "@/lib/utils"
 import {
   applicationReviewKeys,
   applicationReviewMutationOptions,
   applicationReviewQueryOptions,
 } from "@/services/applicationReviewApi"
-import { admissionOfferMutationOptions } from "@/services/admissionOfferApi"
+import {
+  admissionOfferApi,
+  admissionOfferKeys,
+  admissionOfferMutationOptions,
+  type AdmissionOffer,
+} from "@/services/admissionOfferApi"
 import { useAllPrograms, useLevels } from "@/hooks/useCourseStructure"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 import {
@@ -95,6 +103,39 @@ export default function ApplicationDetailPage() {
   const { data: sessions } = useAcademicSessions()
   const levels = levelsData?.data ?? []
 
+  // There's no real "does this application already have an offer" lookup
+  // endpoint (see admissionOfferApi.ts) — GET /admissions only filters by
+  // sessionId/programId/status, not applicationId. Scoping the check to the
+  // application's own program+session keeps it a bounded query instead of
+  // fetching the entire admissions table, and covers every offer created the
+  // normal way through this same dialog (which defaults to those same
+  // values). It would miss an offer deliberately created under a different
+  // program/session than the application requested — see
+  // moodle_sync_BACKEND_GAPS.md-style follow-up: ideally GET /admissions
+  // gains an applicationId filter, or the application response embeds its
+  // own offer directly, so this doesn't need to guess.
+  const applicationProgramId = Number(
+    application?.program_choice.first_choice_program_id
+  )
+  const applicationSessionId = Number(application?.admission_cycle_id)
+  const { data: offersForProgramSession } = useQuery({
+    queryKey: admissionOfferKeys.list({
+      programId: applicationProgramId,
+      sessionId: applicationSessionId,
+    }),
+    queryFn: () =>
+      admissionOfferApi.list({
+        programId: applicationProgramId,
+        sessionId: applicationSessionId,
+        limit: 100,
+      }),
+    enabled: application?.status === "approved" && !!applicationProgramId,
+  })
+  const [createdOffer, setCreatedOffer] = useState<AdmissionOffer | null>(null)
+  const existingOffer =
+    createdOffer ??
+    offersForProgramSession?.data.find((o) => o.applicationId === Number(id))
+
   const createOfferForm = useForm<CreateAdmissionOfferFormValues>({
     resolver: zodResolver(createAdmissionOfferSchema),
     defaultValues: {
@@ -110,7 +151,14 @@ export default function ApplicationDetailPage() {
 
   const createOfferMutation = useMutation({
     ...admissionOfferMutationOptions.create(),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      setCreatedOffer(res.data)
+      queryClient.invalidateQueries({
+        queryKey: admissionOfferKeys.list({
+          programId: applicationProgramId,
+          sessionId: applicationSessionId,
+        }),
+      })
       toast.success("Admission offer created")
       setCreateOfferOpen(false)
     },
@@ -133,6 +181,42 @@ export default function ApplicationDetailPage() {
       expiryDate: "",
     })
     setCreateOfferOpen(true)
+  }
+
+  // `admissionNumber` has no server-side generator (see
+  // admission_README.md's CreateAdmissionRequest — it's a required,
+  // client-supplied, unique string; the backend only rejects a duplicate,
+  // it never invents one). Making an admin hand-type a unique, correctly
+  // formatted number is exactly the kind of thing a real university system
+  // wouldn't ask of a human, so this offers a best-effort suggestion —
+  // `ADM-{sessionYear}-{nextSequence}` — that the admin can still edit
+  // before submitting. It's a suggestion, not a guarantee: two admins
+  // generating around the same time could collide, in which case the
+  // create call 400s on the duplicate and the admin just generates again.
+  const [isGeneratingNumber, setIsGeneratingNumber] = useState(false)
+  const handleGenerateAdmissionNumber = async () => {
+    const sessionId = createOfferForm.getValues("sessionId")
+    if (!sessionId) {
+      toast.error("Select a session first.")
+      return
+    }
+    const session = (sessions ?? []).find((s) => s.id === sessionId)
+    const year = session?.name.match(/\d{4}/)?.[0] ?? new Date().getFullYear()
+
+    setIsGeneratingNumber(true)
+    try {
+      const { meta } = await admissionOfferApi.list({ sessionId, limit: 1 })
+      const nextSequence = (meta?.total ?? 0) + 1
+      createOfferForm.setValue(
+        "admissionNumber",
+        `ADM-${year}-${String(nextSequence).padStart(5, "0")}`,
+        { shouldValidate: true }
+      )
+    } catch {
+      toast.error("Couldn't generate a suggestion — enter one manually.")
+    } finally {
+      setIsGeneratingNumber(false)
+    }
   }
 
   const handleCreateOffer = createOfferForm.handleSubmit((data) => {
@@ -265,13 +349,24 @@ export default function ApplicationDetailPage() {
 
           {application.status === "approved" && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleOpenCreateOffer}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Award size={16} />
-                Create Admission Offer
-              </button>
+              {existingOffer ? (
+                <button
+                  disabled
+                  title={`Admission number ${existingOffer.admissionNumber}`}
+                  className="inline-flex cursor-default items-center gap-1.5 rounded-xl bg-emerald-600/15 px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400"
+                >
+                  <CheckCircle2 size={16} />
+                  Admission Offer Created
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenCreateOffer}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <Award size={16} />
+                  Create Admission Offer
+                </button>
+              )}
             </div>
           )}
         </motion.div>
@@ -307,11 +402,11 @@ export default function ApplicationDetailPage() {
         <SectionCard title="Personal Information" icon={User}>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="mb-2 flex items-center gap-4 sm:col-span-2 lg:col-span-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ZoomableImage
                 src={personal_info.passport_url}
-                alt="Passport"
-                className="h-20 w-20 rounded-xl border border-border object-cover"
+                alt="Passport photograph"
+                title={`${personal_info.first_name} ${personal_info.last_name} — Passport`}
+                className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border"
               />
               <div>
                 <p className="text-lg font-semibold text-foreground">
@@ -485,12 +580,28 @@ export default function ApplicationDetailPage() {
                     <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                       Certificate
                     </p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={record.certificate_url}
-                      alt={`${record.qualification} Certificate`}
-                      className="h-auto w-full max-w-sm rounded-xl border border-border object-cover"
-                    />
+                    {/* Certificates are uploaded as either an image or a PDF —
+                        rendering everything through <img> silently broke for
+                        PDFs (broken-image icon). Only images get the inline
+                        thumbnail; anything else is a plain link to open it. */}
+                    {getFileKind(record.certificate_url) === "image" ? (
+                      <ZoomableImage
+                        src={record.certificate_url}
+                        alt={`${record.qualification} certificate`}
+                        title={`${record.institution} — ${record.qualification} Certificate`}
+                        className="h-auto w-full max-w-sm overflow-hidden rounded-xl border border-border"
+                      />
+                    ) : (
+                      <a
+                        href={record.certificate_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-primary hover:underline"
+                      >
+                        <FileText size={16} />
+                        View {record.qualification} certificate
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
@@ -614,11 +725,31 @@ export default function ApplicationDetailPage() {
               <label className="mb-1 block text-xs font-medium text-foreground">
                 Admission Number
               </label>
-              <input
-                {...createOfferForm.register("admissionNumber")}
-                placeholder="e.g. ADM-2026-00001"
-                className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
+              <div className="flex gap-2">
+                <input
+                  {...createOfferForm.register("admissionNumber")}
+                  placeholder="e.g. ADM-2026-00001"
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <button
+                  type="button"
+                  onClick={handleGenerateAdmissionNumber}
+                  disabled={isGeneratingNumber}
+                  title="Suggest a number — you can still edit it before submitting"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  {isGeneratingNumber ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  Generate
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Suggested from the selected session — no two offers can share a
+                number, so double-check it before submitting.
+              </p>
               {createOfferForm.formState.errors.admissionNumber && (
                 <p className="mt-1 text-xs text-destructive">
                   {createOfferForm.formState.errors.admissionNumber.message}

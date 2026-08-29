@@ -23,8 +23,9 @@ type FormTarget = { parent: AcademicUnit | null; unit?: AcademicUnit }
 // (Faculty→Department→Program→Level→Semester for a degree school, or
 // Section→Stream→Program→Level→Term for a secondary school) by mirroring
 // real records and/or adding pure structural nodes, then push the result to
-// Moodle category sync. Proposed backend — every call here 404s until
-// /academic-structure ships (see MISSING_BACKEND_APIS.md §2.16).
+// Moodle category sync. Confirmed live — MISSING_BACKEND_APIS.md §2.16 is
+// now shipped by the backend team; every call here hits the real
+// `/academic-structure` endpoints.
 export default function AcademicStructurePage({
   canManage = false,
 }: AcademicStructurePageProps) {
