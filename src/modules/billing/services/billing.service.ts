@@ -5,6 +5,7 @@ import type {
   Invoice,
   InvoiceDetail,
   InvoiceList,
+  PerHeadPreview,
   Subscription,
 } from "@/modules/billing/types"
 
@@ -113,6 +114,61 @@ export const billingService = {
     (
       await apiClient.patch<{ data: Subscription }, typeof payload>(
         `/platform/billing/subscriptions/${id}`,
+        payload,
+        AUTH
+      )
+    ).data,
+
+  /**
+   * Record the rate agreed with one institution.
+   *
+   * Null clears the override and returns the subscription to its plan's list
+   * rate. A negotiated zero is a real state — a free pilot — and is sent as 0,
+   * never as null.
+   */
+  setRate: async (
+    id: number,
+    perStudentMinor: number | null
+  ): Promise<Subscription> =>
+    (
+      await apiClient.post<
+        { data: Subscription },
+        { perStudentMinor: number | null }
+      >(`/platform/billing/subscriptions/${id}/rate`, { perStudentMinor }, AUTH)
+    ).data,
+
+  // --- Per-head billing ------------------------------------------------------
+
+  previewPerHead: async (payload: {
+    tenantId: number
+    metric?: "students" | "active_students"
+  }): Promise<PerHeadPreview> =>
+    (
+      await apiClient.post<{ data: PerHeadPreview }, typeof payload>(
+        "/platform/billing/invoices/per-head/preview",
+        payload,
+        AUTH
+      )
+    ).data,
+
+  /**
+   * Commit a previewed per-head bill.
+   *
+   * `expectedStudentsCounted` carries the roll the operator was shown. The
+   * server re-counts and refuses with ROLL_MOVED if it has changed, so a bill
+   * can never be raised for a total nobody approved.
+   */
+  raisePerHead: async (payload: {
+    tenantId: number
+    expectedStudentsCounted: number
+    metric?: "students" | "active_students"
+    sessionLabel?: string | null
+    dueOn?: string
+    notes?: string | null
+  }): Promise<Invoice> =>
+    (
+      await apiClient.post<{ data: Invoice }, typeof payload>(
+        "/platform/billing/invoices/per-head",
         payload,
         AUTH
       )

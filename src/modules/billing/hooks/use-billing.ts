@@ -136,6 +136,64 @@ export function useUpdateSubscription(id: number) {
   })
 }
 
+export function useSetRate(id: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (perStudentMinor: number | null) =>
+      billingService.setRate(id, perStudentMinor),
+    onSuccess: (subscription) => {
+      // Name which way the rate went. "Rate updated" would read the same for a
+      // negotiated figure and for clearing back to the plan list, and those are
+      // different commercial facts.
+      toast.success(
+        subscription.rateSource === "NEGOTIATED"
+          ? "Negotiated rate set for this institution"
+          : "Rate cleared — back to the plan's list rate"
+      )
+      void queryClient.invalidateQueries({ queryKey: billingKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not set that rate", {
+        description: errorMessage(error, "The rate was not changed."),
+      }),
+  })
+}
+
+export function usePreviewPerHead() {
+  return useMutation({
+    mutationFn: (payload: {
+      tenantId: number
+      metric?: "students" | "active_students"
+    }) => billingService.previewPerHead(payload),
+    onError: (error) =>
+      toast.error("Could not count that institution's roll", {
+        description: errorMessage(error, "Nothing was billed."),
+      }),
+  })
+}
+
+export function useRaisePerHead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: {
+      tenantId: number
+      expectedStudentsCounted: number
+      metric?: "students" | "active_students"
+      sessionLabel?: string | null
+      dueOn?: string
+      notes?: string | null
+    }) => billingService.raisePerHead(payload),
+    onSuccess: (invoice) => {
+      toast.success(`${invoice.number} raised`)
+      void queryClient.invalidateQueries({ queryKey: billingKeys.all })
+    },
+    // A moved roll is not an error to report and forget — the dialog re-opens
+    // its preview on it — so it is deliberately not toasted here.
+  })
+}
+
 export function useRecordPayment(invoiceId: number) {
   const queryClient = useQueryClient()
 

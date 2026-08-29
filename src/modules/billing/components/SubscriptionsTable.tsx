@@ -3,6 +3,8 @@
 import { useState } from "react"
 
 import { ChangePlanDialog } from "@/modules/billing/components/ChangePlanDialog"
+import { RaisePerHeadBillDialog } from "@/modules/billing/components/RaisePerHeadBillDialog"
+import { RateEditorDialog } from "@/modules/billing/components/RateEditorDialog"
 import {
   useCancelSubscription,
   useSubscriptions,
@@ -11,7 +13,8 @@ import { formatMinor } from "@/modules/billing/lib/money"
 import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
 import type { Subscription } from "@/modules/billing/types"
 
-const GRID = "minmax(0,1.5fr) 110px 60px 90px 110px 110px minmax(0,1.6fr) 190px"
+const GRID =
+  "minmax(0,1.4fr) 90px 100px 130px minmax(0,1fr) 110px minmax(0,1.5fr) 230px"
 
 /**
  * Who is on what plan, lifted from the draft.
@@ -26,6 +29,8 @@ export function SubscriptionsTable() {
   const cancel = useCancelSubscription()
 
   const [changing, setChanging] = useState<Subscription | null>(null)
+  const [pricing, setPricing] = useState<Subscription | null>(null)
+  const [billing, setBilling] = useState<Subscription | null>(null)
 
   const rows = subscriptions ?? []
 
@@ -67,9 +72,9 @@ export function SubscriptionsTable() {
         >
           <div>INSTITUTION</div>
           <div>PLAN</div>
-          <div>CUR</div>
           <div>INTERVAL</div>
-          <div>MRR</div>
+          <div>RATE / STUDENT</div>
+          <div>VALUE</div>
           <div>STATUS</div>
           <div>NOTE</div>
           <div />
@@ -120,25 +125,87 @@ export function SubscriptionsTable() {
               <div style={{ color: "var(--txt2)" }}>{s.plan ?? "—"}</div>
 
               <div
-                className="qhub-mono"
-                style={{ fontSize: 11, color: "var(--txt3)" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  color: "var(--txt3)",
+                }}
               >
-                {s.currency ?? "—"}
-              </div>
-
-              <div style={{ fontSize: 12, color: "var(--txt3)" }}>
                 {s.interval === null || s.interval === undefined
                   ? "—"
                   : s.interval.toLowerCase()}
+
+                {s.billedOnDemand && (
+                  <span
+                    title="Session plans are skipped by the scheduled run — a bill is raised by hand"
+                    style={{
+                      fontSize: 8.5,
+                      fontWeight: 600,
+                      letterSpacing: ".06em",
+                      color: "var(--series2)",
+                      background: "var(--warn-bg)",
+                      padding: "2px 6px",
+                      borderRadius: 5,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ON DEMAND
+                  </span>
+                )}
+              </div>
+
+              <div>
+                {hasRate(s) && s.currency !== null ? (
+                  <button
+                    type="button"
+                    onClick={() => setPricing(s)}
+                    style={{
+                      display: "block",
+                      textAlign: "left",
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <div
+                      className="qhub-mono"
+                      style={{ fontSize: 12, fontWeight: 600 }}
+                    >
+                      {formatMinor(s.perStudentMinor ?? 0, s.currency)}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 8.5,
+                        fontWeight: 600,
+                        letterSpacing: ".06em",
+                        ...rateTone(s.rateSource),
+                        padding: "2px 6px",
+                        borderRadius: 5,
+                      }}
+                    >
+                      {s.rateSource}
+                    </span>
+                  </button>
+                ) : (
+                  <div style={{ color: "var(--txt4)" }}>—</div>
+                )}
               </div>
 
               <div
                 className="qhub-mono"
-                style={{ fontSize: 12, fontWeight: 500 }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
               >
-                {s.mrrMinor !== null && s.currency !== null
-                  ? formatMinor(s.mrrMinor, s.currency)
-                  : "—"}
+                {value(s)}
               </div>
 
               <div>
@@ -175,6 +242,12 @@ export function SubscriptionsTable() {
                   gap: 6,
                 }}
               >
+                {live && s.billedOnDemand && (
+                  <Action tone="filled" onClick={() => setBilling(s)}>
+                    Raise bill…
+                  </Action>
+                )}
+
                 {live ? (
                   <>
                     <Action onClick={() => setChanging(s)}>Change plan</Action>
@@ -212,6 +285,20 @@ export function SubscriptionsTable() {
           onClose={() => setChanging(null)}
         />
       )}
+
+      {pricing !== null && (
+        <RateEditorDialog
+          subscription={pricing}
+          onClose={() => setPricing(null)}
+        />
+      )}
+
+      {billing !== null && (
+        <RaisePerHeadBillDialog
+          subscription={billing}
+          onClose={() => setBilling(null)}
+        />
+      )}
     </div>
   )
 }
@@ -223,21 +310,26 @@ function Action({
 }: {
   children: React.ReactNode
   onClick: () => void
-  tone?: "muted" | "accent"
+  tone?: "muted" | "accent" | "filled"
 }) {
+  const filled = tone === "filled"
+
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        border: `1px solid ${tone === "accent" ? "var(--accent)" : "var(--line-strong)"}`,
-        color:
-          tone === "accent"
+        border: filled
+          ? "1px solid var(--accent)"
+          : `1px solid ${tone === "accent" ? "var(--accent)" : "var(--line-strong)"}`,
+        color: filled
+          ? "#fff"
+          : tone === "accent"
             ? "var(--accent)"
             : tone === "muted"
               ? "var(--txt4)"
               : "var(--txt2)",
-        background: "transparent",
+        background: filled ? "var(--accent)" : "transparent",
         fontSize: 11.5,
         fontWeight: 500,
         padding: "5px 10px",
@@ -282,6 +374,15 @@ function note(s: Subscription): string {
       : `Trial ends ${date(s.trialEndsOn)}`
   }
 
+  // Said before anything about invoicing history: on a session plan there is
+  // no scheduled run to be up to date with, and a row reading "invoiced
+  // through" would imply one is coming.
+  if (s.billedOnDemand) {
+    return s.rateSource === "NEGOTIATED" && s.perStudentMinor === 0
+      ? "free pilot — negotiated zero, not unset"
+      : "billed on demand — no scheduled run"
+  }
+
   if (s.invoicedThrough !== null) {
     return `Invoiced through ${date(s.invoicedThrough)}`
   }
@@ -295,4 +396,48 @@ function date(iso: string): string {
     month: "short",
     year: "numeric",
   })
+}
+
+/**
+ * Whether this row is a per-head deal at all.
+ *
+ * A negotiated rate always shows, zero included — a free pilot is a decision
+ * someone made and must never read as "not set". A plan rate of zero is the
+ * opposite: an ordinary base-price plan with no per-head component, which has
+ * no rate to show.
+ */
+function hasRate(s: Subscription): boolean {
+  if (s.perStudentMinor === null) return false
+
+  return s.rateSource === "NEGOTIATED" || s.perStudentMinor > 0
+}
+
+function rateTone(source: Subscription["rateSource"]): {
+  color: string
+  background: string
+} {
+  return source === "NEGOTIATED"
+    ? { color: "var(--accent)", background: "var(--accent-soft)" }
+    : { color: "var(--txt3)", background: "var(--panel)" }
+}
+
+/**
+ * What this subscription is worth, in the only unit that is honest for it.
+ *
+ * Monthly-family plans normalise to a month. Session plans have no month count
+ * to divide by, so they report the whole contract at today's roll and say so —
+ * the two figures must never be read as the same kind of number.
+ */
+function value(s: Subscription): string {
+  if (s.currency === null) return "—"
+
+  if (s.billedOnDemand) {
+    return s.contractValueMinor === null
+      ? "—"
+      : `${formatMinor(s.contractValueMinor, s.currency)} / session`
+  }
+
+  return s.mrrMinor === null
+    ? "—"
+    : `${formatMinor(s.mrrMinor, s.currency)} / month`
 }

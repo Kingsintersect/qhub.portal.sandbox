@@ -7,7 +7,12 @@
  * to guess whether 1500 is fifteen naira or fifteen hundred.
  */
 
-export type BillingInterval = "MONTHLY" | "QUARTERLY" | "ANNUAL"
+/**
+ * SESSION plans are billed on demand rather than on a cadence: an academic
+ * session has no fixed length or date, so the scheduled run leaves them alone
+ * and a person raises the bill.
+ */
+export type BillingInterval = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "SESSION"
 
 export type SubscriptionStatus =
   | "TRIALING"
@@ -47,8 +52,21 @@ export interface Subscription {
   trialEndsOn: string | null
   cancelledOn: string | null
   invoicedThrough: string | null
-  /** Base price normalised to a month. Null when the plan is gone. */
+  /**
+   * The agreed rate per student, and whether it was negotiated with this
+   * institution or inherited from the shared plan.
+   */
+  perStudentMinor: number | null
+  rateSource: "NEGOTIATED" | "PLAN"
+  /** True for session plans, which are billed by hand rather than on a cadence. */
+  billedOnDemand: boolean
+  /**
+   * Base plus per-head, normalised to a month. Null when the plan is gone, and
+   * null for a session plan — a session has no month count to divide by.
+   */
   mrrMinor: number | null
+  /** What one full period is worth at today's roll. */
+  contractValueMinor: number | null
 }
 
 export interface Invoice {
@@ -110,6 +128,11 @@ export interface RevenueRow {
   outstandingMinor: number
   overdueMinor: number
   mrrMinor: number
+  /**
+   * Session plans, reported whole rather than divided into months. Kept apart
+   * from mrrMinor because there is no honest divisor to fold them in with.
+   */
+  sessionContractMinor: number
 }
 
 export interface InvoiceList {
@@ -122,4 +145,34 @@ export interface BillingRunResult {
   skipped: number
   failed: number
   invoices: string[]
+}
+
+/**
+ * What a per-head bill would come to, without raising one.
+ *
+ * `countedAt` is the moment the roll was actually read, not the moment a
+ * rollup ran — on a per-head rate a stale count is a wrong invoice.
+ */
+export interface PerHeadPreview {
+  tenantId: number
+  metric: "students" | "active_students"
+  studentsCounted: number
+  includedByPlan: number
+  studentsBillable: number
+  perStudentMinor: number
+  totalMinor: number
+  currency: string | null
+  countedAt: string
+}
+
+/**
+ * The roll moved between the preview and the commit.
+ *
+ * The operator approved a total, not an instruction to bill whatever the
+ * number happens to be a moment later, so the server refuses and hands back
+ * fresh figures for the surface to re-preview.
+ */
+export interface RollMovedError extends PerHeadPreview {
+  code: "ROLL_MOVED"
+  expectedStudentsCounted: number
 }

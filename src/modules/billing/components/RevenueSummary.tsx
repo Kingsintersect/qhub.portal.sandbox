@@ -35,9 +35,37 @@ export function RevenueSummary({
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {row.currency}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {formatMinor(row.mrrMinor, row.currency)} / month
-            </span>
+          </div>
+
+          {/*
+            Two figures, deliberately not one. Monthly-family plans normalise
+            to a month; session plans have no month count to divide by, so
+            they are reported whole and labelled as such. Folding them
+            together would need a divisor nobody agreed to.
+          */}
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <div className="text-xs text-muted-foreground">
+                MRR · monthly plans only
+              </div>
+              <div className="mt-0.5 font-mono text-base font-semibold text-foreground">
+                {formatMinor(row.mrrMinor, row.currency)}
+              </div>
+            </div>
+
+            {row.sessionContractMinor > 0 && (
+              <div>
+                <div className="text-xs text-muted-foreground">
+                  Session contracts · at today&rsquo;s roll
+                </div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-foreground">
+                  {formatMinor(row.sessionContractMinor, row.currency)}
+                </div>
+                <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+                  whole-contract value, not per month
+                </div>
+              </div>
+            )}
           </div>
 
           <dl className="mt-3 space-y-1.5">
