@@ -1,27 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import {
-  CalendarDays,
-  Video,
-  BookOpen,
-  Globe,
-  Bell,
-  ExternalLink,
-} from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { CalendarDays, ExternalLink } from "lucide-react"
 import EmptyState from "@/components/custom/EmptyState"
 import { useUpcomingCalendarEvents } from "../../hooks/use-sync-calendar"
 import { CalendarEventDetail } from "./calendar-event-detail"
+import { getEventTypeMeta } from "../../lib/event-type-meta"
 import type { CalendarEventResponse } from "../../types"
-
-const EVENT_TYPE_ICON: Record<CalendarEventResponse["eventType"], LucideIcon> =
-  {
-    zoom: Video,
-    course: BookOpen,
-    site: Globe,
-    user: Bell,
-  }
 
 export function UpcomingEventsWidget() {
   const { data, isLoading } = useUpcomingCalendarEvents()
@@ -58,7 +43,7 @@ export function UpcomingEventsWidget() {
       ) : (
         <div className="space-y-2">
           {items.map((event) => {
-            const Icon = EVENT_TYPE_ICON[event.eventType]
+            const Icon = getEventTypeMeta(event.eventType).icon
             return (
               <button
                 key={event.id}

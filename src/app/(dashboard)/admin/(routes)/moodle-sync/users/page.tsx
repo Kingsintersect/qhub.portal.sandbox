@@ -2,27 +2,12 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { toast } from "sonner"
-import { ArrowLeft, Users, Loader2, Download } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowLeft, Users } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { UserSyncTable } from "@/modules/moodle-sync/components/users/user-sync-table"
-import { usePullUsers } from "@/modules/moodle-sync/hooks/use-sync-mutations"
+import { PullUsersButton } from "@/modules/moodle-sync/components/users/pull-users-button"
 
 export default function MoodleSyncUsersPage() {
-  const pullUsers = usePullUsers()
-
-  const handlePullAll = async () => {
-    try {
-      const result = await pullUsers.mutateAsync()
-      toast.success(
-        `Matched ${result.matched}, created ${result.created} user(s) from Moodle`
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pull failed")
-    }
-  }
-
   return (
     <PermissionGate
       require={{ resource: "moodle-sync", action: "view" }}
@@ -53,24 +38,7 @@ export default function MoodleSyncUsersPage() {
                 </p>
               </div>
             </div>
-            <PermissionGate
-              require={{ resource: "moodle-sync", action: "pull" }}
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs"
-                disabled={pullUsers.isPending}
-                onClick={handlePullAll}
-              >
-                {pullUsers.isPending ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Download size={13} />
-                )}
-                Pull from Moodle
-              </Button>
-            </PermissionGate>
+            <PullUsersButton />
           </div>
         </motion.div>
 

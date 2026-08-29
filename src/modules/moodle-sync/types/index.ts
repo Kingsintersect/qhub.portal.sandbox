@@ -32,6 +32,13 @@ export type UserSyncResponse = z.infer<
 export type UserSyncQueryFilters = z.infer<
   typeof UserSchemas.UserSyncQueryFiltersSchema
 >
+export type UnmatchedMoodleUser = z.infer<
+  typeof UserSchemas.UnmatchedMoodleUserSchema
+>
+export type SkippedMoodleUser = z.infer<
+  typeof UserSchemas.SkippedMoodleUserSchema
+>
+export type PullUsersResult = z.infer<typeof UserSchemas.PullUsersResultSchema>
 
 export type CourseSyncResponse = z.infer<
   typeof CourseSchemas.CourseSyncResponseSchema

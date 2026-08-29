@@ -130,13 +130,14 @@ export interface CurriculumLevel {
 }
 
 // ── Academic Structure (generic AcademicUnit tree) ──────────────────────────
-// Proposed — see sandbox/schema-moodel-sync-refactor/{README,api-v2}.md
-// §"Academic Structure". Gives the Structure Builder admin UI and Moodle
+// Confirmed live — see sandbox/schema-moodel-sync-refactor/{README,api-v2}.md
+// §"Academic Structure" (tracked as MISSING_BACKEND_APIS.md §2.16, now shipped
+// by the backend team). Gives the Structure Builder admin UI and Moodle
 // category sync one uniform tree to walk regardless of a given deployment's
 // real shape (Faculty→Department→Program for a degree school, or pure
 // structural nodes like "Stream"/"Section" for a secondary school — see the
-// README's worked examples). Nothing under `/academic-structure` exists in
-// bruno yet; every consumer of this section 404s until the backend ships it.
+// README's worked examples). Not yet documented in bruno, but every consumer
+// of this section calls the real `/academic-structure` endpoints.
 
 export type AcademicUnitLinkKind =
   | "faculty"
@@ -242,9 +243,9 @@ export interface CreateCurriculumLevelPayload {
 // ── Course Management ───────────────────────
 // Real backend contract per bruno/course and sandbox/course/course_README.md
 // (source of truth — see CLAUDE.md §13). `curriculum_semester` mirrors
-// curriculumApi.ts's already-real handling of the not-yet-shipped
-// `curriculumSemester` field (see missing_curriculum_apis.readme.md) — it
-// will always read back null until the backend ships it.
+// curriculumApi.ts's handling of the `curriculumSemester` field (see
+// missing_curriculum_apis.readme.md / MISSING_BACKEND_APIS.md §2.6) — now
+// shipped by the backend team, so this reads/writes for real.
 //
 // There is no reverse "which programs is this course in" lookup endpoint —
 // only "which courses are in this program" (`GET /courses/programs/:id`,
@@ -333,8 +334,9 @@ export interface CourseOffering {
   status: CourseOfferingStatus
   created_at: string
   updated_at: string
-  // Proposed backend addition — see MISSING_BACKEND_APIS.md. Null until the
-  // backend adds it; shown as "—" rather than fabricated.
+  // MISSING_BACKEND_APIS.md §2.10 — now shipped by the backend team. Still
+  // nullable defensively (shown as "—" rather than fabricated) in case an
+  // older cached response or edge case omits it.
   enrolled_count: number | null
 }
 

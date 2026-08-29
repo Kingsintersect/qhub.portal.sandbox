@@ -175,7 +175,9 @@ export const admissionService = {
     startTerm: string
   }): Promise<AdmissionStudent> {
     // Proposed API: POST /admission/program-choice — not built on the backend yet, see
-    // sandbox/MISSING_BACKEND_APIS.md §2.5 for the full designed contract. 404s until
+    // sandbox/REFACTOR_BACKEND_APIS.md for the full designed contract (tracked as
+    // MISSING_BACKEND_APIS.md §2.17, a pointer to that doc — unlike the rest of
+    // that file, this specific item has NOT been confirmed shipped). 404s until
     // the backend ships it; the frontend is wired against the designed shape already.
     const { data } = await apiClient.post<{ data: AdmissionStudent }>(
       "/admission/program-choice",

@@ -5,6 +5,7 @@ import { useForm, type UseFormReturn } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { formStorage } from "@/lib/storage"
+import { useAppStore, useAppHydrated } from "@/store/appStore"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 import { admissionQueryOptions } from "../../../services/admissionService"
@@ -83,6 +84,22 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const hasLoadedRef = useRef(false)
   const skipNextAutoSaveRef = useRef(true)
 
+  // ─── Per-user storage keys ────────────────────────────────────────────────
+  // Bug fix: the storage keys used to be the bare FORM_STORAGE_KEY/
+  // STEP_STORAGE_KEY constants with no user scoping at all, so IndexedDB (and
+  // its companion localStorage step/completed entries) were shared by every
+  // account that ever logged in on the same browser — one applicant would see
+  // a previous applicant's saved draft. Suffixing every key with the logged-in
+  // user's id keeps each account's draft fully isolated; a fresh account (or
+  // signing in as someone else on the same device) always starts blank.
+  const isAppHydrated = useAppHydrated()
+  const userId = useAppStore((s) => s.user?.id)
+  const formStorageKey = userId ? `${FORM_STORAGE_KEY}_${userId}` : null
+  const stepStorageKey = userId ? `${STEP_STORAGE_KEY}_${userId}` : null
+  const stepCompletedStorageKey = stepStorageKey
+    ? `${stepStorageKey}_completed`
+    : null
+
   // ─── Admin-configured active steps — admins can disable/reorder steps ───
   const { data: admissionConfig } = useQuery(
     admissionStepsQueryOptions.config()
@@ -120,13 +137,29 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   })
 
   // ─── Load persisted data on mount ────────────────────────────────────────
+  // Waits for the app store to finish hydrating so `userId` (and therefore
+  // the scoped storage keys) reflects the real logged-in account before
+  // anything is read — loading too early risked resolving `userId` as
+  // undefined for a moment and reading nothing, or briefly hitting the old
+  // unscoped bucket.
   useEffect(() => {
-    if (hasLoadedRef.current) return
+    if (!isAppHydrated || hasLoadedRef.current) return
     hasLoadedRef.current = true
 
     const loadSavedData = async () => {
       try {
-        const savedData = await formStorage.loadFormData(FORM_STORAGE_KEY)
+        // One-time cleanup of the pre-fix shared bucket — it's no longer read
+        // or written by anyone, so purge it rather than leave a dead,
+        // cross-account record sitting in IndexedDB/localStorage.
+        formStorage.clearFormData(FORM_STORAGE_KEY).catch(() => {})
+        localStorage.removeItem(STEP_STORAGE_KEY)
+        localStorage.removeItem(`${STEP_STORAGE_KEY}_completed`)
+
+        if (!formStorageKey || !stepStorageKey || !stepCompletedStorageKey) {
+          return
+        }
+
+        const savedData = await formStorage.loadFormData(formStorageKey)
         if (savedData) {
           const dataWithDefaults = {
             ...DEFAULT_FORM_VALUES,
@@ -136,7 +169,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
           toast.success("Your previous progress has been restored.")
         }
 
-        const savedStep = localStorage.getItem(STEP_STORAGE_KEY)
+        const savedStep = localStorage.getItem(stepStorageKey)
         if (savedStep !== null) {
           const step = Number(savedStep)
           if (step >= 0 && step <= FormStep.REVIEW) {
@@ -144,9 +177,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
           }
         }
 
-        const savedCompleted = localStorage.getItem(
-          `${STEP_STORAGE_KEY}_completed`
-        )
+        const savedCompleted = localStorage.getItem(stepCompletedStorageKey)
         if (savedCompleted) {
           const parsed = JSON.parse(savedCompleted) as number[]
           setCompletedSteps(new Set(parsed as FormStep[]))
@@ -162,7 +193,13 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     }
 
     loadSavedData()
-  }, [form])
+  }, [
+    form,
+    isAppHydrated,
+    formStorageKey,
+    stepStorageKey,
+    stepCompletedStorageKey,
+  ])
 
   // ─── TEMPORARY: enforce the Program Selection placeholder default ───────
   // A draft saved before DEFAULT_FORM_VALUES.programId/entryMode got their
@@ -200,6 +237,9 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   // ─── Save progress to IndexedDB ─────────────────────────────────────────
   const saveProgress = useCallback(async () => {
     if (typeof window === "undefined") return
+    // No logged-in user id yet (store still hydrating) — nothing to scope
+    // the save to, so don't write anywhere rather than risk an unscoped save.
+    if (!formStorageKey || !stepStorageKey || !stepCompletedStorageKey) return
 
     try {
       const values = form.getValues()
@@ -215,16 +255,23 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
         }
       }
 
-      await formStorage.saveFormData(FORM_STORAGE_KEY, sanitized)
-      localStorage.setItem(STEP_STORAGE_KEY, String(currentStep))
+      await formStorage.saveFormData(formStorageKey, sanitized)
+      localStorage.setItem(stepStorageKey, String(currentStep))
       localStorage.setItem(
-        `${STEP_STORAGE_KEY}_completed`,
+        stepCompletedStorageKey,
         JSON.stringify([...completedSteps])
       )
     } catch (error) {
       console.warn("Failed to save progress:", error)
     }
-  }, [form, currentStep, completedSteps])
+  }, [
+    form,
+    currentStep,
+    completedSteps,
+    formStorageKey,
+    stepStorageKey,
+    stepCompletedStorageKey,
+  ])
 
   // ─── Auto-save on step change ────────────────────────────────────────────
   useEffect(() => {
@@ -404,9 +451,10 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
       const profile = await fetchMyProfile()
       await submitApplication(values, profile, activeSessionId)
 
-      await formStorage.clearFormData(FORM_STORAGE_KEY)
-      localStorage.removeItem(STEP_STORAGE_KEY)
-      localStorage.removeItem(`${STEP_STORAGE_KEY}_completed`)
+      if (formStorageKey) await formStorage.clearFormData(formStorageKey)
+      if (stepStorageKey) localStorage.removeItem(stepStorageKey)
+      if (stepCompletedStorageKey)
+        localStorage.removeItem(stepCompletedStorageKey)
       setIsSubmitted(true)
     } catch (error) {
       console.error("Submission failed:", error)
@@ -418,7 +466,13 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     } finally {
       setIsSubmitting(false)
     }
-  }, [form, activeSessionId])
+  }, [
+    form,
+    activeSessionId,
+    formStorageKey,
+    stepStorageKey,
+    stepCompletedStorageKey,
+  ])
 
   // ─── Reset form ──────────────────────────────────────────────────────────
   // Deliberately does NOT call saveProgress() afterward — that would
@@ -432,11 +486,12 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     setCurrentStep(FormStep.PERSONAL_INFO)
     setCompletedSteps(new Set())
     setSubmitAttempted(false)
-    await formStorage.clearFormData(FORM_STORAGE_KEY)
-    localStorage.removeItem(STEP_STORAGE_KEY)
-    localStorage.removeItem(`${STEP_STORAGE_KEY}_completed`)
+    if (formStorageKey) await formStorage.clearFormData(formStorageKey)
+    if (stepStorageKey) localStorage.removeItem(stepStorageKey)
+    if (stepCompletedStorageKey)
+      localStorage.removeItem(stepCompletedStorageKey)
     toast.info("Form has been reset.")
-  }, [form])
+  }, [form, formStorageKey, stepStorageKey, stepCompletedStorageKey])
 
   // ─── Clear just the current step's fields back to their defaults ────────
   // Uses form.reset() over the whole values object (rather than per-field

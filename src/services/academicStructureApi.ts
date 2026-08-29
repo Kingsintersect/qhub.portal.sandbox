@@ -11,12 +11,12 @@ import type {
   UpdateAcademicUnitPayload,
 } from "@/types/school"
 
-// Proposed — see sandbox/schema-moodel-sync-refactor/api-v2.md
-// §"Academic Structure — /academic-structure" (the authoritative contract)
-// and sandbox/MISSING_BACKEND_APIS.md for the tracked gap. Nothing under
-// this prefix exists in bruno yet — every method here 404s until the
-// backend ships it. Response envelopes follow the same `{data: ...}`
-// convention as every other real endpoint in this codebase (courseStructureApi.ts).
+// Confirmed live — contract per sandbox/schema-moodel-sync-refactor/api-v2.md
+// §"Academic Structure — /academic-structure"; tracked as MISSING_BACKEND_APIS.md
+// §2.16, now shipped by the backend team. Not yet in bruno, but every method
+// here calls the real endpoint. Response envelopes follow the same
+// `{data: ...}` convention as every other endpoint in this codebase
+// (courseStructureApi.ts).
 const BASE = "/academic-structure"
 const AUTH = { access_token: true } as const
 
@@ -83,6 +83,33 @@ export const academicUnitsApi = {
   async remove(id: number): Promise<void> {
     return apiClient.delete<void>(`${BASE}/units/${id}`, AUTH)
   },
+}
+
+/**
+ * Finds the AcademicUnit mirror node for a Faculty, creating one if it
+ * doesn't exist yet. `Program` has no `facultyId` of its own — attaching a
+ * Program directly under a Faculty (skipping Department) only works via
+ * `parentAcademicUnitId` into this generic tree, so that link needs a real
+ * Faculty-type unit to point at. Used by the Course Structure module's
+ * "Add Program" (faculty-direct) and "Move to Faculty" actions.
+ */
+export async function resolveFacultyAcademicUnit(
+  facultyId: number,
+  facultyName: string
+): Promise<AcademicUnit> {
+  const { data: roots } = await academicUnitsApi.list({ rootsOnly: true })
+  const existing = roots.find(
+    (u) => u.linkedEntity?.type === "faculty" && u.linkedEntity.id === facultyId
+  )
+  if (existing) return existing
+
+  const { data: created } = await academicUnitsApi.create({
+    typeCode: "FACULTY",
+    parentId: null,
+    name: facultyName,
+    linkedEntity: { type: "faculty", id: facultyId },
+  })
+  return created
 }
 
 // ── Query keys ──────────────────────────────

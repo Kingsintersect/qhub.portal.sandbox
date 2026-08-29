@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQueryClient } from "@tanstack/react-query"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import Modal from "@/components/custom/Modal"
@@ -11,13 +12,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useCreateProgram, useUpdateProgram } from "@/hooks/useCourseStructure"
+import {
+  resolveFacultyAcademicUnit,
+  academicStructureKeys,
+} from "@/services/academicStructureApi"
 import { programSchema, type ProgramFormValues } from "@/schemas/school.schema"
 import type { Program } from "@/types/school"
 
 interface ProgramFormDialogProps {
   open: boolean
   onClose: () => void
-  departmentId: number
+  /** Attach the new program under this department. Ignored when editing. */
+  departmentId?: number
+  /** Attach the new program directly under this faculty (no department) — pass instead of departmentId. Ignored when editing. */
+  faculty?: { id: number; name: string }
   program?: Program | null
 }
 
@@ -25,12 +33,16 @@ export function ProgramFormDialog({
   open,
   onClose,
   departmentId,
+  faculty,
   program,
 }: ProgramFormDialogProps) {
   const isEditing = !!program
   const createProgram = useCreateProgram()
   const updateProgram = useUpdateProgram()
-  const isPending = createProgram.isPending || updateProgram.isPending
+  const queryClient = useQueryClient()
+  const [isResolving, setIsResolving] = useState(false)
+  const isPending =
+    createProgram.isPending || updateProgram.isPending || isResolving
 
   const {
     register,
@@ -66,12 +78,30 @@ export function ProgramFormDialog({
       if (isEditing) {
         await updateProgram.mutateAsync({ id: program.id, payload: values })
         toast.success("Program updated")
-      } else {
+      } else if (faculty) {
+        setIsResolving(true)
+        const unit = await resolveFacultyAcademicUnit(faculty.id, faculty.name)
+        // resolveFacultyAcademicUnit calls academicUnitsApi.create() directly
+        // (not via useCreateAcademicUnit()), so it never triggers that hook's
+        // own cache invalidation — do it here, otherwise a lazily-created
+        // unit is invisible to useAcademicUnits() until a manual refetch.
+        await queryClient.invalidateQueries({
+          queryKey: academicStructureKeys.units.all,
+        })
+        setIsResolving(false)
+        await createProgram.mutateAsync({
+          ...values,
+          departmentId: null,
+          parentAcademicUnitId: unit.id,
+        })
+        toast.success("Program created")
+      } else if (departmentId) {
         await createProgram.mutateAsync({ ...values, departmentId })
         toast.success("Program created")
       }
       onClose()
     } catch (err) {
+      setIsResolving(false)
       toast.error(err instanceof Error ? err.message : "Failed to save program")
     }
   }
@@ -81,7 +111,11 @@ export function ProgramFormDialog({
       open={open}
       onClose={onClose}
       title={isEditing ? "Edit Program" : "Create Program"}
-      subtitle="e.g., B.Sc. Computer Science (code: CSC-BSC)"
+      subtitle={
+        !isEditing && faculty
+          ? `e.g., B.Sc. Computer Science — attaches directly to ${faculty.name}, no department`
+          : "e.g., B.Sc. Computer Science (code: CSC-BSC)"
+      }
       size="md"
       footer={
         <>

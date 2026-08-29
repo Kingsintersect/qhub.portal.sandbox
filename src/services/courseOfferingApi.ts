@@ -32,8 +32,9 @@ interface WireOffering {
   createdAt: string
   updatedAt: string
   course: { code: string; title: string }
-  // Not documented anywhere yet — proposed backend addition, see
-  // MISSING_BACKEND_APIS.md. Read defensively; absent until it ships.
+  // MISSING_BACKEND_APIS.md §2.10 — now shipped by the backend team. Still
+  // not documented in bruno, and kept optional defensively rather than
+  // required, in case an older cached response omits it.
   enrolledCount?: number
 }
 

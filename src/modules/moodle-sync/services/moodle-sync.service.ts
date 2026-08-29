@@ -10,6 +10,7 @@ import type {
   UserSyncQueryFilters,
   UserSyncResponse,
   UsersBulkPushPayload,
+  PullUsersResult,
   AssessmentResponse,
   AssessmentFilter,
   PaginatedAssessments,
@@ -202,12 +203,18 @@ export const moodleSyncService = {
       AUTH
     ),
 
-  pullUsers: () =>
-    apiClient.post<{ matched: number; created: number }>(
+  // Unlike single-record push/pull actions, this bulk summary IS wrapped in
+  // a `{ data: ... }` envelope — confirmed via a live capture of
+  // `POST /users/pull`'s response, which included the `unmatched` list of
+  // Moodle users with no matching portal account.
+  async pullUsers(): Promise<PullUsersResult> {
+    const res = await apiClient.post<{ data: PullUsersResult }>(
       `${BASE}/users/pull`,
       undefined,
       AUTH
-    ),
+    )
+    return res.data
+  },
 
   pullUser: (moodleUserId: number) =>
     apiClient.post<UserSyncResponse>(
@@ -310,14 +317,11 @@ export const moodleSyncService = {
   // as the filter name for consistency with the rest of this module's hooks.
   //
   // listAssessments/listAssessmentsByCourse/listUpcomingAssessments/
-  // pullAssessments/pullAllAssessments are the real, existing endpoints.
-  // Everything below the "-- proposed --" marker does NOT exist yet under
-  // /moodle-sync/assessments — this module previously had a duplicate,
-  // fully-mock frontend surface wired to a separate real `/assessments/*`
-  // route namespace; that duplicate has been retired in favour of
-  // consolidating everything onto this one real module, and the gaps below
-  // are the additions needed to fully replace it. See
-  // MISSING_BACKEND_APIS.md for the full spec of each.
+  // pullAssessments/pullAllAssessments were already real. Everything below
+  // the "-- confirmed live --" marker was the set of additions needed to
+  // fully replace this module's old duplicate, fully-mock frontend surface
+  // (which was wired to a separate real `/assessments/*` route namespace) —
+  // per MISSING_BACKEND_APIS.md, now shipped by the backend team.
 
   listAssessments: (filters: { courseId?: number; type?: string } = {}) =>
     apiClient.get<{ data: AssessmentResponse[] }>(`${BASE}/assessments`, {
@@ -351,7 +355,7 @@ export const moodleSyncService = {
       AUTH
     ),
 
-  // -- proposed, not yet real (MISSING_BACKEND_APIS.md) --
+  // -- confirmed live (MISSING_BACKEND_APIS.md), now shipped by the backend team --
 
   async listAssessmentsPaginated(
     filters: Partial<AssessmentFilter> = {}
@@ -370,9 +374,9 @@ export const moodleSyncService = {
         limit: filters.limit,
       },
     })
-    // `meta`/pagination are proposed additions, not live yet — the real
-    // endpoint today just returns `{data: [...]}` with no envelope, so
-    // synthesize one rather than let callers crash on `res.meta.total`.
+    // `meta`/pagination per MISSING_BACKEND_APIS.md, now shipped — kept the
+    // `res.meta ??` fallback regardless, so callers never crash on
+    // `res.meta.total` even if a given response omits it.
     return {
       data: res.data,
       meta: res.meta ?? {
@@ -396,10 +400,9 @@ export const moodleSyncService = {
       Pick<AssessmentFilter, "type" | "upcoming" | "page" | "limit">
     > = {}
   ): Promise<PaginatedAssessments> {
-    // /assessments/my itself is a proposed, not-yet-real endpoint (see
-    // MISSING_BACKEND_APIS.md) — this 404s until shipped. Once it exists, its
-    // `meta` envelope is unconfirmed too, so synthesize a fallback the same
-    // way listAssessmentsPaginated does.
+    // /assessments/my per MISSING_BACKEND_APIS.md, now shipped by the
+    // backend team. Kept the same `meta` envelope fallback as
+    // listAssessmentsPaginated in case a given response omits it.
     const res = await apiClient.get<{
       data: AssessmentResponse[]
       meta?: { total: number; page: number; limit: number }

@@ -5,13 +5,10 @@ import { usersApi, usersKeys } from "@/services/usersApi"
 import { useAppStore } from "@/store/appStore"
 import { UserRole } from "@/config/nav.config"
 
-// Real backend gap — see MISSING_BACKEND_APIS.md §"GET /users/lecturers/me".
-// Mirrors useMyStudentId(): no endpoint today lets a logged-in tutor resolve
-// their own Lecturer.id (needed for "my assigned courses" and "my teaching
-// schedule" lookups that take a lecturerId). Wired against the proposed
-// contract via usersApi.getMyLecturer() so this starts resolving a real id
-// the moment the backend ships it; until then the request 404s and every
-// consumer degrades to `lecturerId: null`.
+// MISSING_BACKEND_APIS.md §1.1b, now shipped by the backend team — mirrors
+// useMyStudentId(): `GET /users/lecturers/me` resolves the current JWT's
+// Lecturer.id directly via usersApi.getMyLecturer(), needed for "my assigned
+// courses" and "my teaching schedule" lookups that take a lecturerId.
 export function useMyLecturerId(): {
   lecturerId: number | null
   isLoading: boolean

@@ -2,12 +2,10 @@
 /*  Admission Cycle / Requirement — API Service                        */
 /*                                                                     */
 /*  Real backend contract per                                         */
-/*  sandbox/admission/missing_admission_cycle_apis.readme.md — no      */
-/*  bruno collection exists for this yet (a genuinely new, additive    */
-/*  endpoint set), so this is built directly against that doc's spec.  */
-/*  Until the backend ships it, every call here 404s and the           */
-/*  consuming "Admissions Management" screen surfaces that as a        */
-/*  normal failed query — no client-side mock fallback.                */
+/*  sandbox/admission/missing_admission_cycle_apis.readme.md           */
+/*  (MISSING_BACKEND_APIS.md §2.1) — now shipped by the backend team,  */
+/*  still not documented in a bruno collection. The "Admissions        */
+/*  Management" screen calls these endpoints for real.                 */
 /*                                                                     */
 /*  The backend uses camelCase field names and numeric ids throughout  */
 /*  (per the doc's schema); this module's existing frontend types stay */

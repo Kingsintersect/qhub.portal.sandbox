@@ -148,8 +148,8 @@ export interface StatisticalReport {
   tutors: TutorRecord[]
   totalStudents: number
   totalTutors: number
-  // Proposed GET /users/stats extension — see §2.8. Arrays rather than a
-  // fixed Record since the real Level table isn't limited to 100-500.
+  // GET /users/stats extension — see §2.8, now shipped. Arrays rather than
+  // a fixed Record since the real Level table isn't limited to 100-500.
   studentsByLevel: { level: number; count: number }[]
   studentsByGender: { male: number; female: number }
   tutorsByDesignation: { designation: string; count: number }[]
@@ -157,8 +157,8 @@ export interface StatisticalReport {
 
 // ─── Grade Report Types ──────────────────────────────────────────────────────
 // Sourced from GET /results/reports/director-grade-summary — see
-// sandbox/result/missing_grade_apis.readme.md §8 (PENDING BACKEND
-// IMPLEMENTATION). `faculty`/`semester`/`grade` are plain strings, not the
+// sandbox/result/missing_grade_apis.readme.md §8, now shipped by the backend
+// team. `faculty`/`semester`/`grade` are plain strings, not the
 // closed Faculty/Semester/GradePoint unions used elsewhere in this module —
 // those unions were sized to the old mock's fixed lists (8 faculties, 6
 // grades) and don't match the real, admin-configurable Faculty and
