@@ -268,10 +268,9 @@ export interface UserQueryFilters {
   is_active?: boolean
   page?: number
   limit?: number
-  // Proposed — see MISSING_BACKEND_APIS.md §2.8 "Director module". Neither
-  // /users/students nor /users/lecturers documents a name-based faculty/
-  // department filter today (only programId/departmentId FKs); sent as-is
-  // so Director's tabs work the moment the backend adds support.
+  // MISSING_BACKEND_APIS.md §2.8 "Director module", now shipped by the
+  // backend team — a name-based faculty/department filter, sent alongside
+  // the existing programId/departmentId FKs.
   faculty_name?: string
   department_name?: string
 }

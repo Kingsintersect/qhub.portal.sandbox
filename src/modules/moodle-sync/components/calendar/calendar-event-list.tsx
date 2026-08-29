@@ -2,22 +2,14 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { CalendarDays, Video, BookOpen, Globe, Bell } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { CalendarDays } from "lucide-react"
 import EmptyState from "@/components/custom/EmptyState"
 import { useSyncCalendarEvents } from "../../hooks/use-sync-calendar"
 import { usePullCalendar } from "../../hooks/use-sync-mutations"
 import { PushPullToolbar } from "../shared/push-pull-toolbar"
 import { CalendarEventDetail } from "./calendar-event-detail"
+import { getEventTypeMeta } from "../../lib/event-type-meta"
 import type { CalendarEventResponse } from "../../types"
-
-const EVENT_TYPE_ICON: Record<CalendarEventResponse["eventType"], LucideIcon> =
-  {
-    zoom: Video,
-    course: BookOpen,
-    site: Globe,
-    user: Bell,
-  }
 
 export function CalendarEventList() {
   const { data, isLoading, isError } = useSyncCalendarEvents()
@@ -68,7 +60,7 @@ export function CalendarEventList() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           {items.map((event) => {
-            const Icon = EVENT_TYPE_ICON[event.eventType]
+            const Icon = getEventTypeMeta(event.eventType).icon
             return (
               <button
                 key={event.id}

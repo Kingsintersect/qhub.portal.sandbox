@@ -1,33 +1,11 @@
 "use client"
 
 import { format } from "date-fns"
-import { ExternalLink, Video, BookOpen, Globe, Bell } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { ExternalLink } from "lucide-react"
 import Modal from "@/components/custom/Modal"
 import { Button } from "@/components/ui/button"
+import { getEventTypeMeta } from "../../lib/event-type-meta"
 import type { CalendarEventResponse } from "../../types"
-
-const EVENT_TYPE_META: Record<
-  CalendarEventResponse["eventType"],
-  { icon: LucideIcon; label: string; classes: string }
-> = {
-  zoom: { icon: Video, label: "Zoom", classes: "bg-primary/10 text-primary" },
-  course: {
-    icon: BookOpen,
-    label: "Course",
-    classes: "bg-success/10 text-success",
-  },
-  site: {
-    icon: Globe,
-    label: "Site-wide",
-    classes: "bg-muted text-muted-foreground",
-  },
-  user: {
-    icon: Bell,
-    label: "Notice",
-    classes: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  },
-}
 
 interface CalendarEventDetailProps {
   event: CalendarEventResponse | null
@@ -39,7 +17,7 @@ export function CalendarEventDetail({
   onClose,
 }: CalendarEventDetailProps) {
   if (!event) return null
-  const meta = EVENT_TYPE_META[event.eventType]
+  const meta = getEventTypeMeta(event.eventType)
   const Icon = meta.icon
 
   return (

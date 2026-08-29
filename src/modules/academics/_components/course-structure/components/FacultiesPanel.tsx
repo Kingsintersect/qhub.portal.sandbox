@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowRightLeft,
   Building2,
   GitBranch,
   GraduationCap,
@@ -24,14 +25,17 @@ import {
   useFaculties,
   useFaculty,
   useDepartment,
+  useAllPrograms,
   useDeactivateFaculty,
   useDeactivateDepartment,
   useDeactivateProgram,
 } from "@/hooks/useCourseStructure"
+import { useAcademicUnits } from "@/hooks/useAcademicStructure"
 import { EmptyState } from "./EmptyState"
 import { FacultyFormDialog } from "./FacultyFormDialog"
 import { DepartmentFormDialog } from "./DepartmentFormDialog"
 import { ProgramFormDialog } from "./ProgramFormDialog"
+import { ReassignProgramDialog } from "./ReassignProgramDialog"
 import type { Department, Faculty, Program } from "@/types/school"
 
 type View =
@@ -236,13 +240,34 @@ function FacultyDetail({
 }) {
   const { data, isLoading } = useFaculty(facultyId)
   const deactivateDept = useDeactivateDepartment()
+  const deactivateProgram = useDeactivateProgram()
   const [editingFaculty, setEditingFaculty] = useState(false)
   const [editingDept, setEditingDept] = useState<Department | null | undefined>(
     undefined
   )
+  const [editingDirectProgram, setEditingDirectProgram] = useState<
+    Program | null | undefined
+  >(undefined)
+  const [reassigning, setReassigning] = useState<Program | null>(null)
 
   const faculty = data?.data
   const departments = faculty?.departments ?? []
+
+  // Programs attached straight to this faculty, no department in between.
+  // Program has no facultyId of its own — this link only exists via the
+  // AcademicUnit tree's parentAcademicUnitId, so it has to be cross-referenced
+  // client-side rather than filtered server-side.
+  const { data: unitsData } = useAcademicUnits({ rootsOnly: true })
+  const { data: allProgramsData } = useAllPrograms()
+  const facultyUnit = (unitsData?.data ?? []).find(
+    (u) => u.linkedEntity?.type === "faculty" && u.linkedEntity.id === facultyId
+  )
+  const directPrograms = (allProgramsData?.data ?? []).filter(
+    (p) =>
+      p.departmentId === null &&
+      facultyUnit !== undefined &&
+      p.parentAcademicUnitId === facultyUnit.id
+  )
 
   const handleDeactivateDept = async (id: number) => {
     try {
@@ -251,6 +276,17 @@ function FacultyDetail({
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to deactivate department"
+      )
+    }
+  }
+
+  const handleDeactivateDirectProgram = async (id: number) => {
+    try {
+      await deactivateProgram.mutateAsync(id)
+      toast.success("Program deactivated")
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to deactivate program"
       )
     }
   }
@@ -421,6 +457,98 @@ function FacultyDetail({
         </div>
       )}
 
+      <div className="flex items-center justify-between pt-2">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            Programs — Direct
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Programs attached straight to this faculty, with no department in
+            between.
+          </p>
+        </div>
+        {canManage && (
+          <Button size="sm" onClick={() => setEditingDirectProgram(null)}>
+            <Plus className="size-3.5" data-icon="inline-start" /> Add Program
+          </Button>
+        )}
+      </div>
+
+      {directPrograms.length === 0 ? (
+        <EmptyState
+          icon={GraduationCap}
+          title="No direct programs"
+          description="Programs here skip the department layer entirely — attach one straight to this faculty."
+          action={
+            canManage ? (
+              <Button onClick={() => setEditingDirectProgram(null)}>
+                <Plus className="size-4" data-icon="inline-start" />
+                Add Program
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="space-y-2">
+          {directPrograms.map((program) => (
+            <div
+              key={program.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border p-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {program.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {program.code} · {program.degreeType} ·{" "}
+                  {program.durationYears}yr · {program.minCreditUnits} units
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <StatusBadge
+                  label={program.isActive ? "Active" : "Inactive"}
+                  variant={program.isActive ? "success" : "destructive"}
+                  dot
+                />
+                {canManage && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setReassigning(program)}
+                      title="Reassign faculty/department"
+                    >
+                      <ArrowRightLeft className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setEditingDirectProgram(program)}
+                      title="Edit program"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    {program.isActive && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() =>
+                          handleDeactivateDirectProgram(program.id)
+                        }
+                        disabled={deactivateProgram.isPending}
+                        title="Deactivate program"
+                      >
+                        <Power className="size-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <FacultyFormDialog
         open={editingFaculty}
         onClose={() => setEditingFaculty(false)}
@@ -431,6 +559,17 @@ function FacultyDetail({
         onClose={() => setEditingDept(undefined)}
         facultyId={facultyId}
         department={editingDept}
+      />
+      <ProgramFormDialog
+        open={editingDirectProgram !== undefined}
+        onClose={() => setEditingDirectProgram(undefined)}
+        faculty={{ id: facultyId, name: faculty.name }}
+        program={editingDirectProgram}
+      />
+      <ReassignProgramDialog
+        program={reassigning}
+        currentFacultyId={facultyId}
+        onClose={() => setReassigning(null)}
       />
     </div>
   )
@@ -455,6 +594,7 @@ function DepartmentDetail({
   const [editingProgram, setEditingProgram] = useState<
     Program | null | undefined
   >(undefined)
+  const [reassigning, setReassigning] = useState<Program | null>(null)
 
   const department = data?.data
   const programs = department?.programs ?? []
@@ -598,6 +738,14 @@ function DepartmentDetail({
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          onClick={() => setReassigning(program)}
+                          title="Reassign faculty/department"
+                        >
+                          <ArrowRightLeft className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={() => setEditingProgram(program)}
                           title="Edit program"
                         >
@@ -669,6 +817,11 @@ function DepartmentDetail({
         onClose={() => setEditingProgram(undefined)}
         departmentId={departmentId}
         program={editingProgram}
+      />
+      <ReassignProgramDialog
+        program={reassigning}
+        currentFacultyId={facultyId}
+        onClose={() => setReassigning(null)}
       />
     </div>
   )

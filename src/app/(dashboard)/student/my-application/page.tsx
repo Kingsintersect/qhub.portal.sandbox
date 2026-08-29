@@ -18,6 +18,8 @@ import SectionCard from "@/components/custom/SectionCard"
 import DocumentList from "@/components/custom/DocumentList"
 import StatusBadge from "@/components/custom/StatusBadge"
 import EmptyState from "@/components/custom/EmptyState"
+import { ZoomableImage } from "@/components/custom/ZoomableImage"
+import { getFileKind } from "@/lib/utils"
 import {
   applicationReviewKeys,
   applicationReviewMutationOptions,
@@ -334,11 +336,11 @@ export default function MyApplicationPage() {
         <SectionCard title="Personal Information" icon={User}>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="mb-2 flex items-center gap-4 sm:col-span-2 lg:col-span-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ZoomableImage
                 src={personal_info.passport_url}
-                alt="Passport"
-                className="h-20 w-20 rounded-xl border border-border object-cover"
+                alt="Passport photograph"
+                title="Your passport photograph"
+                className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border"
               />
               <div>
                 <p className="text-lg font-semibold text-foreground">
@@ -538,12 +540,24 @@ export default function MyApplicationPage() {
                     <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                       Certificate
                     </p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={record.certificate_url}
-                      alt={`${record.qualification} Certificate`}
-                      className="h-auto w-full max-w-sm rounded-xl border border-border object-cover"
-                    />
+                    {getFileKind(record.certificate_url) === "image" ? (
+                      <ZoomableImage
+                        src={record.certificate_url}
+                        alt={`${record.qualification} certificate`}
+                        title={`${record.institution} — ${record.qualification} Certificate`}
+                        className="h-auto w-full max-w-sm overflow-hidden rounded-xl border border-border"
+                      />
+                    ) : (
+                      <a
+                        href={record.certificate_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-primary hover:underline"
+                      >
+                        <FileText size={16} />
+                        View {record.qualification} certificate
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

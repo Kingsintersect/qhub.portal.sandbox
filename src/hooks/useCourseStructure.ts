@@ -208,6 +208,15 @@ export function useUpdateProgram() {
         qc.invalidateQueries({
           queryKey: courseStructureKeys.programs.detail(variables.id),
         }),
+        // A reassignment (departmentId/parentAcademicUnitId change) can leave
+        // a stale copy of this program embedded in a Department's or
+        // Faculty's nested `programs` list — the *old* department/faculty in
+        // particular, whose id isn't in `variables` to invalidate precisely.
+        // Invalidating the whole departments/faculties trees (not just
+        // `.detail(id)`) catches both the old and new home reliably; a plain
+        // field edit re-invalidates the same trees too, which is harmless.
+        qc.invalidateQueries({ queryKey: courseStructureKeys.departments.all }),
+        qc.invalidateQueries({ queryKey: courseStructureKeys.faculties.all }),
       ])
     },
   })
