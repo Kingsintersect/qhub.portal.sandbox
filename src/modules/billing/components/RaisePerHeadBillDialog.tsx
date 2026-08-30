@@ -6,6 +6,7 @@ import {
   usePreviewPerHead,
   useRaisePerHead,
 } from "@/modules/billing/hooks/use-billing"
+import { errorEnvelope } from "@/lib/api-error"
 import { formatMinor } from "@/modules/billing/lib/money"
 import type {
   PerHeadPreview,
@@ -69,11 +70,7 @@ export function RaisePerHeadBillDialog({
       {
         onSuccess: () => onClose(),
         onError: (error) => {
-          const body = (
-            error as {
-              response?: { data?: { error?: RollMovedError } }
-            }
-          )?.response?.data?.error
+          const body = errorEnvelope<RollMovedError>(error)
 
           // The roll moved. Re-open the preview on what is true now rather
           // than billing a total nobody approved.

@@ -8,12 +8,7 @@ import {
   controlKeys,
   controlsService,
 } from "@/modules/platform-controls/services/controls.service"
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
+import { errorMessage } from "@/lib/api-error"
 
 export function useInstitutionFeatures(tenantId: number) {
   return useQuery({

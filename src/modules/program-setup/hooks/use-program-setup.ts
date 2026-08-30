@@ -8,6 +8,7 @@ import {
   programSetupService,
 } from "@/modules/program-setup/services/program-setup.service"
 import type { Program } from "@/modules/program-setup/types"
+import { errorMessage } from "@/lib/api-error"
 
 export function usePrograms() {
   return useQuery({
@@ -31,12 +32,6 @@ export function useAcademicUnits() {
     queryFn: () => programSetupService.listAcademicUnits(),
     staleTime: 5 * 60 * 1000,
   })
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
 }
 
 export function useCreateProgram() {

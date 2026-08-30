@@ -9,12 +9,7 @@ import {
   platformAnnouncementsService,
 } from "@/modules/announcements/services/announcements.service"
 import type { AnnouncementDraft } from "@/modules/announcements/types"
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
+import { errorMessage } from "@/lib/api-error"
 
 // --- Platform console -------------------------------------------------------
 

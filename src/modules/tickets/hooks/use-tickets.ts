@@ -8,12 +8,7 @@ import {
   platformTicketsService,
   ticketKeys,
 } from "@/modules/tickets/services/tickets.service"
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
+import { errorMessage } from "@/lib/api-error"
 
 export function useTicketQueue(
   params: { status?: string; search?: string; tenantId?: number } = {}

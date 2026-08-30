@@ -7,12 +7,7 @@ import {
   billingKeys,
   billingService,
 } from "@/modules/billing/services/billing.service"
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
+import { errorCode, errorMessage } from "@/lib/api-error"
 
 export function usePlans() {
   return useQuery({
@@ -190,9 +185,7 @@ export function useRaisePerHead() {
       void queryClient.invalidateQueries({ queryKey: billingKeys.all })
     },
     onError: (error) => {
-      const code = (
-        error as { response?: { data?: { error?: { code?: string } } } }
-      )?.response?.data?.error?.code
+      const code = errorCode(error)
 
       // A moved roll is not an error to report and forget: the dialog re-opens
       // its preview on it and explains itself there. Everything else must be

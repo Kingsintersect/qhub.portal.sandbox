@@ -11,13 +11,9 @@ import type {
   ProvisionInstitutionPayload,
   UpdateInstitutionStatusPayload,
 } from "@/modules/institutions/types"
+import { errorMessage } from "@/lib/api-error"
 
 /** Pulls the API's message out of an axios-shaped error without assuming it. */
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
 
 export function useProvisionInstitution() {
   const queryClient = useQueryClient()

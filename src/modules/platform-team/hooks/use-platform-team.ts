@@ -8,12 +8,7 @@ import {
   platformTeamService,
 } from "@/modules/platform-team/services/platform-team.service"
 import type { CreatePlatformUserPayload } from "@/modules/platform-team/types"
-
-function errorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { data?: { message?: string } } })
-    ?.response
-  return response?.data?.message ?? fallback
-}
+import { errorMessage } from "@/lib/api-error"
 
 export function usePlatformUsers() {
   return useQuery({
