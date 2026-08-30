@@ -11,7 +11,6 @@ import {
   useRecordPayment,
   useRunBilling,
   useSendReminder,
-  useSubscriptions,
 } from "@/modules/billing/hooks/use-billing"
 import type { Invoice, RevenueRow } from "@/modules/billing/types"
 
@@ -503,7 +502,6 @@ function InvoiceRow({
 
 function PlansView({ revenue }: { revenue: RevenueRow[] }) {
   const { data: plans } = usePlans()
-  const { data: subscriptions } = useSubscriptions()
 
   return (
     <>
@@ -658,73 +656,6 @@ function PlansView({ revenue }: { revenue: RevenueRow[] }) {
           </div>
         ))}
       </div>
-
-      <div
-        style={{
-          background: "var(--card)",
-          borderRadius: 20,
-          boxShadow: "var(--shadow-card)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "16px 24px 4px",
-          }}
-        >
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--txt)" }}>
-            Subscriptions
-          </div>
-          <div
-            style={{ marginLeft: "auto", fontSize: 12, color: "var(--txt3)" }}
-          >
-            A lapsed trial leaves the portal read-only — nothing is deleted
-          </div>
-        </div>
-
-        {(subscriptions ?? []).length === 0 && (
-          <Empty>No subscriptions yet.</Empty>
-        )}
-
-        {(subscriptions ?? []).map((s) => (
-          <div
-            key={s.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              padding: "12px 24px",
-              fontSize: 13,
-              borderTop: "1px solid var(--line2)",
-            }}
-          >
-            <div style={{ fontWeight: 500, color: "var(--txt)" }}>
-              {s.institution ?? "—"}
-            </div>
-            <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
-              {s.plan ?? "no plan"}
-              {s.inTrial && s.trialEndsOn
-                ? ` · trial ends ${s.trialEndsOn}`
-                : ""}
-            </div>
-            <span
-              className="qhub-mono"
-              style={{
-                marginLeft: "auto",
-                fontSize: 9.5,
-                letterSpacing: ".05em",
-                padding: "4px 8px",
-                borderRadius: 7,
-                ...subscriptionTone(s.status),
-              }}
-            >
-              {s.status}
-            </span>
-          </div>
-        ))}
-      </div>
     </>
   )
 }
@@ -753,20 +684,6 @@ function invoiceTone(i: Invoice) {
   }
   if (i.status === "VOID") {
     return { color: "var(--txt4)", background: "var(--panel)" }
-  }
-
-  return { color: "var(--warn)", background: "var(--warn-bg)" }
-}
-
-function subscriptionTone(status: string) {
-  if (status === "ACTIVE") {
-    return { color: "var(--accent)", background: "var(--accent-soft)" }
-  }
-  if (status === "CANCELLED") {
-    return { color: "var(--txt4)", background: "var(--panel)" }
-  }
-  if (status === "PAST_DUE") {
-    return { color: "var(--neg)", background: "var(--neg-bg)" }
   }
 
   return { color: "var(--warn)", background: "var(--warn-bg)" }
