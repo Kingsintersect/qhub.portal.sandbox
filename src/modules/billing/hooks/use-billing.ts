@@ -189,8 +189,21 @@ export function useRaisePerHead() {
       toast.success(`${invoice.number} raised`)
       void queryClient.invalidateQueries({ queryKey: billingKeys.all })
     },
-    // A moved roll is not an error to report and forget — the dialog re-opens
-    // its preview on it — so it is deliberately not toasted here.
+    onError: (error) => {
+      const code = (
+        error as { response?: { data?: { error?: { code?: string } } } }
+      )?.response?.data?.error?.code
+
+      // A moved roll is not an error to report and forget: the dialog re-opens
+      // its preview on it and explains itself there. Everything else must be
+      // said out loud — suppressing the lot to special-case one code left the
+      // operator clicking a button that silently did nothing.
+      if (code === "ROLL_MOVED") return
+
+      toast.error("Could not raise that bill", {
+        description: errorMessage(error, "Nothing was billed."),
+      })
+    },
   })
 }
 
