@@ -228,15 +228,15 @@ export default function PlatformSigninPage() {
       */}
       {/* eslint-disable-next-line @next/next/no-img-element -- supplied GIF artwork, used verbatim; next/image would resample it */}
       <img
-        src="/brand/qverse-lockup-white.gif"
+        src="/brand/qverse-lockup-color-white.gif"
         alt="Qverse"
         height={56}
         style={{
           position: "relative",
           height: 56,
           width: "auto",
-          marginBottom: 26,
-          filter: "drop-shadow(0 6px 20px rgba(8,12,18,.45))",
+          marginBottom: 20,
+          filter: "drop-shadow(0 3px 12px rgba(8,12,18,.45))",
         }}
       />
 
