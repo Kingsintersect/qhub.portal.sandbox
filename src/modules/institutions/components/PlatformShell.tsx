@@ -13,6 +13,7 @@ import {
   ListChecks,
   Megaphone,
   Moon,
+  PlaySquare,
   ScrollText,
   Search,
   Settings,
@@ -134,6 +135,13 @@ const NAV: NavItem[] = [
     permission: "team.read",
     badge: "team",
     tone: "neg",
+  },
+  {
+    href: "/platform/media",
+    label: "Media",
+    Icon: PlaySquare,
+    permission: "media.read",
+    badge: "media",
   },
   {
     href: "/platform/audit",

@@ -20,6 +20,8 @@ export type NavCounts = {
   tasks: number
   reports: number
   team: number
+  /** Lectures not yet watchable — processing or failed. */
+  media: number
 }
 
 export function useNavCounts(enabled: boolean) {
