@@ -201,6 +201,9 @@ export default function PlatformSigninPage() {
         background: "url('/platform/login-bg.jpg') center / cover no-repeat",
         fontFamily: "var(--font-geist), Geist, 'Helvetica Neue', sans-serif",
         display: "flex",
+        // Column, so the lockup stacks above the card as drawn. As a row it
+        // would sit beside it.
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: 32,
@@ -217,63 +220,25 @@ export default function PlatformSigninPage() {
         aria-hidden="true"
       />
 
-      <div
+      {/*
+        The lockup sits centred above the card, at 56px, with a drop shadow —
+        it is over a photograph, so the shadow is what keeps it legible
+        wherever the painting happens to be light. Supplied artwork, never
+        rebuilt as HTML text.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- supplied GIF artwork, used verbatim; next/image would resample it */}
+      <img
+        src="/brand/qverse-lockup-white.gif"
+        alt="Qverse"
+        height={56}
         style={{
-          position: "absolute",
-          top: 28,
-          left: 32,
-          display: "flex",
-          alignItems: "center",
-          gap: 11,
+          position: "relative",
+          height: 56,
+          width: "auto",
+          marginBottom: 26,
+          filter: "drop-shadow(0 6px 20px rgba(8,12,18,.45))",
         }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            background: "rgba(255,255,255,.92)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(8,12,18,.25)",
-          }}
-        >
-          <svg
-            style={{ stroke: C.accent }}
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            strokeWidth="1.6"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
-          </svg>
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              letterSpacing: "-0.01em",
-              color: "#fff",
-              textShadow: "0 1px 8px rgba(8,12,18,.4)",
-            }}
-          >
-            QHub
-          </div>
-          <div
-            style={{
-              fontSize: 11.5,
-              color: "rgba(255,255,255,.85)",
-              textShadow: "0 1px 6px rgba(8,12,18,.4)",
-            }}
-          >
-            Institutions manager
-          </div>
-        </div>
-      </div>
+      />
 
       <div
         style={{
@@ -647,7 +612,8 @@ export default function PlatformSigninPage() {
           textShadow: "0 1px 6px rgba(8,12,18,.4)",
         }}
       >
-        © 2026 QHub · access is logged to the platform audit trail
+        © 2026 Qverse Technologies · access is logged to the platform audit
+        trail
       </div>
     </div>
   )

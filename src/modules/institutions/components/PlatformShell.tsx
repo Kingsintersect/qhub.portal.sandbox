@@ -275,52 +275,27 @@ export function PlatformShell({ children }: { children: ReactNode }) {
               textDecoration: "none",
             }}
           >
-            <span
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                background: "var(--logo-tile)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg
-                style={{ stroke: "var(--logo-mark)" }}
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                strokeWidth="1.6"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18M3 12h18" />
-              </svg>
-            </span>
-            <span>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  letterSpacing: "-0.01em",
-                  color: "var(--txt)",
-                }}
-              >
-                QHub
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 11.5,
-                  color: "var(--txt3)",
-                }}
-              >
-                Institutions manager
-              </span>
-            </span>
+            {/*
+              The Qverse lockup, supplied as artwork. Both files are rendered
+              and CSS picks by theme — see platform-tokens.css for why this is
+              not driven off resolvedTheme.
+            */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- supplied GIF artwork, used verbatim */}
+            <img
+              src="/brand/qverse-lockup-color-dark.gif"
+              alt="Qverse"
+              height={38}
+              className="qhub-lockup-light"
+              style={{ height: 38, width: "auto", display: "block" }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element -- supplied GIF artwork, used verbatim */}
+            <img
+              src="/brand/qverse-lockup-color-white.gif"
+              alt="Qverse"
+              height={38}
+              className="qhub-lockup-dark"
+              style={{ height: 38, width: "auto" }}
+            />
           </Link>
 
           <nav

@@ -217,3 +217,27 @@
   zoom: 0.8;
   --zoom: 0.8;
 }
+
+/*
+ * The Qverse lockup, theme-swapped without JavaScript.
+ *
+ * next-themes cannot know the stored choice on the server, so keying the
+ * logo off resolvedTheme renders the wrong one for a frame on every load.
+ * Both files are in the markup instead and CSS picks — which resolves on the
+ * same paint as the tokens themselves, so the lockup never flashes.
+ *
+ * The wordmark is always the supplied file, never rebuilt as HTML text.
+ */
+.qhub-lockup-dark {
+  display: none;
+}
+
+.dark .qhub-lockup-light,
+[data-theme="dark"] .qhub-lockup-light {
+  display: none;
+}
+
+.dark .qhub-lockup-dark,
+[data-theme="dark"] .qhub-lockup-dark {
+  display: block;
+}
