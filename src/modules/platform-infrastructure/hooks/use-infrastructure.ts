@@ -92,6 +92,26 @@ export function useInfrastructureOperation(tenantId: number) {
  * account has no authenticator" are different problems with different fixes,
  * and the API distinguishes them.
  */
+export function useRetryDomain(tenantId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => infrastructureService.retryDomain(tenantId),
+    onSuccess: () => {
+      // Deliberately not "done": issuance can still fail, and the card's own
+      // state says which. Claiming success here would contradict it.
+      toast.success("Asked again for a certificate")
+      void queryClient.invalidateQueries({
+        queryKey: ["platform-infrastructure", tenantId],
+      })
+    },
+    onError: (error) =>
+      toast.error("Could not request a certificate", {
+        description: errorMessage(error, "Nothing changed."),
+      }),
+  })
+}
+
 export function useComputeGate(tenantId: number) {
   const queryClient = useQueryClient()
 

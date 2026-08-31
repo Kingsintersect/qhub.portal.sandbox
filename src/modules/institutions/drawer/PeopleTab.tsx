@@ -10,7 +10,7 @@ const STUDENT_GRID =
   "140px minmax(0,1.4fr) minmax(0,1.2fr) 70px 70px 100px 110px"
 // Staff ID · name · department+faculty · teaching · load · media · last active
 const LECTURER_GRID =
-  "120px minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,1.1fr) 130px 80px 110px"
+  "120px minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1fr) 120px 70px 90px 110px"
 
 /**
  * The drawer's Students and Lecturers tabs, lifted from the draft.
@@ -178,7 +178,7 @@ export function PeopleTab({
             fontSize: 10.5,
             letterSpacing: ".09em",
             color: "var(--txt4)",
-            minWidth: kind === "students" ? 900 : 1040,
+            minWidth: kind === "students" ? 900 : 1120,
             boxSizing: "border-box",
           }}
         >
@@ -200,6 +200,7 @@ export function PeopleTab({
               <div>TEACHING</div>
               <div>STUDENT LOAD</div>
               <div>MEDIA</div>
+              <div>DAYS SEEN</div>
               <div>LAST ACTIVE</div>
             </>
           )}
@@ -262,7 +263,7 @@ function Row({
         padding: "11px 22px",
         fontSize: 13,
         borderTop: "1px solid var(--line2)",
-        minWidth: kind === "students" ? 900 : 1040,
+        minWidth: kind === "students" ? 900 : 1120,
         boxSizing: "border-box",
       }}
     >
@@ -374,6 +375,17 @@ function Row({
             }}
           >
             {p.mediaCount === null || p.mediaCount === 0 ? "—" : p.mediaCount}
+          </div>
+
+          {/* Grey, always. A measured count, not a score — colouring it would
+              turn a fact about sign-ins into a verdict on a person. */}
+          <div
+            className="qhub-mono"
+            style={{ fontSize: 12, color: "var(--txt3)" }}
+          >
+            {p.daysSeenThisMonth === null || p.daysSeenThisMonth === 0
+              ? "—"
+              : p.daysSeenThisMonth}
           </div>
         </>
       )}

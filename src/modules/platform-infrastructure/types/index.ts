@@ -48,6 +48,29 @@ export type Infrastructure = {
     bytes: number | null
     warning: boolean
   }
+  /**
+   * The school's own hostname. Null until one is recorded.
+   *
+   * Unlike everything else on this tab, what is being waited on belongs to
+   * somebody outside the company — a university's IT department creates the
+   * record, and we can neither do it nor hurry it.
+   */
+  customDomain: {
+    host: string
+    state: "PENDING" | "POINTED" | "SECURING" | "LIVE" | "FAILED"
+    /** The exact line a staff member emails to the university. */
+    cname: string
+    cnameTarget: string
+    waitingDays: number | null
+    worthChasing: boolean
+    pointedAt: string | null
+    checkedAt: string | null
+    /** What the last lookup saw — wrong is different from absent. */
+    resolvedTo: string | null
+    certExpiresAt: string | null
+    daysUntilExpiry: number | null
+    lastError: string | null
+  } | null
   writes: {
     enabled: boolean
     expiresAt: string | null

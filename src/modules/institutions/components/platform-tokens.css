@@ -245,3 +245,16 @@
 [data-theme="dark"] .qhub-lockup-dark {
   display: block;
 }
+
+/*
+ * The certificate-issuing spinner.
+ *
+ * Defined here rather than inline: a keyframes rule cannot live in a React
+ * style object, so an inline `animation` naming one that does not exist is a
+ * spinner that silently never turns.
+ */
+@keyframes qhub-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

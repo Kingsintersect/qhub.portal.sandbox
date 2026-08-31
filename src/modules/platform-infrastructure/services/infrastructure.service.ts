@@ -52,6 +52,14 @@ export const infrastructureService = {
       AUTH
     ),
 
+  /** Ask again for a certificate after the school fixes their DNS. */
+  retryDomain: async (tenantId: number) =>
+    apiClient.post<{ data: unknown }, Record<string, never>>(
+      `${base(tenantId)}/domain/retry`,
+      {},
+      AUTH
+    ),
+
   setQuota: async (tenantId: number, bytes: number | null) =>
     apiClient.post<{ data: Infrastructure }, { bytes: number | null }>(
       `${base(tenantId)}/quota`,

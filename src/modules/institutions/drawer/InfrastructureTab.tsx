@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import {
   useInfrastructure,
+  useRetryDomain,
   useInfrastructureOperation,
   useSetStorageQuota,
 } from "@/modules/platform-infrastructure/hooks/use-infrastructure"
@@ -14,6 +15,7 @@ import type {
   InfraBackup,
   Infrastructure,
 } from "@/modules/platform-infrastructure/types"
+import { CustomDomainCard } from "@/modules/institutions/drawer/CustomDomainCard"
 
 type Op = {
   kind: "backup" | "migrate" | "rotate" | "quota"
@@ -67,6 +69,7 @@ export function InfrastructureTab({
   const confirm = useConfirm()
 
   const { data, isPending } = useInfrastructure(tenantId)
+  const retryDomain = useRetryDomain(tenantId)
   const { data: mfa } = useMfaStatus()
   const run = useInfrastructureOperation(tenantId)
   const setQuota = useSetStorageQuota(tenantId)
@@ -197,7 +200,14 @@ export function InfrastructureTab({
           alignItems: "start",
         }}
       >
-        <DatabaseCard data={data} loading={isPending} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <CustomDomainCard
+            domain={data?.customDomain ?? null}
+            onRetry={() => retryDomain.mutate()}
+            retrying={retryDomain.isPending}
+          />
+          <DatabaseCard data={data} loading={isPending} />
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div

@@ -55,6 +55,14 @@ export type DirectoryPerson = {
   studentLoad: number | null
   /** Library items crediting this instructor. */
   mediaCount: number | null
+  /**
+   * Days with any sign-in this calendar month.
+   *
+   * A count, never a percentage, and never coloured. "Engagement %" was cut
+   * because nothing defines what "active" means — and a tinted percentage
+   * against a named member of staff is a judgement rather than a fact.
+   */
+  daysSeenThisMonth: number | null
 }
 
 export type DirectoryResult = {
