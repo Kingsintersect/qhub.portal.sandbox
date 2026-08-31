@@ -8,7 +8,9 @@ import type { DirectoryPerson } from "@/modules/platform-operations/types"
 
 const STUDENT_GRID =
   "140px minmax(0,1.4fr) minmax(0,1.2fr) 70px 70px 100px 110px"
-const LECTURER_GRID = "140px minmax(0,1.4fr) minmax(0,1.4fr) 120px"
+// Staff ID · name · department+faculty · teaching · load · media · last active
+const LECTURER_GRID =
+  "120px minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,1.1fr) 130px 80px 110px"
 
 /**
  * The drawer's Students and Lecturers tabs, lifted from the draft.
@@ -176,7 +178,7 @@ export function PeopleTab({
             fontSize: 10.5,
             letterSpacing: ".09em",
             color: "var(--txt4)",
-            minWidth: kind === "students" ? 900 : 640,
+            minWidth: kind === "students" ? 900 : 1040,
             boxSizing: "border-box",
           }}
         >
@@ -192,9 +194,12 @@ export function PeopleTab({
             </>
           ) : (
             <>
-              <div>STAFF NO</div>
+              <div>STAFF ID</div>
               <div>NAME</div>
               <div>DEPARTMENT</div>
+              <div>TEACHING</div>
+              <div>STUDENT LOAD</div>
+              <div>MEDIA</div>
               <div>LAST ACTIVE</div>
             </>
           )}
@@ -257,7 +262,7 @@ function Row({
         padding: "11px 22px",
         fontSize: 13,
         borderTop: "1px solid var(--line2)",
-        minWidth: kind === "students" ? 900 : 640,
+        minWidth: kind === "students" ? 900 : 1040,
         boxSizing: "border-box",
       }}
     >
@@ -310,7 +315,68 @@ function Row({
         }}
       >
         {p.affiliation ?? "—"}
+        {/* Faculty sits under the department, muted — a department name alone
+            is ambiguous across a university of any size. */}
+        {kind === "lecturers" && p.faculty !== null && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--txt4)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {p.faculty}
+          </div>
+        )}
       </div>
+
+      {kind === "lecturers" && (
+        <>
+          <div style={{ minWidth: 0 }}>
+            {p.teachingCount === null || p.teachingCount === 0 ? (
+              <span style={{ color: "var(--txt4)" }}>—</span>
+            ) : (
+              <>
+                <div style={{ fontSize: 12.5, color: "var(--txt2)" }}>
+                  {p.teachingCount} course{p.teachingCount === 1 ? "" : "s"}
+                </div>
+                <div
+                  className="qhub-mono"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--txt4)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {(p.teachingCodes ?? []).slice(0, 3).join(" · ")}
+                  {(p.teachingCodes?.length ?? 0) > 3
+                    ? ` +${(p.teachingCodes?.length ?? 0) - 3}`
+                    : ""}
+                </div>
+              </>
+            )}
+          </div>
+
+          <StudentLoad load={p.studentLoad} />
+
+          <div
+            className="qhub-mono"
+            style={{
+              fontSize: 12,
+              color:
+                p.mediaCount !== null && p.mediaCount > 0
+                  ? "var(--txt2)"
+                  : "var(--txt4)",
+            }}
+          >
+            {p.mediaCount === null || p.mediaCount === 0 ? "—" : p.mediaCount}
+          </div>
+        </>
+      )}
 
       {kind === "students" && (
         <>
@@ -398,6 +464,57 @@ function Empty({
       }}
     >
       {children}
+    </div>
+  )
+}
+
+/**
+ * How many students are in front of this lecturer.
+ *
+ * The bar is scaled against a ceiling rather than the biggest value on the
+ * page: a relative bar makes the busiest person look saturated even when the
+ * whole department is quiet, which is the opposite of what it is for.
+ */
+function StudentLoad({ load }: { load: number | null }) {
+  if (load === null) {
+    return <span style={{ color: "var(--txt4)" }}>—</span>
+  }
+
+  const CEILING = 2400
+  const HEAVY = 1800
+
+  const pct = Math.min(100, Math.round((load / CEILING) * 100))
+  const heavy = load >= HEAVY
+
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div
+        className="qhub-mono"
+        style={{
+          fontSize: 12,
+          color: heavy ? "var(--series2)" : "var(--txt2)",
+        }}
+      >
+        {load.toLocaleString()}
+      </div>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 999,
+          background: "var(--panel)",
+          marginTop: 4,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: heavy ? "var(--series2)" : "var(--accent)",
+            borderRadius: 999,
+          }}
+        />
+      </div>
     </div>
   )
 }

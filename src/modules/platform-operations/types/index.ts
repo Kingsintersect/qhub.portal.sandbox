@@ -43,6 +43,18 @@ export type DirectoryPerson = {
    * not the platform's.
    */
   lastActive: string | null
+
+  /**
+   * Lecturers only. Null on students, who have none of these — a student row
+   * showing "0 courses" would be a claim about them rather than an absent
+   * column.
+   */
+  faculty: string | null
+  teachingCount: number | null
+  teachingCodes: string[] | null
+  studentLoad: number | null
+  /** Library items crediting this instructor. */
+  mediaCount: number | null
 }
 
 export type DirectoryResult = {
