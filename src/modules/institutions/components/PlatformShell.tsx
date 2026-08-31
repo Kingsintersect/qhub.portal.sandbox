@@ -286,7 +286,9 @@ export function PlatformShell({ children }: { children: ReactNode }) {
               alt="Qverse"
               height={38}
               className="qhub-lockup-light"
-              style={{ height: 38, width: "auto", display: "block" }}
+              // No inline `display`: it would beat the class rule that swaps
+              // these by theme, and both lockups would render side by side.
+              style={{ height: 38, width: "auto" }}
             />
             {/* eslint-disable-next-line @next/next/no-img-element -- supplied GIF artwork, used verbatim */}
             <img

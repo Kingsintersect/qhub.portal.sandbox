@@ -228,6 +228,10 @@
  *
  * The wordmark is always the supplied file, never rebuilt as HTML text.
  */
+.qhub-lockup-light {
+  display: block;
+}
+
 .qhub-lockup-dark {
   display: none;
 }
