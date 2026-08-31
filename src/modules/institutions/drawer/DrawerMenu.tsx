@@ -12,9 +12,10 @@ export type DrawerTab =
   | "maint"
   | "import"
   | "infra"
+  | "media"
   | "audit"
 
-/** The draft's ten items, with its own icon paths. */
+/** The draft's items, with its own icon paths. */
 const ITEMS: Array<{
   key: DrawerTab
   label: string
@@ -66,6 +67,11 @@ const ITEMS: Array<{
     key: "infra",
     label: "Infrastructure",
     d: "M4 5h16v5H4zM4 14h16v5H4zM7 7.5h.01M7 16.5h.01",
+  },
+  {
+    key: "media",
+    label: "Media",
+    d: "M3 5h18v14H3zM10 9.5l5 2.5-5 2.5z",
   },
   {
     key: "audit",

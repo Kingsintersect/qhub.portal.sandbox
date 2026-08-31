@@ -23,6 +23,7 @@ import { PeopleTab } from "@/modules/institutions/drawer/PeopleTab"
 import { FeatureFlagsTab } from "@/modules/institutions/drawer/FeatureFlagsTab"
 import { MaintenanceTab } from "@/modules/institutions/drawer/MaintenanceTab"
 import { AuditTab } from "@/modules/institutions/drawer/AuditTab"
+import { MediaTab } from "@/modules/institutions/drawer/MediaTab"
 import { BillingTab } from "@/modules/institutions/drawer/BillingTab"
 import { TicketsTab } from "@/modules/institutions/drawer/TicketsTab"
 import { BulkImportTab } from "@/modules/institutions/drawer/BulkImportTab"
@@ -348,6 +349,7 @@ export function InstitutionDrawer({
               />
             )}
 
+            {tab === "media" && <MediaTab tenantId={institution.id} />}
             {tab === "audit" && <AuditTab tenantId={institution.id} />}
             {tab === "billing" && <BillingTab tenantId={institution.id} />}
 
