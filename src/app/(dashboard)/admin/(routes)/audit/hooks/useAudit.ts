@@ -2,20 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import type { AuditQueryParams, AuditStats } from "../types/audit.types"
-// ── Live API import (uncomment to use) ──
-// import { auditApi } from "@/lib/api/audit.api";
-import {
-  getDummyAuditLogs,
-  getDummyEntityLogs,
-  DUMMY_AUDIT_STATS,
-} from "../services/audit.dummy"
 import { auditApi } from "../services/audit.api"
-
-// ─── Delay helper (dev / demo only) ──────────────────────────────────────────
-
-function simulateDelay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
 
@@ -35,20 +22,7 @@ export const auditKeys = {
 export function useAuditLogs(params: AuditQueryParams) {
   return useQuery({
     queryKey: auditKeys.logs(params),
-    queryFn: async () => {
-      // await simulateDelay(350);
-      // return getDummyAuditLogs(params.page ?? 1, params.limit ?? 10, {
-      //     action: params.action ?? "",
-      //     entityType: params.entityType ?? "",
-      //     userId: params.userId,
-      //     search: params.search ?? "",
-      //     startDate: params.startDate ?? "",
-      //     endDate: params.endDate ?? "",
-      // });
-      // ── LIVE API (uncomment when backend is ready) ──────────────────────
-      return auditApi.getLogs(params)
-      // ────────────────────────────────────────────────────────────────────
-    },
+    queryFn: () => auditApi.getLogs(params),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   })
@@ -62,17 +36,7 @@ export function useAuditUserLogs(
 ) {
   return useQuery({
     queryKey: auditKeys.userLogs(userId, params),
-    queryFn: async () => {
-      // await simulateDelay(300)
-      // return getDummyAuditLogs(params.page ?? 1, params.limit ?? 10, {
-      //     userId,
-      //     action: params.action ?? "",
-      //     search: params.search ?? "",
-      // });
-      // ── LIVE API ──────────────────────────────────────────────────────
-      return auditApi.getUserLogs(userId, params)
-      // ─────────────────────────────────────────────────────────────────
-    },
+    queryFn: () => auditApi.getUserLogs(userId, params),
     enabled: userId > 0,
     staleTime: 30_000,
   })
@@ -83,13 +47,7 @@ export function useAuditUserLogs(
 export function useAuditEntityLogs(entityType: string, entityId: number) {
   return useQuery({
     queryKey: auditKeys.entityLogs(entityType, entityId),
-    queryFn: async () => {
-      // await simulateDelay(250);
-      // return getDummyEntityLogs(entityType, entityId);
-      // ── LIVE API ──────────────────────────────────────────────────────
-      return auditApi.getEntityLogs(entityType, entityId)
-      // ─────────────────────────────────────────────────────────────────
-    },
+    queryFn: () => auditApi.getEntityLogs(entityType, entityId),
     enabled: Boolean(entityType) && entityId > 0,
     staleTime: 60_000,
   })
@@ -100,13 +58,7 @@ export function useAuditEntityLogs(entityType: string, entityId: number) {
 export function useAuditStats() {
   return useQuery<AuditStats>({
     queryKey: auditKeys.stats(),
-    queryFn: async () => {
-      // await simulateDelay(400);
-      // return DUMMY_AUDIT_STATS;
-      // ── LIVE API ──────────────────────────────────────────────────────
-      return auditApi.getStats()
-      // ─────────────────────────────────────────────────────────────────
-    },
+    queryFn: () => auditApi.getStats(),
     staleTime: 60_000,
   })
 }

@@ -58,8 +58,6 @@ src/
         ├── AuditLogsView.tsx              # /admin/audit/logs — Full searchable log table
         ├── AuditUserView.tsx              # /admin/audit/user/[id] — User timeline
         ├── AuditEntityView.tsx            # /admin/audit/entity/[type]/[id]
-        ├── data/
-        │   └── audit.dummy.ts             # 50 realistic dummy logs + stats
         └── components/
             ├── ActionBadge.tsx            # Coloured badge + dot for each AuditAction
             ├── AuditCharts.tsx            # Stat cards (GSAP counter) + Recharts charts
@@ -92,22 +90,15 @@ Open [http://localhost:3000/admin/audit](http://localhost:3000/admin/audit)
 
 ---
 
-## 🔌 Switching from Dummy Data → Live API
+## 🔌 Live API
 
-Every query function in `src/hooks/useAudit.ts` has the live API call commented
-out immediately below the dummy call. To switch:
-
-```ts
-// In src/hooks/useAudit.ts — useAuditLogs example:
-
-queryFn: async () => {
-  // ── LIVE API (uncomment when backend is ready) ──────────────────────
-  return auditApi.getLogs(params);          // ← uncomment this
-  // ───────────────────────────────────────────────────────────────────
-  await simulateDelay(350);                 // ← remove these two lines
-  return getDummyAuditLogs(...);
-},
-```
+This module is wired to the real backend — every hook in `useAudit.ts` calls
+`auditApi` (`src/app/(dashboard)/admin/(routes)/audit/services/audit.api.ts`)
+directly, matching the `bruno/audit/*.bru` collection
+(`/audit/logs`, `/audit/logs/user/:userId`, `/audit/logs/entity/:type/:id`,
+`/audit/stats`). There is no dummy-data fallback left in this module as of
+2026-09-01 — `audit.dummy.ts` was deleted and the dead imports/commented
+mock branches were removed from every hook.
 
 Set your backend URL:
 
@@ -120,35 +111,35 @@ NEXT_PUBLIC_API_URL=https://api.unizik.edu.ng
 
 ## 📊 Features
 
-| Feature | Implementation |
-|---|---|
-| Stat cards with animated counters | GSAP `textContent` tween |
-| Area + Pie + Bar charts | Recharts `ResponsiveContainer` |
-| Slide-in filter panel | Framer Motion `x: "100%"` spring |
-| Table row reveal | Framer Motion `stagger` |
-| Timeline scroll animation | GSAP `ScrollTrigger` |
-| Quick action pill filters | Framer Motion `layoutId` |
-| Log detail modal | Framer Motion scale + spring |
-| CSV export | Native `Blob` |
-| Excel export | `xlsx` (dynamic import) |
-| PDF export | `jsPDF` + `jspdf-autotable` (dynamic import) |
-| Bulk selection export | Zustand `selectedIds` set |
-| Grouped view | `academicYear` / `semester` / `entityType` |
-| Pagination | Zustand `page` + TanStack `placeholderData` |
-| Global search shortcut | `"/"` key listener |
-| Zustand devtools | Available in development |
-| React Query devtools | Available in development |
+| Feature                           | Implementation                               |
+| --------------------------------- | -------------------------------------------- |
+| Stat cards with animated counters | GSAP `textContent` tween                     |
+| Area + Pie + Bar charts           | Recharts `ResponsiveContainer`               |
+| Slide-in filter panel             | Framer Motion `x: "100%"` spring             |
+| Table row reveal                  | Framer Motion `stagger`                      |
+| Timeline scroll animation         | GSAP `ScrollTrigger`                         |
+| Quick action pill filters         | Framer Motion `layoutId`                     |
+| Log detail modal                  | Framer Motion scale + spring                 |
+| CSV export                        | Native `Blob`                                |
+| Excel export                      | `xlsx` (dynamic import)                      |
+| PDF export                        | `jsPDF` + `jspdf-autotable` (dynamic import) |
+| Bulk selection export             | Zustand `selectedIds` set                    |
+| Grouped view                      | `academicYear` / `semester` / `entityType`   |
+| Pagination                        | Zustand `page` + TanStack `placeholderData`  |
+| Global search shortcut            | `"/"` key listener                           |
+| Zustand devtools                  | Available in development                     |
+| React Query devtools              | Available in development                     |
 
 ---
 
 ## 🗺️ Pages & Routes
 
-| Route | Component | Description |
-|---|---|---|
-| `/admin/audit` | `AuditDashboard` | Stat cards, charts, recent logs table + grouped view |
-| `/admin/audit/logs` | `AuditLogsView` | Full log table with search, quick filters, filter panel, export |
-| `/admin/audit/user/[userId]` | `AuditUserView` | Animated timeline for a specific user |
-| `/admin/audit/entity/[type]/[id]` | `AuditEntityView` | Change history for a specific entity (diff view) |
+| Route                             | Component         | Description                                                     |
+| --------------------------------- | ----------------- | --------------------------------------------------------------- |
+| `/admin/audit`                    | `AuditDashboard`  | Stat cards, charts, recent logs table + grouped view            |
+| `/admin/audit/logs`               | `AuditLogsView`   | Full log table with search, quick filters, filter panel, export |
+| `/admin/audit/user/[userId]`      | `AuditUserView`   | Animated timeline for a specific user                           |
+| `/admin/audit/entity/[type]/[id]` | `AuditEntityView` | Change history for a specific entity (diff view)                |
 
 ---
 
