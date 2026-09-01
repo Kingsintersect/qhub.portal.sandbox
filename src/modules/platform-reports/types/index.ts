@@ -28,6 +28,29 @@ export type ReportRun = {
   expiresOn: string | null
 }
 
+/**
+ * One run with its rendered contents.
+ *
+ * Built on read rather than stored: a report's tables are derived from the
+ * estate as it was at the run's period, and holding them would mean a second
+ * copy that can disagree with the first.
+ */
+export type ReportRunDetail = ReportRun & {
+  kpis: Array<{ label: string; value: string; sub?: string | null }>
+  tables: Array<{
+    title?: string | null
+    columns: string[]
+    rows: string[][]
+  }>
+  /** The analyst notes, shown accent-barred beneath the table. */
+  notes: string[]
+  deliveries: Array<{
+    channel: string
+    recipient: string | null
+    occurredAt: string | null
+  }>
+}
+
 export type ReportRunPage = {
   data: ReportRun[]
   meta: {

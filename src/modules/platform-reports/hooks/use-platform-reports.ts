@@ -65,6 +65,14 @@ export function useGenerateReport() {
   })
 }
 
+export function useReportRun(id: number | null) {
+  return useQuery({
+    queryKey: [...platformReportKeys.all, "run", id],
+    queryFn: () => platformReportsService.show(id as number),
+    enabled: id !== null,
+  })
+}
+
 export function useRerunReport() {
   const queryClient = useQueryClient()
 

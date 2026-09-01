@@ -20,6 +20,7 @@ import type {
   ReportSchedule,
   ReportTemplate,
 } from "@/modules/platform-reports/types"
+import { ReportViewer } from "@/modules/platform-reports/components/ReportViewer"
 
 const RUN_GRID =
   "minmax(0,1.8fr) minmax(0,1.1fr) 120px 110px 110px 64px 110px 170px"
@@ -43,6 +44,7 @@ export function ReportsPage() {
   const [page, setPage] = useState(1)
   const [builderOpen, setBuilderOpen] = useState(false)
   const [seedTemplate, setSeedTemplate] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<number | null>(null)
 
   const { data: runs, isLoading } = useReportRuns(status, page)
   const { data: schedules } = useReportSchedules()
@@ -330,7 +332,12 @@ export function ReportsPage() {
         )}
 
         {rows.map((run) => (
-          <RunRow key={run.id} run={run} canManage={canManage} />
+          <RunRow
+            key={run.id}
+            run={run}
+            canManage={canManage}
+            onView={setViewing}
+          />
         ))}
 
         <div
@@ -420,6 +427,10 @@ export function ReportsPage() {
             <ScheduleRow key={s.id} schedule={s} canManage={canManage} />
           ))}
         </div>
+      )}
+
+      {viewing !== null && (
+        <ReportViewer runId={viewing} onClose={() => setViewing(null)} />
       )}
     </div>
   )
@@ -742,7 +753,15 @@ function Builder({
 
 // --- Rows -------------------------------------------------------------------
 
-function RunRow({ run, canManage }: { run: ReportRun; canManage: boolean }) {
+function RunRow({
+  run,
+  canManage,
+  onView,
+}: {
+  run: ReportRun
+  canManage: boolean
+  onView: (id: number) => void
+}) {
   const rerun = useRerunReport()
   const remove = useDeleteReport()
   const [confirming, setConfirming] = useState(false)
@@ -848,6 +867,13 @@ function RunRow({ run, canManage }: { run: ReportRun; canManage: boolean }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+          {/* View before Download: the preview renders the same artefact, and
+              reading it is the cheaper way to find out it is not what you
+              wanted. */}
+          {run.status === "READY" && (
+            <Ghost onClick={() => onView(run.id)}>View</Ghost>
+          )}
+
           {run.status === "READY" && (
             <Ghost
               tone="accent"

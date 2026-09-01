@@ -3,6 +3,7 @@ import type {
   GenerateReportPayload,
   ReportFormat,
   ReportRun,
+  ReportRunDetail,
   ReportRunPage,
   ReportSchedule,
   ReportTemplate,
@@ -51,6 +52,22 @@ export const platformReportsService = {
         "/platform/reports",
         payload,
         AUTH
+      )
+    ).data,
+
+  /**
+   * One run, with its contents.
+   *
+   * Separate from the list because building a report's tables is real work,
+   * and the list would become expensive for data nobody has asked to see.
+   */
+  show: async (id: number): Promise<ReportRunDetail> =>
+    (
+      await apiClient.get<{ data: ReportRunDetail }>(
+        `/platform/reports/${id}`,
+        {
+          access_token: true,
+        }
       )
     ).data,
 
