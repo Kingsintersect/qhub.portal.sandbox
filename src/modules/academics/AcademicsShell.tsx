@@ -9,16 +9,21 @@ import CourseManagementPage from "./_components/courses-management/CourseManagem
 import AcademicStructurePage from "./_components/academic-structure/AcademicStructure"
 
 // ========== ACADEMIC SESSION SHELL ==========
-// Requires: departments:manage (permission 10) or a dedicated academics:configure permission
+// Requires: academic-sessions:manage — see src/lib/utils/permissions.json.
+// Was checking a non-existent "academics:configure" permission (a typo/stale
+// rename that never matched any entry in the real catalog), which silently
+// blanked this page for every role except SUPER_ADMIN regardless of what
+// permissions they actually held — see AcademicsShell.tsx audit notes.
 export function AcademicSessionShell() {
   const { can } = usePermissions()
 
-  // For dedicated permission, you would add "academics:configure" to allPermissions
-  const canManage = can({ resource: "academics", action: "configure" })
+  const canManage = can({ resource: "academic-sessions", action: "manage" })
 
   return (
     <div className="space-y-8">
-      <PermissionGate require={{ resource: "academics", action: "configure" }}>
+      <PermissionGate
+        require={{ resource: "academic-sessions", action: "manage" }}
+      >
         <AcademicSessionPage canManage={canManage} />
       </PermissionGate>
     </div>
@@ -26,24 +31,18 @@ export function AcademicSessionShell() {
 }
 
 // ========== ADMISSIONS SHELL ==========
-// Requires: admissions:manage (permission 28) or students:admit (ID 13)
+// Requires: admissions:manage
+// Was also OR'd with a "students:admit" permission that never existed in
+// the real catalog (dead branch — harmless since admissions:manage already
+// covers this, but removed per the 2026-09-01 permission audit).
 export function AdmissionsShell() {
   const { can } = usePermissions()
 
-  // Use dedicated admissions permission (or fallback to students:admit)
-  const canManage =
-    can({ resource: "admissions", action: "manage" }) ||
-    can({ resource: "students", action: "admit" })
+  const canManage = can({ resource: "admissions", action: "manage" })
 
   return (
     <div className="space-y-8">
-      <PermissionGate
-        require={[
-          { resource: "admissions", action: "manage" },
-          { resource: "students", action: "admit" },
-        ]}
-        mode="any"
-      >
+      <PermissionGate require={{ resource: "admissions", action: "manage" }}>
         <AdmissionsPage canManage={canManage} />
       </PermissionGate>
     </div>
@@ -51,17 +50,19 @@ export function AdmissionsShell() {
 }
 
 // ========== COURSE STRUCTURE SHELL ==========
-// Requires: course_structure:manage (permission 29)
+// Requires: course-structure:manage — see src/lib/utils/permissions.json.
+// Was checking "course_structure" (underscore), which doesn't exist in the
+// real catalog (the resource is hyphenated) — same class of bug as
+// AcademicSessionShell above.
 export function CourseStructureShell() {
   const { can } = usePermissions()
 
-  // Use course_structure:manage (ID 29) or dedicated permission if added
-  const canManage = can({ resource: "course_structure", action: "manage" })
+  const canManage = can({ resource: "course-structure", action: "manage" })
 
   return (
     <div className="space-y-8">
       <PermissionGate
-        require={{ resource: "course_structure", action: "manage" }}
+        require={{ resource: "course-structure", action: "manage" }}
       >
         <CourseStructurePage canManage={canManage} />
       </PermissionGate>
@@ -70,17 +71,18 @@ export function CourseStructureShell() {
 }
 
 // ========== ACADEMIC STRUCTURE SHELL ==========
-// Requires: course_structure:manage (permission 29) — reused rather than a
-// new permission since this is a direct extension of the same admin domain.
+// Requires: course-structure:manage — reused rather than a new permission
+// since this is a direct extension of the same admin domain. Same
+// underscore/hyphen fix as CourseStructureShell above.
 export function AcademicStructureShell() {
   const { can } = usePermissions()
 
-  const canManage = can({ resource: "course_structure", action: "manage" })
+  const canManage = can({ resource: "course-structure", action: "manage" })
 
   return (
     <div className="space-y-8">
       <PermissionGate
-        require={{ resource: "course_structure", action: "manage" }}
+        require={{ resource: "course-structure", action: "manage" }}
       >
         <AcademicStructurePage canManage={canManage} />
       </PermissionGate>

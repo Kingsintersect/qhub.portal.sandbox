@@ -165,6 +165,10 @@
       "action": "submit"
     },
     {
+      "resource": "results",
+      "action": "export"
+    },
+    {
       "resource": "gradebook",
       "action": "view"
     },
@@ -237,6 +241,14 @@
     {
       "resource": "results",
       "action": "submit"
+    },
+    {
+      "resource": "results",
+      "action": "approve"
+    },
+    {
+      "resource": "results",
+      "action": "export"
     },
     {
       "resource": "gradebook",
@@ -393,7 +405,27 @@
       "action": "publish"
     },
     {
+      "resource": "results",
+      "action": "view.all"
+    },
+    {
+      "resource": "results",
+      "action": "export"
+    },
+    {
       "resource": "analytics",
+      "action": "view"
+    },
+    {
+      "resource": "documents",
+      "action": "view"
+    },
+    {
+      "resource": "hostels",
+      "action": "view"
+    },
+    {
+      "resource": "clearance",
       "action": "view"
     },
     {
@@ -475,6 +507,10 @@
     {
       "resource": "grade-reports",
       "action": "view"
+    },
+    {
+      "resource": "results",
+      "action": "view.all"
     },
     {
       "resource": "financial-summary",
@@ -1125,6 +1161,30 @@
     {
       "resource": "results",
       "action": "publish"
+    },
+    {
+      "resource": "results",
+      "action": "view.all"
+    },
+    {
+      "resource": "results",
+      "action": "export"
+    },
+    {
+      "resource": "timetable",
+      "action": "view"
+    },
+    {
+      "resource": "timetable",
+      "action": "manage"
+    },
+    {
+      "resource": "calendar-events",
+      "action": "view"
+    },
+    {
+      "resource": "calendar-events",
+      "action": "manage"
     },
     {
       "resource": "analytics",

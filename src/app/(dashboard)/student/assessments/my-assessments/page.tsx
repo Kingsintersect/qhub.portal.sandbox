@@ -41,7 +41,7 @@ export default function MyAssessmentsPage() {
 
   return (
     <PermissionGate
-      require={{ resource: "assessments", action: "view.own" }}
+      require={{ resource: "my-assessments", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-4">

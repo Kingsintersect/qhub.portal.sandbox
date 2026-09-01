@@ -31,6 +31,14 @@ const roleMeta: Record<string, { label: string; cls: string }> = {
     label: "Tutor",
     cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
   },
+  STAFF: {
+    label: "Staff",
+    cls: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+  },
+  GUEST: {
+    label: "Guest",
+    cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+  },
   HOD: {
     label: "HOD",
     cls: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400",
@@ -304,7 +312,13 @@ export default function Sidebar() {
 
   if (!user) return null
 
-  const meta = roleMeta[user.role]
+  // Falls back instead of crashing if a role is ever missing from roleMeta
+  // above — this already happened once (STAFF was addable to a route guard
+  // elsewhere without anyone remembering this map too).
+  const meta = roleMeta[user.role] ?? {
+    label: user.role,
+    cls: "bg-muted text-muted-foreground",
+  }
   const initials = user.name
     .split(" ")
     .map((n) => n[0])

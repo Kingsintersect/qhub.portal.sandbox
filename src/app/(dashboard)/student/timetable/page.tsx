@@ -94,7 +94,7 @@ export default function MyTimetablePage() {
 
   return (
     <PermissionGate
-      require={{ resource: "timetable", action: "view.own" }}
+      require={{ resource: "my-timetable", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-6">

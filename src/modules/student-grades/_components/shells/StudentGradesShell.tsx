@@ -11,15 +11,18 @@ import { BulkGradeForm } from "../BulkGradeForm"
 
 // ========== GRADE SUMMARY SHELL (Student View) ==========
 // Shows: Grade distribution, top performers, grade scale
-// Requires: results:view.own (permission 1)
+// Requires: my-results:view — was checking "results:view.own", which never
+// existed as a real permission (see permission-audit findings, 2026-09-01);
+// students' actual self-view permission follows the established "my-X"
+// family (my-application, my-courses, my-timetable, my-assessments, etc.).
 export function GradeSummaryShell() {
   const { can } = usePermissions()
 
-  const canViewOwn = can({ resource: "results", action: "view.own" })
+  const canViewOwn = can({ resource: "my-results", action: "view" })
 
   return (
     <div className="space-y-8">
-      <PermissionGate require={{ resource: "results", action: "view.own" }}>
+      <PermissionGate require={{ resource: "my-results", action: "view" }}>
         <GradesSummaryPage canViewOwn={canViewOwn} />
       </PermissionGate>
     </div>
@@ -28,14 +31,19 @@ export function GradeSummaryShell() {
 
 // ========== RESULTS SHELL (Admin/Tutor View) ==========
 // Shows: Grades table, filters, grouped view, export
-// Requires: results:view.all OR results:manage (permission 2 or 3)
+// Requires: results:view.all OR results:manage (both real, granted
+// permissions as of 2026-09-01 — view.all was a previously-orphaned
+// permission (id 1) never granted to any role until the audit found it).
 export function ResultShell() {
   const { can } = usePermissions()
 
   const canViewAll = can({ resource: "results", action: "view.all" })
   const canManage = can({ resource: "results", action: "manage" })
   const canExport = can({ resource: "results", action: "export" })
-  const canAnalyze = can({ resource: "results", action: "analyze" })
+  // "results:analyze" never existed as a real permission — the grouped/
+  // analytics view this gates is the same concept the system-wide
+  // analytics.view permission already covers (granted to admin/dean).
+  const canAnalyze = can({ resource: "analytics", action: "view" })
 
   return (
     <div className="space-y-8">
@@ -77,11 +85,11 @@ export function PublishResultShell() {
 
 // ========== STUDENT RESULT SHELL ==========
 // Shows: Student's own published grades grouped by semester + CGPA history
-// Requires: results:view.own (permission 1)
+// Requires: my-results:view — see GradeSummaryShell's note above.
 export function StudentResultShell() {
   return (
     <PermissionGate
-      require={{ resource: "results", action: "view.own" }}
+      require={{ resource: "my-results", action: "view" }}
       fallback={
         <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
           <p className="text-sm">You do not have permission to view results.</p>

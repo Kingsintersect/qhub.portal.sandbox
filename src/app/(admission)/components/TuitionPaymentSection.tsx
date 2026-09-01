@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import {
   Card,
@@ -24,7 +25,9 @@ import {
   AlertCircle,
   CheckCircle,
   CreditCard,
+  LayoutDashboard,
 } from "lucide-react"
+import { roleDashboardPath, UserRole } from "@/config/nav.config"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { StepSectionProps } from "../types/admission"
@@ -355,6 +358,18 @@ export function TuitionPaymentSection({ student, fees }: StepSectionProps) {
               </>
             )}
           </Button>
+
+          {/* A partial payment already unlocks real portal access (see
+              NavBar.tsx's dashboardHref logic) — give the applicant a direct
+              way there instead of only the balance-payment CTA. */}
+          {isPartiallyPaid && (
+            <Button asChild variant="outline" className="w-full gap-2">
+              <Link href={roleDashboardPath[UserRole.STUDENT]}>
+                <LayoutDashboard className="size-4" />
+                Go to Dashboard
+              </Link>
+            </Button>
+          )}
 
           {/* Dev toolbar */}
           {process.env.NODE_ENV === "development" && (

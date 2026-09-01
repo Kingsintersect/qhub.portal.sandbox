@@ -328,6 +328,21 @@
         "description": "Publish approved results to students"
       },
       {
+        "resource": "results",
+        "action": "view.all",
+        "description": "View all results"
+      },
+      {
+        "resource": "results",
+        "action": "export",
+        "description": "Export grade/result reports and tables"
+      },
+      {
+        "resource": "results",
+        "action": "approve",
+        "description": "Approve tutor-submitted results before publishing (HOD-facing)"
+      },
+      {
         "resource": "gradebook",
         "action": "view",
         "description": "View the gradebook for assigned courses"
