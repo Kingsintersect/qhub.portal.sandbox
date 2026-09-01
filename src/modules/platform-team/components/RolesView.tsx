@@ -12,6 +12,7 @@ import {
   useUpdateRolePermissions,
 } from "@/modules/platform-team/hooks/use-platform-team"
 import type { PlatformRole, PlatformUser } from "@/modules/platform-team/types"
+import { InviteUserDialog } from "@/modules/platform-team/components/InviteUserDialog"
 
 type Tab = "roles" | "matrix" | "people"
 
@@ -658,6 +659,7 @@ function People({
 }) {
   const update = useUpdatePlatformUser()
   const [assigning, setAssigning] = useState<number | null>(null)
+  const [inviting, setInviting] = useState(false)
 
   return (
     <div
@@ -668,6 +670,45 @@ function People({
         overflow: "hidden",
       }}
     >
+      {inviting && <InviteUserDialog onClose={() => setInviting(false)} />}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "16px 24px 12px",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 600 }}>People</div>
+        <div style={{ fontSize: 12, color: "var(--txt3)" }}>
+          Roles are granted at creation — an account with none can sign in and
+          do nothing
+        </div>
+
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setInviting(true)}
+            style={{
+              marginLeft: "auto",
+              background: "var(--accent)",
+              color: "#fff",
+              border: "none",
+              fontSize: 12.5,
+              fontWeight: 500,
+              padding: "8px 14px",
+              borderRadius: 10,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Invite user
+          </button>
+        )}
+      </div>
+
       {users.length === 0 && <Empty>No platform accounts yet.</Empty>}
 
       {users.map((u) => {

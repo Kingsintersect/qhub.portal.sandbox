@@ -63,7 +63,15 @@ export const createPlatformUserSchema = z.object({
       /^[A-Za-z0-9._-]+$/,
       "Letters, digits, dot, underscore and dash only"
     ),
-  password: z.string().min(8, "At least 8 characters"),
+  /**
+   * Omitted for an invitation, which is the normal path.
+   *
+   * The account is created dormant and the person chooses their own password
+   * via a single-use link. A password typed here is one somebody else picked
+   * and then had to communicate — the habit the invitation flow exists to
+   * break.
+   */
+  password: z.string().min(8, "At least 8 characters").optional(),
   firstName: z.string().max(100).optional().or(z.literal("")),
   lastName: z.string().max(100).optional().or(z.literal("")),
   roleIds: z.array(z.number()).min(1, "Grant at least one role"),
