@@ -15,7 +15,9 @@ export default function AdminCalendarPage() {
 
   function visibilityToggle(event: CalendarEvent) {
     return (
-      <PermissionGate require={{ resource: "calendar", action: "manage" }}>
+      <PermissionGate
+        require={{ resource: "calendar-events", action: "manage" }}
+      >
         <EventVisibilityToggle eventId={event.id} isVisible={event.isVisible} />
       </PermissionGate>
     )
@@ -23,7 +25,7 @@ export default function AdminCalendarPage() {
 
   return (
     <PermissionGate
-      require={{ resource: "calendar", action: "view.all" }}
+      require={{ resource: "calendar-events", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-6 p-6">

@@ -47,7 +47,7 @@ export default function MyCalendarPage() {
 
   return (
     <PermissionGate
-      require={{ resource: "calendar", action: "view.own" }}
+      require={{ resource: "calendar-events", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-6">

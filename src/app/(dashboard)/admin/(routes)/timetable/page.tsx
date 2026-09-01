@@ -67,7 +67,7 @@ export default function AdminTimetablePage() {
 
   return (
     <PermissionGate
-      require={{ resource: "timetable", action: "view.all" }}
+      require={{ resource: "timetable", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-6 p-6">

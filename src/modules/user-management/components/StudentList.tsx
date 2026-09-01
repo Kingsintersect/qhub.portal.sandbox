@@ -32,8 +32,11 @@ const statusVariant: Record<
 
 // ── Permission constants ──────────────────────────────────────────────────────
 // Defined once here so they're not scattered as inline objects across the file
+// students:manage — "users:manage" never existed as a real permission
+// (2026-09 permission audit); students:manage is the correct, real,
+// already-granted-to-admin/dean equivalent.
 const PERM = {
-  manageUsers: { resource: "users", action: "manage" },
+  manageStudents: { resource: "students", action: "manage" },
   manageDepts: { resource: "departments", action: "manage" },
 } as const
 
@@ -113,10 +116,10 @@ export default function StudentsPage({
   const { can } = usePermissions()
 
   // Props take precedence; fall back to internally-derived values
-  const canCreate = canCreateProp ?? can(PERM.manageUsers)
+  const canCreate = canCreateProp ?? can(PERM.manageStudents)
   const canExport = canExportProp ?? can(PERM.manageDepts)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _canDelete = canDeleteProp ?? can(PERM.manageUsers) // reserved for delete action
+  const _canDelete = canDeleteProp ?? can(PERM.manageStudents) // reserved for delete action
 
   const { data, isLoading } = useStudents()
   const updateStudent = useUpdateStudent()

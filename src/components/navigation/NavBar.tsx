@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { useQuery } from "@tanstack/react-query"
 import { useSession, signOut } from "next-auth/react"
 import { logoutFromBackend } from "@/lib/auth/backendAuth"
 import { usePathname } from "next/navigation"
@@ -11,6 +12,7 @@ import Logo from "@/components/branding/Logo"
 import { roleDashboardPath, UserRole } from "@/config/nav.config"
 import { cn } from "@/lib/utils"
 import { LogoutConfirmDialog } from "@/components/logout-confirm-dialog"
+import { admissionQueryOptions } from "@/app/(admission)/services/admissionService"
 
 const PUBLIC_LINKS = [
   { href: "/about", label: "About" },
@@ -32,7 +34,25 @@ export default function NavBar() {
 
   const isAuthenticated = status === "authenticated"
   const role = session?.user?.role as UserRole | undefined
-  const dashboardHref = (role && roleDashboardPath[role]) ?? "/auth/signin"
+
+  // An APPLICANT's default destination (roleDashboardPath) is the admission
+  // flow itself (/process-admission) — correct while still applying, but
+  // once tuition payment has actually started, the applicant has real
+  // portal access and "Dashboard" should take them there instead of back
+  // into the flow they've already gotten past. Only fetched for applicants;
+  // every other role's dashboardHref is unaffected.
+  const { data: admissionStudent } = useQuery({
+    ...admissionQueryOptions.student(),
+    enabled: isAuthenticated && role === UserRole.APPLICANT,
+  })
+  const tuitionUnlocked =
+    admissionStudent?.tuition_payment_status === "partial" ||
+    admissionStudent?.tuition_payment_status === "paid"
+
+  const dashboardHref =
+    role === UserRole.APPLICANT && tuitionUnlocked
+      ? roleDashboardPath[UserRole.STUDENT]
+      : ((role && roleDashboardPath[role]) ?? "/auth/signin")
 
   const handleLogout = async () => {
     await logoutFromBackend()
@@ -110,13 +130,16 @@ export default function NavBar() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Quiet secondary action */}
-            <Link
-              className="hidden items-center rounded-md border border-border px-3 py-2 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground lg:inline-flex"
-              href="/auth/signin"
-            >
-              Visit Portal
-            </Link>
+            {/* Quiet secondary action — a login CTA, so it has no reason to
+                show once the visitor is already signed in. */}
+            {!isAuthenticated && (
+              <Link
+                className="hidden items-center rounded-md border border-border px-3 py-2 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground lg:inline-flex"
+                href="/auth/signin"
+              >
+                Visit Portal
+              </Link>
+            )}
 
             {/* The one loud action */}
             <Link
@@ -210,13 +233,15 @@ export default function NavBar() {
                   {isAuthenticated ? "Dashboard" : "Apply Now"}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-                <Link
-                  href="/auth/signin"
-                  onClick={closeMenu}
-                  className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase"
-                >
-                  Portal
-                </Link>
+                {!isAuthenticated && (
+                  <Link
+                    href="/auth/signin"
+                    onClick={closeMenu}
+                    className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-foreground/80 uppercase"
+                  >
+                    Portal
+                  </Link>
+                )}
                 <ThemeToggle className="border border-border text-foreground/80" />
               </div>
 

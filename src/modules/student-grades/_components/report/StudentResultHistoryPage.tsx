@@ -172,7 +172,7 @@ export default function StudentResultHistoryPage() {
 
   return (
     <PermissionGate
-      require={{ resource: "results", action: "view.own" }}
+      require={{ resource: "my-results", action: "view" }}
       denyBehavior="screen"
     >
       <div className="space-y-6">
