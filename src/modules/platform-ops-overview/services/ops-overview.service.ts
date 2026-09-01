@@ -39,6 +39,37 @@ export const opsOverviewService = {
       )
     ).data,
 
+  logUpgrade: async (payload: {
+    title: string
+    component: string
+    version?: string | null
+    rolloutScope?: string
+    status?: string
+    scheduledFor?: string | null
+  }) =>
+    (
+      await apiClient.post<{ data: unknown }, typeof payload>(
+        "/platform/upgrades",
+        payload,
+        { access_token: true }
+      )
+    ).data,
+
+  openIncident: async (payload: {
+    title: string
+    detail?: string | null
+    severity: string
+    isPlatformWide?: boolean
+    tenantIds?: number[]
+  }) =>
+    (
+      await apiClient.post<{ data: unknown }, typeof payload>(
+        "/platform/incidents",
+        payload,
+        { access_token: true }
+      )
+    ).data,
+
   acknowledgeAnomaly: async (id: number): Promise<void> => {
     await apiClient.post(`/platform/anomalies/${id}/acknowledge`, {}, AUTH)
   },

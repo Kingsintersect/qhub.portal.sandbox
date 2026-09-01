@@ -32,6 +32,8 @@ import type {
   Upgrade,
   UsageAnomaly,
 } from "@/modules/platform-ops-overview/types"
+import { LogIncidentDialog } from "@/modules/platform-ops-overview/components/LogIncidentDialog"
+import { LogUpgradeDialog } from "@/modules/platform-ops-overview/components/LogUpgradeDialog"
 
 type Tab = "health" | "incidents" | "provisioning" | "upgrades" | "anomalies"
 
@@ -890,11 +892,21 @@ function ProvisioningRow({
 
 function IncidentsTab() {
   const [status, setStatus] = useState("open")
+  const [logging, setLogging] = useState(false)
   const { data, isLoading } = useIncidents(status)
 
   return (
     <>
-      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+      {logging && <LogIncidentDialog onClose={() => setLogging(false)} />}
+
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          marginBottom: 14,
+          alignItems: "center",
+        }}
+      >
         {[
           ["open", "Open"],
           ["", "All"],
@@ -906,6 +918,7 @@ function IncidentsTab() {
             onClick={() => setStatus(value)}
           />
         ))}
+        <ActionButton label="Log incident" onClick={() => setLogging(true)} />
       </div>
 
       {isLoading && <Loading />}
@@ -988,13 +1001,46 @@ function IncidentRow({ incident }: { incident: Incident }) {
 // --- Upgrades ---------------------------------------------------------------
 
 function UpgradesTab() {
+  const [logging, setLogging] = useState(false)
   const { data, isLoading } = useUpgrades()
 
-  if (isLoading) return <Loading />
-  if (!data?.length) return <Empty>No upgrades logged.</Empty>
+  // The action stays available while loading and when empty — an operator
+  // logging the first upgrade should not have to wait for a list of nothing.
+  const header = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 14,
+      }}
+    >
+      <ActionButton label="Log upgrade" onClick={() => setLogging(true)} />
+    </div>
+  )
+
+  if (isLoading) {
+    return (
+      <>
+        {header}
+        <Loading />
+      </>
+    )
+  }
+
+  if (!data?.length) {
+    return (
+      <>
+        {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
+        {header}
+        <Empty>No upgrades logged.</Empty>
+      </>
+    )
+  }
 
   return (
     <>
+      {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
+      {header}
       {data.map((u) => (
         <UpgradeRow key={u.id} upgrade={u} />
       ))}
@@ -1428,6 +1474,37 @@ function Chip({
         color: active ? "var(--accent)" : "var(--txt3)",
         cursor: "pointer",
         fontFamily: "inherit",
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+/** The right-aligned action on a tab's filter row. */
+function ActionButton({
+  label,
+  onClick,
+}: {
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        marginLeft: "auto",
+        background: "var(--accent)",
+        color: "#fff",
+        border: "none",
+        fontSize: 12.5,
+        fontWeight: 500,
+        padding: "8px 14px",
+        borderRadius: 10,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        whiteSpace: "nowrap",
       }}
     >
       {label}

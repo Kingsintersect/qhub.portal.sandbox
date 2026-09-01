@@ -39,6 +39,40 @@ export function useAnomalies(includeAcknowledged: boolean) {
   })
 }
 
+export function useLogUpgrade() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: opsOverviewService.logUpgrade,
+    onSuccess: () => {
+      toast.success("Upgrade logged")
+      void queryClient.invalidateQueries({ queryKey: opsOverviewKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not log that upgrade", {
+        description: errorMessage(error, "Nothing was recorded."),
+      }),
+  })
+}
+
+export function useOpenIncident() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: opsOverviewService.openIncident,
+    onSuccess: () => {
+      // Says what actually happens next, rather than "created": affected
+      // tenants see a banner, so this is not a private note.
+      toast.success("Incident opened — affected institutions are notified")
+      void queryClient.invalidateQueries({ queryKey: opsOverviewKeys.all })
+    },
+    onError: (error) =>
+      toast.error("Could not open that incident", {
+        description: errorMessage(error, "Nothing was recorded."),
+      }),
+  })
+}
+
 export function useAcknowledgeAnomaly() {
   const queryClient = useQueryClient()
 
