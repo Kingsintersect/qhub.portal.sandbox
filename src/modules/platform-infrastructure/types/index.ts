@@ -71,6 +71,41 @@ export type Infrastructure = {
     daysUntilExpiry: number | null
     lastError: string | null
   } | null
+  /**
+   * Where this institution's uploaded files live.
+   *
+   * Its own ceiling, separate from `quota` above — that one caps the DATABASE
+   * despite being named storage_quota_bytes. A school can have a small
+   * database and thousands of documents, or the reverse, and one combined
+   * figure would hide whichever is actually filling up.
+   */
+  fileStorage: {
+    state: "LOCAL" | "MIGRATING" | "FAILED" | "DONE"
+    prefix: string | null
+    bucket: string | null
+    region: string | null
+    /** False until a bucket AND a credential exist. */
+    providerConfigured: boolean
+    bytesUsed: number
+    quotaBytes: number | null
+    /** Null when no ceiling is set — not the same as 0% full. */
+    usedPercent: number | null
+    overWarningLine: boolean
+    full: boolean
+    warnAtPercent: number
+    /** Movement over 30 days. Null when there is too little history to say. */
+    trendBytes: number | null
+    migration: {
+      totalBytes: number | null
+      movedBytes: number | null
+      percent: number | null
+      batch: number
+      startedAt: string | null
+      completedAt: string | null
+      failedReason: string | null
+    }
+    measuredAt: string | null
+  } | null
   writes: {
     enabled: boolean
     expiresAt: string | null

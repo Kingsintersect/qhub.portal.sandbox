@@ -92,6 +92,28 @@ export function useInfrastructureOperation(tenantId: number) {
  * account has no authenticator" are different problems with different fixes,
  * and the API distinguishes them.
  */
+export function useMigrateStorage(tenantId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => infrastructureService.migrateStorage(tenantId),
+    onSuccess: () => {
+      // Says what is actually happening: the copy runs in the background and
+      // nothing is deleted while it does.
+      toast.success(
+        "Moving files — nothing is deleted until every file verifies"
+      )
+      void queryClient.invalidateQueries({
+        queryKey: ["platform-infrastructure", tenantId],
+      })
+    },
+    onError: (error) =>
+      toast.error("Could not start that move", {
+        description: errorMessage(error, "Nothing was moved."),
+      }),
+  })
+}
+
 export function useRetryDomain(tenantId: number) {
   const queryClient = useQueryClient()
 

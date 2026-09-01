@@ -52,6 +52,14 @@ export const infrastructureService = {
       AUTH
     ),
 
+  /** Begin moving a school's files into object storage. */
+  migrateStorage: async (tenantId: number) =>
+    apiClient.post<{ data: unknown }, Record<string, never>>(
+      `${base(tenantId)}/storage/migrate`,
+      {},
+      AUTH
+    ),
+
   /** Ask again for a certificate after the school fixes their DNS. */
   retryDomain: async (tenantId: number) =>
     apiClient.post<{ data: unknown }, Record<string, never>>(
