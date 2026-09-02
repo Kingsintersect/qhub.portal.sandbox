@@ -123,7 +123,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
           anybody.
         </div>
 
-        <Label>TITLE</Label>
+        <Label>Title</Label>
         <input
           autoFocus
           value={title}
@@ -133,7 +133,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
           style={fieldStyle}
         />
 
-        <Label>INSTITUTION</Label>
+        <Label>Institution</Label>
         <div
           style={{
             display: "grid",
@@ -158,7 +158,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <Label>TARGET LEVELS</Label>
+        <Label>Target levels — only these students see it</Label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
           {MEDIA_LEVELS.map((l) => {
             const on = levels.includes(l.key)
@@ -192,7 +192,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
 
         {singleSchool !== null && (
           <>
-            <Label>COURSE — SEARCHED FROM THIS SCHOOL&rsquo;S CATALOGUE</Label>
+            <Label>Course — from the school&rsquo;s catalogue</Label>
             <input
               value={courseLabel ?? courseSearch}
               onChange={(e) => {
@@ -217,7 +217,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
               />
             )}
 
-            <Label>TUTOR — OPTIONAL, CREDITED ON THE VIDEO</Label>
+            <Label>Tutor — optional, credited on the video</Label>
             <input
               value={tutorLabel ?? tutorSearch}
               onChange={(e) => {
@@ -244,12 +244,59 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        <Label>FILE</Label>
+        {/*
+          The draft's dashed picker rather than a bare file input: it names
+          the formats and the ceiling before somebody spends ten minutes
+          uploading an 8 GB file the platform will refuse, and it says
+          transcoding follows so the wait afterwards is expected.
+        */}
+        <label
+          htmlFor="media-file"
+          style={{
+            display: "block",
+            border: "1.5px dashed var(--line-strong)",
+            borderRadius: 13,
+            padding: 18,
+            textAlign: "center",
+            cursor: "pointer",
+            marginTop: 16,
+          }}
+        >
+          {file === null ? (
+            <>
+              <div
+                style={{ fontSize: 13, color: "var(--txt2)", fontWeight: 500 }}
+              >
+                Choose a video file
+              </div>
+              <div
+                style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 4 }}
+              >
+                MP4, MOV or MKV · up to 8 GB · transcoded after upload
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className="qhub-mono"
+                style={{ fontSize: 13, color: "var(--accent)" }}
+              >
+                {file.name}
+              </div>
+              <div
+                style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 4 }}
+              >
+                {fileSize(file.size)} · click to choose a different file
+              </div>
+            </>
+          )}
+        </label>
         <input
+          id="media-file"
           type="file"
-          accept=".mp4,.mov,.webm,.m4v,.mp3,.m4a,.wav,.aac,.pdf"
+          accept=".mp4,.mov,.webm,.m4v,.mkv,.mp3,.m4a,.wav,.aac,.pdf"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          style={{ ...fieldStyle, padding: "9px 12px" }}
+          style={{ display: "none" }}
         />
 
         <div
@@ -305,7 +352,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
               fontFamily: "inherit",
             }}
           >
-            {upload.isPending ? "Uploading…" : "Upload"}
+            {upload.isPending ? "Uploading…" : "Upload & target"}
           </button>
         </div>
       </div>
@@ -338,13 +385,24 @@ const ghostStyle: React.CSSProperties = {
   fontFamily: "inherit",
 }
 
+/** "1.8 GB", as the draft shows beside a chosen file. */
+function fileSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB"]
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(Math.max(bytes, 1)) / Math.log(1024))
+  )
+  const value = bytes / 1024 ** i
+
+  return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`
+}
+
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: 11,
-        letterSpacing: ".07em",
-        color: "var(--txt4)",
+        fontSize: 12.5,
+        color: "var(--txt3)",
         marginTop: 16,
         marginBottom: 8,
       }}

@@ -33,6 +33,8 @@ export interface MediaItem {
   course: string | null
   tutor: string | null
   bytes: number
+  /** Null until the transcode measures it — not zero. */
+  durationSeconds: number | null
   /** Why transcoding gave up. Null unless status is FAILED. */
   failedReason: string | null
   uploadedBy: string | null

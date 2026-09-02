@@ -234,7 +234,7 @@ export function MediaLibrary() {
               <div>TITLE</div>
               <div>INSTITUTION · TARGET</div>
               <div>COURSE</div>
-              <div>SIZE</div>
+              <div>SIZE · LENGTH</div>
               <div>UPLOADED</div>
               <div style={{ textAlign: "right" }}>STATUS</div>
             </div>
@@ -300,6 +300,8 @@ export function MediaLibrary() {
 
                 <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
                   {formatBytes(m.bytes)}
+                  {m.durationSeconds !== null &&
+                    ` · ${runtime(m.durationSeconds)}`}
                 </div>
 
                 <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
@@ -593,6 +595,14 @@ function StatusPill({ item }: { item: MediaItem }) {
 /** "All institutions" is a real target, not a missing name. */
 function institutionLabel(item: MediaItem): string {
   return item.estateWide ? "All institutions" : (item.institution ?? "—")
+}
+
+/** "1h 42m", or "58m" under the hour — the draft's own shape. */
+function runtime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.round((seconds % 3600) / 60)
+
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
 }
 
 function formatBytes(bytes: number): string {
