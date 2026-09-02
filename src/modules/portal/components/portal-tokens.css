@@ -1,0 +1,203 @@
+/*
+ * The institution portal's design tokens, lifted from the bundle 25
+ * Institution Portal canvas.
+ *
+ * Scoped to `.qhub-portal` for the reason the student app's are scoped to
+ * `.qhub-learn`: several apps share this codebase, and tokens on the document
+ * would repaint whichever one you were not looking at.
+ *
+ * Every value here is byte-identical to the student app's, which is the point
+ * — the README says the apps share one system. The single addition is
+ * `--grid-line`, which this canvas introduces for the chart gridlines and the
+ * Student App has no use for.
+ */
+
+.qhub-portal {
+  --bg: #e8ebef;
+  --card: #ffffff;
+  --panel: #f5f7fa;
+  --row-hover: #fafbfd;
+  --txt: #151c26;
+  --txt2: #48525e;
+  --txt3: #7a8490;
+  --txt4: #a4acb6;
+  --icon: #6d7883;
+  --line: #edf0f4;
+  --line2: #f3f5f8;
+  --line-strong: #dfe4ea;
+  --scroll: #c9d1da;
+  --surface-solid: #ffffff;
+  --accent: #1d5fbf;
+  --accent-hover: #174c99;
+  --accent-soft: #e8effa;
+  --accent-brd: #c9d9f0;
+  --good-bg: #e6eef9;
+  --series2: #e8853d;
+  --neg: #b4553c;
+  --neg-bg: #f9ebe6;
+  --warn: #8a6a22;
+  --warn-bg: #f6efdd;
+  --ghost-hover: #f6f8f6;
+  --grid-line: #eceff3;
+  --shadow-sm: 0 1px 2px rgba(22, 34, 28, 0.06);
+  --shadow-nav:
+    0 1px 2px rgba(22, 34, 28, 0.06), 0 6px 18px rgba(22, 34, 28, 0.05);
+  --shadow-card:
+    0 1px 2px rgba(22, 34, 28, 0.06), 0 10px 26px rgba(22, 34, 28, 0.04);
+  --shadow-pop:
+    0 2px 6px rgba(22, 34, 28, 0.08), 0 12px 30px rgba(22, 34, 28, 0.1);
+}
+
+/*
+ * next-themes is configured with attribute="class", so the dark signal is a
+ * `.dark` on <html> — not a data-theme on this element. Scoping the dark block
+ * to `.qhub-portal[data-theme="dark"]` matches nothing, and the app renders
+ * light text on a light ground with no error anywhere.
+ */
+.dark .qhub-portal,
+[data-theme="dark"] .qhub-portal {
+  --bg: #0a0c10;
+  --card: rgba(255, 255, 255, 0.045);
+  --panel: rgba(255, 255, 255, 0.045);
+  --row-hover: rgba(255, 255, 255, 0.03);
+  --txt: #eceff3;
+  --txt2: #b2bac4;
+  --txt3: #89929d;
+  --txt4: #6c7480;
+  --icon: #98a099;
+  --line: rgba(255, 255, 255, 0.08);
+  --line2: rgba(255, 255, 255, 0.05);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --scroll: #292d34;
+  --surface-solid: #14181e;
+  --accent: #5897f2;
+  --accent-hover: #4381db;
+  --accent-soft: rgba(88, 151, 242, 0.16);
+  --accent-brd: rgba(88, 151, 242, 0.4);
+  --good-bg: rgba(88, 151, 242, 0.16);
+  --series2: #f09a55;
+  --neg: #e08464;
+  --neg-bg: rgba(224, 132, 100, 0.14);
+  --warn: #d3a84e;
+  --warn-bg: rgba(211, 168, 78, 0.14);
+  --ghost-hover: rgba(255, 255, 255, 0.06);
+  --grid-line: rgba(255, 255, 255, 0.07);
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-nav:
+    0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.5);
+  --shadow-card:
+    0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.35);
+  --shadow-pop:
+    0 0 0 1px rgba(255, 255, 255, 0.09), 0 22px 44px rgba(0, 0, 0, 0.65);
+}
+
+/* The canvas sets these on the app root; they belong with the tokens. */
+.qhub-portal {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: Geist, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.qhub-portal *,
+.qhub-portal *::before,
+.qhub-portal *::after {
+  box-sizing: border-box;
+}
+
+.qhub-portal a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.qhub-portal a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.qhub-portal ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.qhub-portal ::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border-radius: 8px;
+}
+
+/* Mono is used for identifiers, percentages, codes and timers throughout. */
+.qhub-portal .portal-mono {
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/*
+ * The Qverse lockup, theme-swapped.
+ *
+ * Both files are in the markup and CSS picks between them, rather than the
+ * component choosing from resolvedTheme: that is only known after mount, so
+ * the wrong lockup paints for a frame on every load. A class rule resolves on
+ * the same paint as the tokens, so it never flashes.
+ *
+ * The wordmark is always the supplied file, never rebuilt as HTML text.
+ */
+.qhub-portal .portal-lockup-light {
+  display: block;
+}
+
+.qhub-portal .portal-lockup-dark {
+  display: none;
+}
+
+.dark .qhub-portal .portal-lockup-light,
+[data-theme="dark"] .qhub-portal .portal-lockup-light {
+  display: none;
+}
+
+.dark .qhub-portal .portal-lockup-dark,
+[data-theme="dark"] .qhub-portal .portal-lockup-dark {
+  display: block;
+}
+
+/*
+ * The theme toggle's active state, chosen by CSS rather than by the component.
+ *
+ * next-themes cannot know the stored choice on the server, so a component that
+ * derives "which button looks pressed" from resolvedTheme renders light-active
+ * server-side and dark-active on the client — a hydration mismatch, and a
+ * visible flash of the wrong state. Both buttons render identically instead,
+ * and these rules light the right one on the same paint as the tokens.
+ */
+.qhub-portal .portal-theme-light {
+  background: var(--accent-soft);
+}
+
+.qhub-portal .portal-theme-light svg {
+  stroke: var(--accent);
+}
+
+.qhub-portal .portal-theme-dark {
+  background: transparent;
+}
+
+.qhub-portal .portal-theme-dark svg {
+  stroke: var(--icon);
+}
+
+.dark .qhub-portal .portal-theme-light,
+[data-theme="dark"] .qhub-portal .portal-theme-light {
+  background: transparent;
+}
+
+.dark .qhub-portal .portal-theme-light svg,
+[data-theme="dark"] .qhub-portal .portal-theme-light svg {
+  stroke: var(--icon);
+}
+
+.dark .qhub-portal .portal-theme-dark,
+[data-theme="dark"] .qhub-portal .portal-theme-dark {
+  background: var(--accent-soft);
+}
+
+.dark .qhub-portal .portal-theme-dark svg,
+[data-theme="dark"] .qhub-portal .portal-theme-dark svg {
+  stroke: var(--accent);
+}
