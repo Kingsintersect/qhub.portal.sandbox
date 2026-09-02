@@ -27,6 +27,11 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
   const institutions = institutionPage?.data ?? []
   const upload = useUploadMedia()
 
+  // Kept after success rather than closing straight away: the upload landing
+  // is not the item being ready, and saying so here is what stops somebody
+  // going to look for it in the library and finding PROCESSING.
+  const [done, setDone] = useState(false)
+
   const [title, setTitle] = useState("")
   const [institutionId, setInstitutionId] = useState<number | "*" | null>(null)
   const [levels, setLevels] = useState<MediaLevel[]>([])
@@ -113,251 +118,354 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
           color: "var(--txt)",
         }}
       >
-        <div
-          style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}
-        >
-          Upload media
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 4 }}>
-          Uploaded on behalf of an instructor, and targeted before it reaches
-          anybody.
-        </div>
-
-        <Label>Title</Label>
-        <input
-          autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Introduction to Human Anatomy — Lecture 1"
-          maxLength={200}
-          style={fieldStyle}
-        />
-
-        <Label>Institution</Label>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 8,
-          }}
-        >
-          <Choice
-            on={institutionId === "*"}
-            onClick={() => pickInstitution("*")}
-            title="All institutions"
-            note="Every tenant on the platform · the level targeting below still applies at each"
-          />
-          {institutions.map((i) => (
-            <Choice
-              key={i.id}
-              on={institutionId === i.id}
-              onClick={() => pickInstitution(i.id)}
-              title={i.name}
-              note={i.slug}
-            />
-          ))}
-        </div>
-
-        <Label>Target levels — only these students see it</Label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-          {MEDIA_LEVELS.map((l) => {
-            const on = levels.includes(l.key)
-
-            return (
-              <button
-                key={l.key}
-                type="button"
-                onClick={() =>
-                  setLevels((prev) =>
-                    on ? prev.filter((p) => p !== l.key) : [...prev, l.key]
-                  )
-                }
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  padding: "7px 13px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  color: on ? "#fff" : "var(--txt2)",
-                  background: on ? "var(--accent)" : "transparent",
-                  border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
-                }}
+        {done ? (
+          /*
+            The upload landing is not the item being ready. Saying so here is
+            what stops somebody going to look for it in the library, finding
+            PROCESSING, and assuming something went wrong.
+          */
+          <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 999,
+                background: "var(--good-bg)",
+                margin: "0 auto 14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {l.label}
-              </button>
-            )
-          })}
-        </div>
+                <path d="M4 12.5l5 5L20 7" />
+              </svg>
+            </div>
 
-        {singleSchool !== null && (
+            <div style={{ fontSize: 16, fontWeight: 600 }}>
+              Upload received — transcoding
+            </div>
+
+            <div
+              style={{
+                fontSize: 12.5,
+                color: "var(--txt3)",
+                margin: "8px auto 0",
+                maxWidth: 380,
+                lineHeight: 1.55,
+              }}
+            >
+              It appears in the library as PROCESSING and flips to READY when
+              transcoding finishes — you&rsquo;ll be notified.
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                display: "inline-block",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                border: "none",
+                padding: "10px 22px",
+                borderRadius: 11,
+                cursor: "pointer",
+                marginTop: 18,
+              }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
           <>
-            <Label>Course — from the school&rsquo;s catalogue</Label>
-            <input
-              value={courseLabel ?? courseSearch}
-              onChange={(e) => {
-                setCourseSearch(e.target.value)
-                setCourseId(null)
-                setCourseLabel(null)
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 600,
+                letterSpacing: "-0.01em",
               }}
-              placeholder="Search by code or title…"
+            >
+              Upload media
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--txt3)", marginTop: 4 }}>
+              Uploaded on behalf of an instructor, and targeted before it
+              reaches anybody.
+            </div>
+
+            <Label>Title</Label>
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Introduction to Human Anatomy — Lecture 1"
+              maxLength={200}
               style={fieldStyle}
             />
-            {courseId === null && courseSearch.trim() !== "" && (
-              <Options
-                empty="Not in this school's catalogue — courses arrive via SIS sync or bulk import, not here."
-                items={(courses ?? []).map((c) => ({
-                  id: c.id,
-                  label: c.label,
-                }))}
-                onPick={(id, label) => {
-                  setCourseId(id)
-                  setCourseLabel(label)
-                }}
-              />
-            )}
 
-            <Label>
-              Tutor — optional, credited on the video · must exist on the
-              school&rsquo;s platform
-            </Label>
-            <input
-              value={tutorLabel ?? tutorSearch}
-              onChange={(e) => {
-                setTutorSearch(e.target.value)
-                setTutorId(null)
-                setTutorLabel(null)
+            <Label>Institution</Label>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 8,
               }}
-              placeholder="Search the school&rsquo;s lecturers…"
-              style={fieldStyle}
-            />
-            {tutorId === null && tutorSearch.trim() !== "" && (
-              <Options
-                empty="No lecturer by that name — only staff on the school's platform can be credited."
-                items={(tutors ?? []).map((t) => ({
-                  id: t.id,
-                  label: t.label,
-                }))}
-                onPick={(id, label) => {
-                  setTutorId(id)
-                  setTutorLabel(label)
-                }}
+            >
+              <Choice
+                on={institutionId === "*"}
+                onClick={() => pickInstitution("*")}
+                title="All institutions"
+                note="Every tenant on the platform · the level targeting below still applies at each"
               />
-            )}
-          </>
-        )}
+              {institutions.map((i) => (
+                <Choice
+                  key={i.id}
+                  on={institutionId === i.id}
+                  onClick={() => pickInstitution(i.id)}
+                  title={i.name}
+                  note={i.slug}
+                />
+              ))}
+            </div>
 
-        {/*
+            <Label>Target levels — only these students see it</Label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {MEDIA_LEVELS.map((l) => {
+                const on = levels.includes(l.key)
+
+                return (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() =>
+                      setLevels((prev) =>
+                        on ? prev.filter((p) => p !== l.key) : [...prev, l.key]
+                      )
+                    }
+                    style={{
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      padding: "7px 13px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      color: on ? "#fff" : "var(--txt2)",
+                      background: on ? "var(--accent)" : "transparent",
+                      border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {singleSchool !== null && (
+              <>
+                <Label>Course — from the school&rsquo;s catalogue</Label>
+                <input
+                  value={courseLabel ?? courseSearch}
+                  onChange={(e) => {
+                    setCourseSearch(e.target.value)
+                    setCourseId(null)
+                    setCourseLabel(null)
+                  }}
+                  placeholder="Search by code or title…"
+                  style={fieldStyle}
+                />
+                {courseId === null && courseSearch.trim() !== "" && (
+                  <Options
+                    empty="Not in this school's catalogue — courses arrive via SIS sync or bulk import, not here."
+                    items={(courses ?? []).map((c) => ({
+                      id: c.id,
+                      label: c.label,
+                    }))}
+                    onPick={(id, label) => {
+                      setCourseId(id)
+                      setCourseLabel(label)
+                    }}
+                  />
+                )}
+
+                <Label>
+                  Tutor — optional, credited on the video · must exist on the
+                  school&rsquo;s platform
+                </Label>
+                <input
+                  value={tutorLabel ?? tutorSearch}
+                  onChange={(e) => {
+                    setTutorSearch(e.target.value)
+                    setTutorId(null)
+                    setTutorLabel(null)
+                  }}
+                  placeholder="Search the school&rsquo;s lecturers…"
+                  style={fieldStyle}
+                />
+                {tutorId === null && tutorSearch.trim() !== "" && (
+                  <Options
+                    empty="No lecturer by that name — only staff on the school's platform can be credited."
+                    items={(tutors ?? []).map((t) => ({
+                      id: t.id,
+                      label: t.label,
+                    }))}
+                    onPick={(id, label) => {
+                      setTutorId(id)
+                      setTutorLabel(label)
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {/*
           The draft's dashed picker rather than a bare file input: it names
           the formats and the ceiling before somebody spends ten minutes
           uploading an 8 GB file the platform will refuse, and it says
           transcoding follows so the wait afterwards is expected.
         */}
-        <label
-          htmlFor="media-file"
-          style={{
-            display: "block",
-            border: "1.5px dashed var(--line-strong)",
-            borderRadius: 13,
-            padding: 18,
-            textAlign: "center",
-            cursor: "pointer",
-            marginTop: 16,
-          }}
-        >
-          {file === null ? (
-            <>
-              <div
-                style={{ fontSize: 13, color: "var(--txt2)", fontWeight: 500 }}
-              >
-                Choose a video file
-              </div>
-              <div
-                style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 4 }}
-              >
-                MP4, MOV or MKV · up to 8 GB · transcoded after upload
-              </div>
-            </>
-          ) : (
-            <>
-              <div
-                className="qhub-mono"
-                style={{ fontSize: 13, color: "var(--accent)" }}
-              >
-                {file.name}
-              </div>
-              <div
-                style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 4 }}
-              >
-                {fileSize(file.size)} · click to choose a different file
-              </div>
-            </>
-          )}
-        </label>
-        <input
-          id="media-file"
-          type="file"
-          accept=".mp4,.mov,.webm,.m4v,.mkv,.mp3,.m4a,.wav,.aac,.pdf"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          style={{ display: "none" }}
-        />
+            <label
+              htmlFor="media-file"
+              style={{
+                display: "block",
+                border: "1.5px dashed var(--line-strong)",
+                borderRadius: 13,
+                padding: 18,
+                textAlign: "center",
+                cursor: "pointer",
+                marginTop: 16,
+              }}
+            >
+              {file === null ? (
+                <>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--txt2)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Choose a video file
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--txt4)",
+                      marginTop: 4,
+                    }}
+                  >
+                    MP4, MOV or MKV · up to 8 GB · transcoded after upload
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="qhub-mono"
+                    style={{ fontSize: 13, color: "var(--accent)" }}
+                  >
+                    {file.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--txt4)",
+                      marginTop: 4,
+                    }}
+                  >
+                    {fileSize(file.size)} · click to choose a different file
+                  </div>
+                </>
+              )}
+            </label>
+            <input
+              id="media-file"
+              type="file"
+              accept=".mp4,.mov,.webm,.m4v,.mkv,.mp3,.m4a,.wav,.aac,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              style={{ display: "none" }}
+            />
 
-        <div
-          style={{
-            fontSize: 11.5,
-            color: levels.length === 0 ? "var(--series2)" : "var(--txt4)",
-            marginTop: 14,
-            lineHeight: 1.55,
-          }}
-        >
-          {audience}
-        </div>
+            <div
+              style={{
+                fontSize: 11.5,
+                color: levels.length === 0 ? "var(--series2)" : "var(--txt4)",
+                marginTop: 14,
+                lineHeight: 1.55,
+              }}
+            >
+              {audience}
+            </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            marginTop: 18,
-            paddingTop: 14,
-            borderTop: "1px solid var(--line)",
-          }}
-        >
-          <button type="button" onClick={onClose} style={ghostStyle}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!ready || upload.isPending}
-            onClick={() =>
-              upload.mutate(
-                {
-                  title: title.trim(),
-                  institutionId: institutionId as number | "*",
-                  levels,
-                  courseId,
-                  tutorId,
-                  file: file as File,
-                },
-                { onSuccess: () => onClose() }
-              )
-            }
-            style={{
-              border: "1px solid var(--accent)",
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 12.5,
-              fontWeight: 500,
-              padding: "8px 18px",
-              borderRadius: 10,
-              cursor: ready && !upload.isPending ? "pointer" : "not-allowed",
-              opacity: ready && !upload.isPending ? 1 : 0.55,
-              fontFamily: "inherit",
-            }}
-          >
-            {upload.isPending ? "Uploading…" : "Upload & target"}
-          </button>
-        </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+                marginTop: 18,
+                paddingTop: 14,
+                borderTop: "1px solid var(--line)",
+              }}
+            >
+              <button type="button" onClick={onClose} style={ghostStyle}>
+                Cancel
+              </button>
+              {upload.isPending && (
+                <div
+                  style={{
+                    marginRight: "auto",
+                    fontSize: 12,
+                    color: "var(--txt4)",
+                  }}
+                >
+                  Transcoding starts automatically when the upload lands
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={!ready || upload.isPending}
+                onClick={() =>
+                  upload.mutate(
+                    {
+                      title: title.trim(),
+                      institutionId: institutionId as number | "*",
+                      levels,
+                      courseId,
+                      tutorId,
+                      file: file as File,
+                    },
+                    { onSuccess: () => setDone(true) }
+                  )
+                }
+                style={{
+                  border: "1px solid var(--accent)",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  padding: "8px 18px",
+                  borderRadius: 10,
+                  cursor:
+                    ready && !upload.isPending ? "pointer" : "not-allowed",
+                  opacity: ready && !upload.isPending ? 1 : 0.55,
+                  fontFamily: "inherit",
+                }}
+              >
+                {upload.isPending ? "Uploading…" : "Upload & target"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

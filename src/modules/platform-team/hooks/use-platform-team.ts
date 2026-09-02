@@ -9,6 +9,7 @@ import {
 } from "@/modules/platform-team/services/platform-team.service"
 import type { CreatePlatformUserPayload } from "@/modules/platform-team/types"
 import { errorMessage } from "@/lib/api-error"
+import { reportRefusal } from "@/modules/platform-shared/MissingPermissionBanner"
 
 export function usePlatformUsers() {
   return useQuery({
@@ -68,10 +69,15 @@ export function useCreatePlatformUser() {
       toast.success(`${user.username} added to the team`)
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.users() })
     },
-    onError: (error) =>
+    onError: (error) => {
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not add that account", {
         description: errorMessage(error, "Check the details and try again."),
-      }),
+      })
+    },
   })
 }
 
@@ -90,12 +96,17 @@ export function useUpdatePlatformUser() {
       toast.success("Account updated")
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.users() })
     },
-    onError: (error) =>
+    onError: (error) => {
       // The lockout guard returns 409 with a specific explanation — surfacing
       // the API's own message is the whole value here.
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not update that account", {
         description: errorMessage(error, "The change was not applied."),
-      }),
+      })
+    },
   })
 }
 
@@ -112,10 +123,15 @@ export function useCreateRole() {
       toast.success("Role created")
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
     },
-    onError: (error) =>
+    onError: (error) => {
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not create that role", {
         description: errorMessage(error, "Try again."),
-      }),
+      })
+    },
   })
 }
 
@@ -135,12 +151,17 @@ export function useUpdateRole() {
       toast.success("Role updated")
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
     },
-    onError: (error) =>
+    onError: (error) => {
       // The API refuses renaming a built-in role and says why; that reason is
       // more useful than a generic failure.
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not update that role", {
         description: errorMessage(error, "The change was not applied."),
-      }),
+      })
+    },
   })
 }
 
@@ -153,10 +174,15 @@ export function useDeleteRole() {
       toast.success("Role deleted")
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.all })
     },
-    onError: (error) =>
+    onError: (error) => {
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not delete that role", {
         description: errorMessage(error, "Try again."),
-      }),
+      })
+    },
   })
 }
 
@@ -175,9 +201,14 @@ export function useUpdateRolePermissions() {
       toast.success("Role permissions saved")
       queryClient.invalidateQueries({ queryKey: platformTeamKeys.roles() })
     },
-    onError: (error) =>
+    onError: (error) => {
+      // Refusals also raise the banner: naming the permission is
+      // what turns a dead end into a next step.
+      reportRefusal(error)
+
       toast.error("Could not save permissions", {
         description: errorMessage(error, "The change was not applied."),
-      }),
+      })
+    },
   })
 }

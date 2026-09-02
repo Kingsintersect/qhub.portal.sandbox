@@ -13,6 +13,11 @@ import {
 } from "@/modules/platform-team/hooks/use-platform-team"
 import type { PlatformRole, PlatformUser } from "@/modules/platform-team/types"
 import { CompareRoles } from "@/modules/platform-team/components/CompareRoles"
+import {
+  MissingPermissionBanner,
+  clearRefusal,
+  useRefusal,
+} from "@/modules/platform-shared/MissingPermissionBanner"
 import { InviteUserDialog } from "@/modules/platform-team/components/InviteUserDialog"
 
 type Tab = "roles" | "matrix" | "people"
@@ -33,6 +38,10 @@ export function RolesView() {
 
   const [tab, setTab] = useState<Tab>("roles")
   const [openRoleId, setOpenRoleId] = useState<number | null>(null)
+
+  // Read from the shared store rather than held here: a refusal can come from
+  // any mutation on this view, and one banner should answer all of them.
+  const refused = useRefusal()
 
   const { data: roles, isPending } = usePlatformRoles()
   const { data: catalog } = usePlatformPermissions()
@@ -98,6 +107,15 @@ export function RolesView() {
           ))}
         </div>
       </div>
+
+      {/* A refusal names the permission it wanted, and sits above the tabs
+          where the action was attempted rather than vanishing as a toast. */}
+      {refused !== null && (
+        <MissingPermissionBanner
+          permission={refused}
+          onDismiss={clearRefusal}
+        />
+      )}
 
       {!canManage && (
         <div

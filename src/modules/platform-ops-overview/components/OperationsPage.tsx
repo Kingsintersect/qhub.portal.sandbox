@@ -57,6 +57,43 @@ type Tab = "health" | "incidents" | "provisioning" | "upgrades" | "anomalies"
 export function SystemsOverviewPage() {
   const [tab, setTab] = useState<Tab>("health")
   const [logging, setLogging] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  /*
+   * The file comes from the server, not from the rows on screen.
+   *
+   * The audit entry is written in the same request that produces the CSV, so
+   * the log and the file cannot describe different rows — and the log is the
+   * half somebody relies on months later.
+   */
+  const exportView = async () => {
+    try {
+      const blob = await apiClient.get<Blob>("/platform/overview/export", {
+        access_token: true,
+        responseType: "blob",
+      })
+
+      // A plain window.open cannot carry the Authorization header, and the
+      // endpoint requires it — so the file is fetched, then handed to the
+      // browser as an object URL.
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+
+      link.href = url
+      link.download = `tenant-health-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+
+      URL.revokeObjectURL(url)
+
+      toast.success("Exported as CSV", {
+        description: "Rows as filtered · the download is in the audit log.",
+      })
+    } catch (error) {
+      toast.error("Could not export that view", {
+        description: errorMessage(error, "Nothing was downloaded."),
+      })
+    }
+  }
   // 3M, as the draft opens on — a quarter is where a trend becomes visible.
   const [days, setDays] = useState(90)
 
@@ -282,8 +319,76 @@ export function SystemsOverviewPage() {
               justifyContent: "flex-end",
               alignItems: "center",
               padding: "0 18px 6px",
+              position: "relative",
             }}
           >
+            {menuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  right: 18,
+                  zIndex: 55,
+                  width: 250,
+                  background: "var(--surface-solid)",
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 13,
+                  boxShadow: "var(--shadow-pop)",
+                  padding: 6,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    void exportView()
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    width: "100%",
+                    fontSize: 12.5,
+                    color: "var(--txt2)",
+                    padding: "9px 11px",
+                    borderRadius: 9,
+                    cursor: "pointer",
+                    border: "none",
+                    background: "transparent",
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--icon)"
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                  </svg>
+                  Download this view (CSV)
+                </button>
+
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    color: "var(--txt4)",
+                    padding: "6px 11px 7px",
+                    borderTop: "1px solid var(--line)",
+                    marginTop: 4,
+                  }}
+                >
+                  Exports the rows as filtered · the download is written to the
+                  audit log
+                </div>
+              </div>
+            )}
+
             {/*
               The control at the end of the tab strip, lifted as drawn.
               
@@ -295,14 +400,21 @@ export function SystemsOverviewPage() {
               than no control, and a clickable-looking thing that opens nothing
               is exactly that.
             */}
-            <div
-              aria-hidden="true"
+            <button
+              type="button"
+              aria-label="View menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
               style={{
                 width: 32,
                 height: 32,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                cursor: "pointer",
+                borderRadius: 9,
+                border: "none",
+                background: menuOpen ? "var(--panel)" : "transparent",
               }}
             >
               <svg
@@ -328,7 +440,7 @@ export function SystemsOverviewPage() {
                   r="1.2"
                 />
               </svg>
-            </div>
+            </button>
           </div>
         </div>
 
