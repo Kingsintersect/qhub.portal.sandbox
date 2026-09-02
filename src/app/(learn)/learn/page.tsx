@@ -10,7 +10,21 @@ import {
   Assessments,
   type Assessment,
 } from "@/modules/learn/components/Assessments"
+import {
+  Announcements,
+  type Announcement,
+} from "@/modules/learn/components/Announcements"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
+import {
+  Messages,
+  type MessageThread,
+  type Recipient,
+} from "@/modules/learn/components/Messages"
+import {
+  Grades,
+  type GradeRow,
+  type GradeStat,
+} from "@/modules/learn/components/Grades"
 import {
   MediaLibrary,
   type MediaItem,
@@ -335,6 +349,145 @@ const MEDIA: MediaItem[] = [
   },
 ]
 
+const GRADE_STATS: GradeStat[] = [
+  { label: "Semester average", value: "64%", delta: "so far", tone: "txt" },
+  { label: "Graded components", value: "9", delta: "of 16", tone: "txt" },
+  {
+    label: "Attendance overall",
+    value: "84%",
+    delta: "counts 10%",
+    tone: "txt",
+  },
+  {
+    label: "Awaiting grading",
+    value: "2",
+    delta: "you'll be notified",
+    tone: "warn",
+  },
+]
+
+const GRADE_ROWS: GradeRow[] = [
+  {
+    code: "CSC 201",
+    title: "Data structures and algorithms",
+    attendance: "82%",
+    discussions: "8/15",
+    quizzes: "64%",
+    exam: "—",
+    total: "—",
+    grade: "—",
+  },
+  {
+    code: "GST 103",
+    title: "Logic and critical thinking",
+    attendance: "91%",
+    discussions: "12/15",
+    quizzes: "78%",
+    exam: "71%",
+    total: "74%",
+    grade: "A",
+  },
+  {
+    code: "MTH 110",
+    title: "Calculus I — limits and continuity",
+    attendance: "74%",
+    discussions: "6/15",
+    quizzes: "52%",
+    exam: "48%",
+    total: "53%",
+    grade: "C",
+  },
+  {
+    code: "BIO 102",
+    title: "Cell biology",
+    attendance: "88%",
+    discussions: "10/15",
+    quizzes: "70%",
+    exam: "—",
+    total: "—",
+    grade: "—",
+  },
+]
+
+const ANNOUNCEMENTS: Announcement[] = [
+  {
+    kind: "GENERAL",
+    title: "Second-semester registration closes Friday",
+    when: "Aug 25",
+    from: "Registry · University of Lagos · to Year 1, Year 2",
+    body: "Students who have not completed course registration lose portal access until the add/drop window. Complete it on the student portal before Friday 16:00.",
+    more: "If you registered but a course still shows as pending, the registry's help desk at the Senate building handles corrections until Friday 16:00 — bring your course form. Nothing is lost if you miss the window, but portal access pauses until add/drop.",
+  },
+  {
+    kind: "MAINTENANCE",
+    title: "Planned maintenance — Sunday 02:00–04:00 WAT",
+    when: "Aug 28",
+    from: "Qverse platform",
+    body: "The platform pauses for up to two hours. Nothing is lost — quiz attempts in progress resume where they stopped, and no deadline falls inside the window.",
+    more: "During the window the mobile app shows cached content read-only. Anything you submit in the final minutes before 02:00 is safe — submissions are acknowledged before the pause begins.",
+  },
+  {
+    kind: "COURSE",
+    title: "Week 6 slide corrected — AVL rotation",
+    when: "Yesterday",
+    from: "Dr. F. Adeyemi · CSC 201",
+    body: "The week 6 slide showed a right rotation where the video (correctly) rotates left. The slide is replaced — for the exam: rotate left on a right-heavy imbalance.",
+    more: "The corrected slide is already in the Week 6 lesson — if you downloaded the old deck, replace page 14. The quiz uses the corrected convention.",
+  },
+]
+
+const THREADS_MSG: MessageThread[] = [
+  {
+    id: "th1",
+    name: "Dr. F. Adeyemi",
+    course: "CSC 201",
+    when: "Yesterday",
+    unread: true,
+    messages: [
+      {
+        who: "You",
+        mine: true,
+        when: "Yesterday 21:14",
+        text: "Good evening Dr. Adeyemi. In the week 6 video at 48:20 you rotate the AVL tree left, but the slide shows a right rotation — which is correct for the exam?",
+      },
+      {
+        who: "Dr. F. Adeyemi",
+        mine: false,
+        when: "Yesterday 22:03",
+        text: "Well spotted — the video is correct; the slide was from last session and I have replaced it. For the exam: rotate left on a right-heavy imbalance.",
+      },
+    ],
+  },
+  {
+    id: "th2",
+    name: "Prof. C. Okonkwo",
+    course: "GST 103",
+    when: "Aug 26",
+    unread: false,
+    messages: [
+      {
+        who: "You",
+        mine: true,
+        when: "Aug 26 09:40",
+        text: "Prof, is the week 5 reflection graded on participation or on the argument itself?",
+      },
+      {
+        who: "Prof. C. Okonkwo",
+        mine: false,
+        when: "Aug 26 14:02",
+        text: "Participation — post something considered and you have the marks. The argument matters for the essay, not here.",
+      },
+    ],
+  },
+]
+
+const RECIPIENTS: Recipient[] = [
+  { name: "Dr. F. Adeyemi", sub: "CSC 201 · Data structures" },
+  { name: "Prof. C. Okonkwo", sub: "GST 103 · Logic" },
+  { name: "Dr. B. Lawal", sub: "MTH 110 · Calculus I" },
+  { name: "Dr. E. Nwachukwu", sub: "BIO 102 · Cell biology" },
+]
+
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
@@ -437,6 +590,20 @@ export default function LearnPage() {
 
       {view === "disc" && <Discussions threads={THREADS} />}
 
+      {view === "announce" && <Announcements items={ANNOUNCEMENTS} />}
+
+      {view === "msgs" && (
+        <Messages threads={THREADS_MSG} recipients={RECIPIENTS} />
+      )}
+
+      {view === "grades" && (
+        <Grades
+          stats={GRADE_STATS}
+          rows={GRADE_ROWS}
+          term="Grades — 2026/2027 · 1st semester"
+        />
+      )}
+
       {view === "medialib" && (
         <MediaLibrary items={MEDIA} courses={COURSES.map((c) => c.code)} />
       )}
@@ -454,26 +621,6 @@ export default function LearnPage() {
           onSubmit={() => setQuizOpen(false)}
         />
       )}
-
-      {view !== "home" &&
-        view !== "lessons" &&
-        view !== "live" &&
-        view !== "disc" &&
-        view !== "assess" &&
-        view !== "medialib" && (
-          <div
-            style={{
-              background: "var(--card)",
-              borderRadius: 20,
-              boxShadow: "var(--shadow-card)",
-              padding: "26px 28px",
-              fontSize: 13,
-              color: "var(--txt3)",
-            }}
-          >
-            {CRUMB[view]} — not lifted yet.
-          </div>
-        )}
     </LearnShell>
   )
 }
