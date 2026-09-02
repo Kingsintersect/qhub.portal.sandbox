@@ -7,6 +7,7 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { Settings } from "@/modules/portal/components/Settings"
 import { Billing } from "@/modules/portal/components/Billing"
 import { Messages } from "@/modules/portal/components/Messages"
 import { Grading } from "@/modules/portal/components/Grading"
@@ -334,6 +335,12 @@ export default function PortalPage() {
       )}
 
       {view === "billing" && admin && <Billing />}
+
+      {view === "settings" && admin && (
+        // Postgraduate is a level for targeting but not a year of study, so
+        // it sits after the years rather than among them.
+        <Settings levels={[...LEVELS, "Postgraduate"]} />
+      )}
 
       {view === "msgs" && !admin && (
         <Messages
@@ -689,34 +696,6 @@ export default function PortalPage() {
           }}
         />
       )}
-
-      {view !== "overview" &&
-        view !== "students" &&
-        view !== "courses" &&
-        view !== "media" &&
-        view !== "announce" &&
-        view !== "support" &&
-        !(view === "live" && !admin) &&
-        !(view === "lessons" && !admin) &&
-        !(view === "disc" && !admin) &&
-        !(view === "assess" && !admin) &&
-        !(view === "grades" && !admin) &&
-        !(view === "msgs" && !admin) &&
-        !(view === "billing" && admin) &&
-        !(view === "lect" && admin) && (
-          <div
-            style={{
-              background: "var(--card)",
-              borderRadius: 20,
-              boxShadow: "var(--shadow-card)",
-              padding: "20px 22px",
-              fontSize: 12.5,
-              color: "var(--txt3)",
-            }}
-          >
-            This screen is a later slice.
-          </div>
-        )}
     </PortalShell>
   )
 }
