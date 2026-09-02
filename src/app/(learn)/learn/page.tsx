@@ -34,6 +34,7 @@ import {
   MediaLibrary,
   type MediaItem,
 } from "@/modules/learn/components/MediaLibrary"
+import { QuizSubmitted } from "@/modules/learn/components/QuizSubmitted"
 import { QuizRunner } from "@/modules/learn/components/QuizRunner"
 import {
   Discussions,
@@ -565,6 +566,7 @@ export default function LearnPage() {
   const [view, setView] = useState<LearnView>("home")
   const [courseCode, setCourseCode] = useState<string | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
+  const [quizDone, setQuizDone] = useState(false)
   const [lesson, setLesson] = useState<string | null>(null)
   const [moduleTitle, setModuleTitle] = useState<string | null>(null)
   // Lessons finished in this session. The canvas ticks the item AND posts a
@@ -603,6 +605,8 @@ export default function LearnPage() {
   // sidebar is not highlighting one.
   // From the derived list, not the seed — otherwise a lesson finished in this
   // session ticks nowhere, because the hub renders this object.
+  const overlay = quizOpen ? "quiz" : quizDone ? "done" : null
+
   const selected = courses.find((c) => c.code === courseCode) ?? courses[0]!
 
   // Read back off the derived course, so a lesson finished from inside the
@@ -618,6 +622,7 @@ export default function LearnPage() {
         setCourseCode(null)
         setModuleTitle(null)
         setLesson(null)
+        setQuizDone(false)
       }}
       crumb={CRUMB[view]}
       identity={{
@@ -638,7 +643,7 @@ export default function LearnPage() {
       notices={notices}
       badges={{ assess: 3, msgs: 2, announce: 1 }}
     >
-      {view === "home" && (
+      {overlay === null && view === "home" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <HomeBanner
             greeting="Good morning"
@@ -651,7 +656,7 @@ export default function LearnPage() {
         </div>
       )}
 
-      {SECTION[view] !== undefined && (
+      {overlay === null && SECTION[view] !== undefined && (
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
@@ -668,7 +673,7 @@ export default function LearnPage() {
         </div>
       )}
 
-      {view === "lessons" && lesson !== null && (
+      {overlay === null && view === "lessons" && lesson !== null && (
         <LessonViewer
           title={lesson}
           context={`${selected.code} · ${
@@ -688,33 +693,39 @@ export default function LearnPage() {
         />
       )}
 
-      {view === "lessons" && lesson === null && openModule !== null && (
-        <ModuleOverview
-          module={openModule}
-          courseCode={selected.code}
-          onBack={() => setModuleTitle(null)}
-          onOpenItem={(item) => {
-            if (item.kind === "quiz") setQuizOpen(true)
-            else setLesson(item.title)
-          }}
-        />
-      )}
+      {overlay === null &&
+        view === "lessons" &&
+        lesson === null &&
+        openModule !== null && (
+          <ModuleOverview
+            module={openModule}
+            courseCode={selected.code}
+            onBack={() => setModuleTitle(null)}
+            onOpenItem={(item) => {
+              if (item.kind === "quiz") setQuizOpen(true)
+              else setLesson(item.title)
+            }}
+          />
+        )}
 
-      {view === "lessons" && lesson === null && openModule === null && (
-        <CourseHub
-          courses={courses}
-          selected={selected}
-          onSelect={setCourseCode}
-          onOpenModule={(m) => setModuleTitle(m.title)}
-          onOpenItem={(item) => {
-            // A quiz opens the runner; anything else opens as a lesson.
-            if (item.kind === "quiz") setQuizOpen(true)
-            else setLesson(item.title)
-          }}
-        />
-      )}
+      {overlay === null &&
+        view === "lessons" &&
+        lesson === null &&
+        openModule === null && (
+          <CourseHub
+            courses={courses}
+            selected={selected}
+            onSelect={setCourseCode}
+            onOpenModule={(m) => setModuleTitle(m.title)}
+            onOpenItem={(item) => {
+              // A quiz opens the runner; anything else opens as a lesson.
+              if (item.kind === "quiz") setQuizOpen(true)
+              else setLesson(item.title)
+            }}
+          />
+        )}
 
-      {view === "live" && (
+      {overlay === null && view === "live" && (
         <LiveClasses
           classes={LIVE}
           attendancePercent={82}
@@ -722,15 +733,17 @@ export default function LearnPage() {
         />
       )}
 
-      {view === "disc" && <Discussions threads={THREADS} />}
+      {overlay === null && view === "disc" && <Discussions threads={THREADS} />}
 
-      {view === "announce" && <Announcements items={ANNOUNCEMENTS} />}
+      {overlay === null && view === "announce" && (
+        <Announcements items={ANNOUNCEMENTS} />
+      )}
 
-      {view === "msgs" && (
+      {overlay === null && view === "msgs" && (
         <Messages threads={THREADS_MSG} recipients={RECIPIENTS} />
       )}
 
-      {view === "grades" && (
+      {overlay === null && view === "grades" && (
         <Grades
           stats={GRADE_STATS}
           rows={GRADE_ROWS}
@@ -738,21 +751,37 @@ export default function LearnPage() {
         />
       )}
 
-      {view === "medialib" && (
+      {overlay === null && view === "medialib" && (
         <MediaLibrary items={MEDIA} courses={COURSES.map((c) => c.code)} />
       )}
 
-      {view === "assess" && !quizOpen && (
+      {overlay === null && view === "assess" && (
         <Assessments rows={ASSESSMENTS} onStart={() => setQuizOpen(true)} />
       )}
 
-      {view === "assess" && quizOpen && (
+      {quizOpen && (
         <QuizRunner
           title="Quiz — Week 6, trees"
           courseMeta="CSC 201 · 12 questions · 24 pts · one attempt"
           questions={QUIZ_QUESTIONS}
           seconds={1800}
-          onSubmit={() => setQuizOpen(false)}
+          onSubmit={() => {
+            setQuizOpen(false)
+            setQuizDone(true)
+          }}
+        />
+      )}
+      {quizDone && (
+        <QuizSubmitted
+          courseCode={selected.code}
+          onBackToCourse={() => {
+            setQuizDone(false)
+            setView("lessons")
+          }}
+          onViewGrades={() => {
+            setQuizDone(false)
+            setView("grades")
+          }}
         />
       )}
     </LearnShell>
