@@ -3,6 +3,7 @@
 import { useState } from "react"
 
 import { Overview, useNotice } from "@/modules/portal/components/Overview"
+import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
 import { UploadMedia } from "@/modules/portal/components/UploadMedia"
@@ -13,10 +14,14 @@ import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
   COURSES,
   LECTURERS,
+  LEVELS,
   MEDIA,
   MY_CODES,
+  OUR_ANNOUNCEMENTS,
+  PLATFORM_ANNOUNCEMENTS,
   STUDENTS,
   type Lecturer,
+  type Announcement,
   type MediaItem,
 } from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
@@ -56,6 +61,7 @@ export default function PortalPage() {
   const [invited, setInvited] = useState<Lecturer[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState<MediaItem[]>([])
+  const [sent, setSent] = useState<Announcement[]>([])
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -269,6 +275,49 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "announce" && (
+        <Announcements
+          // A lecturer sees the platform notices and a shorter tail of what
+          // has gone out; an admin sees the institution's whole record.
+          items={(() => {
+            const all = [
+              ...PLATFORM_ANNOUNCEMENTS,
+              ...sent,
+              ...OUR_ANNOUNCEMENTS,
+            ]
+            return admin ? all : all.slice(0, 4)
+          })()}
+          sub={
+            admin
+              ? "Platform notices first, then yours — students see only what you send"
+              : "Platform notices and what has gone to your students"
+          }
+          composeSub={
+            admin
+              ? "To students, by level — delivered in-app; no student email leaves the platform"
+              : "Only your own students — CSC 201 and CSC 305 cohorts"
+          }
+          audiences={admin ? LEVELS : MY_CODES}
+          onSend={({ title, body, audience }) => {
+            const aud = audience.join(", ")
+            setSent((v) => [
+              {
+                kind: "GENERAL",
+                title,
+                when: "Just now",
+                body,
+                meta: `Sent by ${admin ? "R. Osei" : "Dr. F. Adeyemi"} · ${aud} · delivering`,
+              },
+              ...v,
+            ])
+            setBell((n) => [
+              { text: `Announcement sent to ${aud}`, when: "Just now" },
+              ...n,
+            ])
+          }}
+        />
+      )}
+
       {view === "media" && (
         <MediaLibrary
           items={[...uploaded, ...MEDIA].filter(
@@ -356,6 +405,7 @@ export default function PortalPage() {
         view !== "students" &&
         view !== "courses" &&
         view !== "media" &&
+        view !== "announce" &&
         !(view === "lect" && admin) && (
           <div
             style={{

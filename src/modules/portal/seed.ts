@@ -416,3 +416,41 @@ export const MEDIA: MediaItem[] = [
     src: "PLATFORM",
   },
 ]
+
+export type Announcement = {
+  kind: "MAINTENANCE" | "FEATURE" | "GENERAL"
+  title: string
+  when: string
+  body: string
+  /** Provenance and reach — "From Qverse · shown to staff only". */
+  meta: string
+}
+
+/** Qverse's own notices. They reach staff, never students. */
+export const PLATFORM_ANNOUNCEMENTS: Announcement[] = [
+  {
+    kind: "MAINTENANCE",
+    title: "Scheduled maintenance — Sunday 02:00–04:00 WAT",
+    when: "Aug 28",
+    body: "The platform pauses for up to two hours. Nothing is lost; sessions resume where they stopped.",
+    meta: "From Qverse · shown to staff only",
+  },
+  {
+    kind: "FEATURE",
+    title: "Media library now supports audio and PDF",
+    when: "Aug 22",
+    body: "Lecture recordings and course documents can be targeted per level, the same way video already is.",
+    meta: "From Qverse · shown to staff only",
+  },
+]
+
+/** What the institution has sent. */
+export const OUR_ANNOUNCEMENTS: Announcement[] = [
+  {
+    kind: "GENERAL",
+    title: "Second-semester registration closes Friday",
+    when: "Aug 25",
+    body: "Students who have not completed course registration lose portal access until the add/drop window.",
+    meta: "Sent by R. Osei · Year 1, Year 2 · read by 64%",
+  },
+]
