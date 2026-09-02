@@ -7,6 +7,7 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { Grading } from "@/modules/portal/components/Grading"
 import { AssessmentBuilder } from "@/modules/portal/components/AssessmentBuilder"
 import { Assessments } from "@/modules/portal/components/Assessments"
 import { OcrQuestions } from "@/modules/portal/components/OcrQuestions"
@@ -27,7 +28,9 @@ import {
   LECTURERS,
   ASSESSMENTS,
   DISCUSSIONS,
+  GRADEBOOK,
   LESSONS,
+  PENDING_GRADES,
   LEVELS,
   LIVE_CLASSES,
   MEDIA,
@@ -42,6 +45,7 @@ import {
   type Assessment,
   type BuilderQuestion,
   type Discussion,
+  type PendingGrade,
   type Lesson,
   type LiveClass,
   type Ticket,
@@ -97,6 +101,7 @@ export default function PortalPage() {
   const [ocrOpen, setOcrOpen] = useState(false)
   // Questions handed from an OCR pass into the builder it opens.
   const [fromOcr, setFromOcr] = useState<BuilderQuestion[]>([])
+  const [pending, setPending] = useState<PendingGrade[]>(PENDING_GRADES)
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -322,6 +327,23 @@ export default function PortalPage() {
               ? "The register of record — status is derived from enrolment, never set by hand"
               : "Students enrolled in CSC 201 and CSC 305"
           }
+        />
+      )}
+
+      {view === "grades" && !admin && (
+        <Grading
+          pending={pending}
+          gradebook={GRADEBOOK}
+          onAccept={(g) => {
+            setPending((all) => all.filter((x) => x.id !== g.id))
+            setBell((n) => [
+              {
+                text: `${g.student} — ${g.assess} graded ${g.suggested}/${g.max} · written to the gradebook`,
+                when: "Just now",
+              },
+              ...n,
+            ])
+          }}
         />
       )}
 
@@ -658,6 +680,7 @@ export default function PortalPage() {
         !(view === "lessons" && !admin) &&
         !(view === "disc" && !admin) &&
         !(view === "assess" && !admin) &&
+        !(view === "grades" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{

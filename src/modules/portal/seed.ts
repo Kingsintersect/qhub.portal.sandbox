@@ -7,6 +7,33 @@
  * it stable between server and client render.
  */
 
+/**
+ * The canvas's seeded draw, with two corrections agreed with the user after
+ * the student roll came out 95-of-96 at Year 1 with no suspended or withdrawn
+ * students.
+ *
+ * `h * 1103515245` passes 2^53 on the first iteration, so the product stops
+ * being exact in a double and the low bits round to zero. Math.imul keeps the
+ * multiply in exact 32-bit range.
+ *
+ * That alone is not enough — it makes the roll worse. In any
+ * power-of-two-modulus LCG, bit i repeats with period 2^(i+1), so the bottom
+ * bits cycle far too fast to read as a small remainder: `h % 4` off the raw
+ * state pins every student to one level however exact the multiply is. Reading
+ * from bit 16 up takes the long-period half, which is what makes it spread.
+ *
+ * Only small power-of-two moduli hit this. The gradebook's draws (%45, %12,
+ * %58, %60) read enough high bits to look fine even uncorrected — they use
+ * this anyway, so there is one generator in the codebase rather than two.
+ */
+export function seededDraw(seed: number): (m: number) => number {
+  let h = seed
+  return (m: number) => {
+    h = (Math.imul(h, 1103515245) + 12345) >>> 0
+    return Math.floor(h / 65536) % m
+  }
+}
+
 export type Student = {
   matric: string
   name: string
@@ -103,23 +130,7 @@ export const FACULTY: Record<string, string> = {
 
 export const STUDENTS: Student[] = (() => {
   const out: Student[] = []
-  let h = 991
-  // Two corrections to the canvas's generator, agreed with the user after the
-  // roll came out 95-of-96 at Year 1 with no suspended or withdrawn students.
-  //
-  // `h * 1103515245` passes 2^53 on the first iteration, so the product stops
-  // being exact in a double and the low bits round to zero. Math.imul keeps
-  // the multiply in exact 32-bit range.
-  //
-  // That alone is not enough: in any power-of-two-modulus LCG, bit i repeats
-  // with period 2^(i+1), so the bottom bits cycle far too fast to be read as
-  // a small remainder — taking `h % 4` straight off the state pins every
-  // student to one level. Reading from bit 16 up gives the long-period half
-  // of the state, which is what makes the draw spread.
-  const rnd = (m: number) => {
-    h = (Math.imul(h, 1103515245) + 12345) >>> 0
-    return Math.floor(h / 65536) % m
-  }
+  const rnd = seededDraw(991)
 
   for (let i = 0; i < 96; i++) {
     // Six ACTIVE to one SUSPENDED to one WITHDRAWN, drawn rather than
@@ -859,3 +870,103 @@ export function missingKey(q: BuilderQuestion): boolean {
   const choice = q.type === "Multiple choice" || q.type === "Multi-select"
   return choice && Object.values(q.correct).filter(Boolean).length === 0
 }
+
+export type PendingGrade = {
+  id: string
+  student: string
+  matric: string
+  assess: string
+  submitted: string
+  suggested: number
+  max: number
+}
+
+export const PENDING_GRADES: PendingGrade[] = [
+  {
+    id: "gp1",
+    student: "Adaeze Okafor",
+    matric: "UNILAG/2023/41207",
+    assess: "Week 4 quiz · Q9 — short answer",
+    submitted: "Aug 22",
+    suggested: 8,
+    max: 10,
+  },
+  {
+    id: "gp2",
+    student: "Ibrahim Lawal",
+    matric: "UNILAG/2024/50331",
+    assess: "Week 4 quiz · Q9 — short answer",
+    submitted: "Aug 22",
+    suggested: 6,
+    max: 10,
+  },
+]
+
+export type GradebookRow = {
+  name: string
+  matric: string
+  course: string
+  att: number
+  disc: number
+  quiz: number
+  /** Null until the exam is sat — the total and grade wait on it. */
+  exam: number | null
+  total: number
+  grade: string
+  status: "GRADED" | "PENDING"
+}
+
+/** The grade boundaries, stated on the screen as well as applied here. */
+function gradeOf(total: number): string {
+  if (total >= 70) return "A"
+  if (total >= 60) return "B"
+  if (total >= 50) return "C"
+  if (total >= 45) return "D"
+  if (total >= 40) return "E"
+  return "F"
+}
+
+export const GRADEBOOK: GradebookRow[] = (() => {
+  const rnd = seededDraw(313)
+  const out: GradebookRow[] = []
+
+  for (let i = 0; i < 9; i++) {
+    const att = 55 + rnd(45)
+    const disc = 4 + rnd(12)
+    const quiz = 40 + rnd(58)
+    // Every third student has not sat the exam, so the screen always shows
+    // the incomplete case rather than only the tidy one.
+    const exam = i % 3 === 2 ? null : 35 + rnd(60)
+    const total = Math.round(
+      att * 0.1 +
+        (disc / 15) * 100 * 0.15 +
+        quiz * 0.25 +
+        (exam === null ? 0 : exam * 0.5)
+    )
+
+    out.push({
+      name: `${FN[rnd(20)]} ${LN[rnd(20)]}`,
+      matric: `UNILAG/202${3 + rnd(2)}/${40000 + rnd(19999)}`,
+      course: i % 2 === 0 ? "CSC 201" : "CSC 305",
+      att,
+      disc,
+      quiz,
+      exam,
+      total,
+      grade: exam === null ? "—" : gradeOf(total),
+      status: exam === null ? "PENDING" : "GRADED",
+    })
+  }
+
+  return out
+})()
+
+export const GRADE_WEIGHTS = [
+  { k: "Attendance", v: "10%" },
+  { k: "Discussions", v: "15%" },
+  { k: "Quizzes", v: "25%" },
+  { k: "Exam", v: "50%" },
+]
+
+export const GRADE_SCALE =
+  "A ≥70 · B 60–69 · C 50–59 · D 45–49 · E 40–44 · F <40"
