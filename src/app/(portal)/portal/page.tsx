@@ -3,7 +3,11 @@
 import { useState } from "react"
 
 import { Overview, useNotice } from "@/modules/portal/components/Overview"
+import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
 import { PortalShell } from "@/modules/portal/components/PortalShell"
+import { StudentRoll } from "@/modules/portal/components/StudentRoll"
+import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
+import { LECTURERS, STUDENTS, type Lecturer } from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
 
 /**
@@ -35,6 +39,11 @@ export default function PortalPage() {
   const [role, setRole] = useState<PortalRole>("admin")
   const [view, setView] = useState<PortalView>("overview")
   const { notice, dismiss } = useNotice(NOTICE)
+  const [inviting, setInviting] = useState(false)
+  // Lecturers invited in this session sit above the seeded staff, as the
+  // canvas concatenates lcMade ahead of its seed.
+  const [invited, setInvited] = useState<Lecturer[]>([])
+  const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
 
@@ -49,7 +58,7 @@ export default function PortalPage() {
         schoolInitials: "UL",
         name: admin ? "Ngozi Balogun" : "Dr. Femi Adeyemi",
       }}
-      notices={BELL}
+      notices={bell}
       badges={admin ? { support: 2 } : { support: 2, msgs: 2 }}
       onSignOut={() => setRole(admin ? "lect" : "admin")}
     >
@@ -221,20 +230,56 @@ export default function PortalPage() {
         />
       )}
 
-      {view !== "overview" && (
-        <div
-          style={{
-            background: "var(--card)",
-            borderRadius: 20,
-            boxShadow: "var(--shadow-card)",
-            padding: "20px 22px",
-            fontSize: 12.5,
-            color: "var(--txt3)",
-          }}
-        >
-          This screen is a later slice.
-        </div>
+      {view === "students" && (
+        <StudentRoll
+          // A lecturer's roll is their own students, not the institution's.
+          students={
+            admin
+              ? STUDENTS
+              : STUDENTS.filter((s) => s.prog === "Computer Science")
+          }
+          title={admin ? "Student roll" : "My students"}
+          sub={
+            admin
+              ? "The register of record — status is derived from enrolment, never set by hand"
+              : "Students enrolled in CSC 201 and CSC 305"
+          }
+        />
       )}
+
+      {view === "lect" && admin && (
+        <TeachingStaff
+          lecturers={[...invited, ...LECTURERS]}
+          onInvite={() => setInviting(true)}
+        />
+      )}
+
+      {inviting && (
+        <InviteLecturer
+          onClose={() => setInviting(false)}
+          onInvited={(lecturer, text) => {
+            setInvited((v) => [lecturer, ...v])
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+          }}
+        />
+      )}
+
+      {view !== "overview" &&
+        view !== "students" &&
+        !(view === "lect" && admin) && (
+          <div
+            style={{
+              background: "var(--card)",
+              borderRadius: 20,
+              boxShadow: "var(--shadow-card)",
+              padding: "20px 22px",
+              fontSize: 12.5,
+              color: "var(--txt3)",
+            }}
+          >
+            This screen is a later slice.
+          </div>
+        )}
     </PortalShell>
   )
 }
