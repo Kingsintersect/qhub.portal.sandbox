@@ -7,6 +7,8 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { CreateLesson } from "@/modules/portal/components/CreateLesson"
+import { LessonContent } from "@/modules/portal/components/LessonContent"
 import { LiveClasses } from "@/modules/portal/components/LiveClasses"
 import { ScheduleLiveClass } from "@/modules/portal/components/ScheduleLiveClass"
 import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
@@ -18,6 +20,7 @@ import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
   COURSES,
   LECTURERS,
+  LESSONS,
   LEVELS,
   LIVE_CLASSES,
   MEDIA,
@@ -29,6 +32,7 @@ import {
   type Lecturer,
   type Announcement,
   type MediaItem,
+  type Lesson,
   type LiveClass,
   type Ticket,
 } from "@/modules/portal/seed"
@@ -74,6 +78,8 @@ export default function PortalPage() {
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS)
   const [scheduling, setScheduling] = useState(false)
   const [classes, setClasses] = useState<LiveClass[]>(LIVE_CLASSES)
+  const [creating, setCreating] = useState(false)
+  const [lessons, setLessons] = useState<Lesson[]>(LESSONS)
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -302,6 +308,26 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "lessons" && !admin && (
+        <LessonContent
+          lessons={lessons}
+          courses={MY_CODES}
+          onCreate={() => setCreating(true)}
+        />
+      )}
+
+      {creating && (
+        <CreateLesson
+          courses={MY_CODES}
+          onClose={() => setCreating(false)}
+          onPublish={(lesson, text) => {
+            setLessons((all) => [lesson, ...all])
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+            setCreating(false)
+          }}
+        />
+      )}
+
       {view === "live" && !admin && (
         <LiveClasses classes={classes} onSchedule={() => setScheduling(true)} />
       )}
@@ -489,8 +515,20 @@ export default function PortalPage() {
             ])
           }
           actionsFor={() => [
-            { label: "Create lesson", run: () => setView("lessons") },
-            { label: "Schedule live class", run: () => setView("live") },
+            {
+              label: "Create lesson",
+              run: () => {
+                setView("lessons")
+                setCreating(true)
+              },
+            },
+            {
+              label: "Schedule live class",
+              run: () => {
+                setView("live")
+                setScheduling(true)
+              },
+            },
             { label: "New quiz or exam", run: () => setView("assess") },
             { label: "Start discussion", run: () => setView("disc") },
             { label: "Open gradebook", run: () => setView("grades") },
@@ -522,6 +560,7 @@ export default function PortalPage() {
         view !== "announce" &&
         view !== "support" &&
         !(view === "live" && !admin) &&
+        !(view === "lessons" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{

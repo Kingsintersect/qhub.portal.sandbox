@@ -568,3 +568,74 @@ export const LIVE_CLASSES: LiveClass[] = [
     present: "873 of 1,180",
   },
 ]
+
+export type LessonBlock = { kind: string; label: string }
+
+export type Lesson = {
+  course: string
+  module: string
+  title: string
+  layout: string
+  blocks: string[]
+  /** An em-dash on a draft — nobody has worked through it yet. */
+  done: string
+  status: "PUBLISHED" | "DRAFT"
+}
+
+/** Block-kind colours, shared by the lesson table and the builder. */
+export const BLOCK_TONE: Record<string, [string, string]> = {
+  VIDEO: ["var(--accent)", "var(--accent-soft)"],
+  AUDIO: ["var(--series2)", "var(--warn-bg)"],
+  PDF: ["var(--neg)", "var(--neg-bg)"],
+  TEXT: ["var(--txt3)", "var(--panel)"],
+  QUIZ: ["var(--accent)", "var(--accent-soft)"],
+  SLIDES: ["var(--txt3)", "var(--panel)"],
+}
+
+export const LESSONS: Lesson[] = [
+  {
+    course: "CSC 201",
+    module: "Module 1",
+    title: "Week 1: Why data structures exist",
+    layout: "Video lesson",
+    blocks: ["VIDEO", "TEXT", "QUIZ"],
+    done: "91%",
+    status: "PUBLISHED",
+  },
+  {
+    course: "CSC 201",
+    module: "Module 2",
+    title: "Week 4: Complexity in practice",
+    layout: "Reading",
+    blocks: ["TEXT", "PDF"],
+    done: "74%",
+    status: "PUBLISHED",
+  },
+  {
+    course: "CSC 201",
+    module: "Module 2",
+    title: "Week 6: Trees, worked examples",
+    layout: "Mixed media",
+    blocks: ["VIDEO", "AUDIO", "TEXT"],
+    done: "38%",
+    status: "PUBLISHED",
+  },
+  {
+    course: "CSC 305",
+    module: "Module 1",
+    title: "Week 2: Processes vs threads",
+    layout: "Video lesson",
+    blocks: ["VIDEO", "TEXT"],
+    done: "83%",
+    status: "PUBLISHED",
+  },
+  {
+    course: "CSC 305",
+    module: "Module 3",
+    title: "Week 7: B-trees draft",
+    layout: "Reading",
+    blocks: ["TEXT"],
+    done: "—",
+    status: "DRAFT",
+  },
+]
