@@ -4,6 +4,8 @@ import { useState } from "react"
 
 import { Overview, useNotice } from "@/modules/portal/components/Overview"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
+import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
+import { UploadMedia } from "@/modules/portal/components/UploadMedia"
 import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
 import { PortalShell } from "@/modules/portal/components/PortalShell"
 import { StudentRoll } from "@/modules/portal/components/StudentRoll"
@@ -11,9 +13,11 @@ import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
   COURSES,
   LECTURERS,
+  MEDIA,
   MY_CODES,
   STUDENTS,
   type Lecturer,
+  type MediaItem,
 } from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
 
@@ -50,6 +54,8 @@ export default function PortalPage() {
   // Lecturers invited in this session sit above the seeded staff, as the
   // canvas concatenates lcMade ahead of its seed.
   const [invited, setInvited] = useState<Lecturer[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploaded, setUploaded] = useState<MediaItem[]>([])
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -148,7 +154,13 @@ export default function PortalPage() {
                     label: "Invite a lecturer",
                     onClick: () => setView("lect"),
                   },
-                  { label: "Upload media", onClick: () => setView("media") },
+                  {
+                    label: "Upload media",
+                    onClick: () => {
+                      setView("media")
+                      setUploading(true)
+                    },
+                  },
                   {
                     label: "Raise a support ticket",
                     onClick: () => setView("support"),
@@ -157,7 +169,10 @@ export default function PortalPage() {
               : [
                   {
                     label: "Upload media to my course",
-                    onClick: () => setView("media"),
+                    onClick: () => {
+                      setView("media")
+                      setUploading(true)
+                    },
                   },
                   {
                     label: "Announce to my students",
@@ -254,6 +269,35 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "media" && (
+        <MediaLibrary
+          items={[...uploaded, ...MEDIA].filter(
+            (m) => admin || MY_CODES.includes(m.course)
+          )}
+          title={admin ? "Media library" : "My media"}
+          sub={
+            admin
+              ? "Everything delivered to your students — by the platform on your behalf, or uploaded here"
+              : "Media for CSC 201 and CSC 305 — uploads are credited to you"
+          }
+          onUpload={() => setUploading(true)}
+        />
+      )}
+
+      {uploading && (
+        <UploadMedia
+          courses={
+            admin ? COURSES : COURSES.filter((c) => MY_CODES.includes(c.code))
+          }
+          isAdmin={admin}
+          onClose={() => setUploading(false)}
+          onUploaded={(item, text) => {
+            setUploaded((v) => [item, ...v])
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+          }}
+        />
+      )}
+
       {view === "courses" && (
         <CourseCatalogue
           courses={
@@ -311,6 +355,7 @@ export default function PortalPage() {
       {view !== "overview" &&
         view !== "students" &&
         view !== "courses" &&
+        view !== "media" &&
         !(view === "lect" && admin) && (
           <div
             style={{

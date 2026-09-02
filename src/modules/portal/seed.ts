@@ -310,3 +310,109 @@ export const COURSES: Course[] = [
     media: 2,
   },
 ]
+
+export type MediaType = "Video" | "Audio" | "PDF"
+
+export type MediaItem = {
+  id: string
+  type: MediaType
+  title: string
+  by: string
+  course: string
+  /** The level it reaches — follows the course's own level. */
+  target: string
+  sizeLen: string
+  when: string
+  /** PLATFORM was delivered by Qverse; PORTAL was uploaded here. */
+  src: "PLATFORM" | "PORTAL"
+}
+
+export const TYPE_META: Record<
+  MediaType,
+  { d: string; tone: string; bg: string }
+> = {
+  Video: {
+    d: "M3 5h18v14H3zM10 9.5l5 2.5-5 2.5z",
+    tone: "var(--accent)",
+    bg: "var(--accent-soft)",
+  },
+  Audio: {
+    d: "M9 18a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM9 18V5l11-2v12M20 15a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z",
+    tone: "var(--series2)",
+    bg: "var(--warn-bg)",
+  },
+  PDF: {
+    d: "M6 2h9l5 5v15H6zM15 2v5h5M9 13h6M9 17h6",
+    tone: "var(--neg)",
+    bg: "var(--neg-bg)",
+  },
+}
+
+export const MEDIA: MediaItem[] = [
+  {
+    id: "m1",
+    type: "Video",
+    title: "CSC 201 — Data structures: trees and heaps",
+    by: "Dr. F. Adeyemi",
+    course: "CSC 201",
+    target: "Year 2",
+    sizeLen: "1.8 GB · 1h 42m",
+    when: "Aug 24",
+    src: "PLATFORM",
+  },
+  {
+    id: "m2",
+    type: "Video",
+    title: "GST 103 — Logic and critical thinking, week 4",
+    by: "Prof. C. Okonkwo",
+    course: "GST 103",
+    target: "Year 1",
+    sizeLen: "940 MB · 58m",
+    when: "Aug 22",
+    src: "PLATFORM",
+  },
+  {
+    id: "m3",
+    type: "PDF",
+    title: "BIO 102 — Cell biology practical briefing",
+    by: "Dr. E. Nwachukwu",
+    course: "BIO 102",
+    target: "Year 1",
+    sizeLen: "8.2 MB · 34 pages",
+    when: "Aug 15",
+    src: "PLATFORM",
+  },
+  {
+    id: "m4",
+    type: "Audio",
+    title: "LAW 401 — Evidence: burden of proof, recap",
+    by: "Prof. H. Yusuf",
+    course: "LAW 401",
+    target: "Year 4",
+    sizeLen: "88 MB · 1h 02m",
+    when: "Aug 12",
+    src: "PORTAL",
+  },
+  {
+    id: "m5",
+    type: "Video",
+    title: "CSC 305 — Scheduling algorithms walkthrough",
+    by: "Dr. F. Adeyemi",
+    course: "CSC 305",
+    target: "Year 3",
+    sizeLen: "1.2 GB · 1h 10m",
+    when: "Aug 9",
+    src: "PORTAL",
+  },
+  {
+    id: "m6",
+    type: "Video",
+    title: "MTH 110 — Limits and continuity",
+    by: "Dr. B. Lawal",
+    course: "MTH 110",
+    target: "Year 1",
+    sizeLen: "1.2 GB · 1h 15m",
+    when: "Aug 21",
+    src: "PLATFORM",
+  },
+]
