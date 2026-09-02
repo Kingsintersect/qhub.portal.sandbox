@@ -6,11 +6,13 @@ import {
   HomeBanner,
   type HomeStat,
 } from "@/modules/learn/components/HomeBanner"
+import { CourseHub } from "@/modules/learn/components/CourseHub"
 import {
   LearnShell,
   type LearnCourse,
   type LearnView,
 } from "@/modules/learn/components/LearnShell"
+import { COURSES } from "@/modules/learn/seed"
 
 /**
  * The student app.
@@ -24,12 +26,13 @@ import {
  * real responses touches one file.
  */
 
-const COURSES: LearnCourse[] = [
-  { code: "CSC 201", percent: 62, dot: "#4A84D6" },
-  { code: "GST 103", percent: 88, dot: "#E8853D" },
-  { code: "MTH 110", percent: 41, dot: "#0E2A55" },
-  { code: "BIO 102", percent: 75, dot: "#4A9C77" },
-]
+/* The sidebar rail reads the same list as the hub, so the two cannot show
+   different progress for the same course. */
+const RAIL: LearnCourse[] = COURSES.map((c) => ({
+  code: c.code,
+  percent: c.percent,
+  dot: c.dot,
+}))
 
 const STATS: HomeStat[] = [
   {
@@ -83,6 +86,10 @@ export default function LearnPage() {
   const [view, setView] = useState<LearnView>("home")
   const [courseCode, setCourseCode] = useState<string | null>(null)
 
+  // A course is always selected in the hub; the rail's null just means the
+  // sidebar is not highlighting one.
+  const selected = COURSES.find((c) => c.code === courseCode) ?? COURSES[0]!
+
   return (
     <LearnShell
       view={view}
@@ -100,7 +107,7 @@ export default function LearnPage() {
         matric: "UNILAG/2023/41207",
         year: "Year 2",
       }}
-      courses={COURSES}
+      courses={RAIL}
       courseCode={courseCode}
       onCourse={(code) => {
         setCourseCode(code)
@@ -122,7 +129,21 @@ export default function LearnPage() {
         </div>
       )}
 
-      {view !== "home" && (
+      {view === "lessons" && (
+        <CourseHub
+          courses={COURSES}
+          selected={selected}
+          onSelect={setCourseCode}
+          onOpenModule={() => {
+            /* The module overview page is the next slice. */
+          }}
+          onOpenItem={() => {
+            /* The lesson viewer and quiz runner are later slices. */
+          }}
+        />
+      )}
+
+      {view !== "home" && view !== "lessons" && (
         <div
           style={{
             background: "var(--card)",
