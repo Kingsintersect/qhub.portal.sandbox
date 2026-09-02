@@ -45,7 +45,9 @@ export function resolveApiBaseUrl(host?: string): string {
     return API_PATH
   }
 
-  const protocol = isBrowser ? window.location.protocol : "http:"
+  const protocol = isBrowser
+    ? window.location.protocol
+    : serverProtocol(hostname)
 
   if (API_PORT) {
     return `${protocol}//${hostname}:${API_PORT}${API_PATH}`
@@ -53,6 +55,35 @@ export function resolveApiBaseUrl(host?: string): string {
 
   // Same-origin: relative, so the browser sends the tenant's own Host header.
   return isBrowser && !host ? API_PATH : `${protocol}//${hostname}${API_PATH}`
+}
+
+/**
+ * Which scheme the server should call the API with.
+ *
+ * There is no `window` on the server, so this used to assume `http:`. On a TLS
+ * deployment that is not merely untidy — nginx answers plain HTTP with a 301,
+ * and a client following a 301 turns the POST into a GET. The credentials
+ * never reach the handler and the route replies 405, so sign-in fails for
+ * every account with no failed-login recorded anywhere, because the request
+ * never arrived.
+ *
+ * Local development is the only place http is right, and it is recognisable by
+ * hostname rather than assumed.
+ */
+function serverProtocol(hostname: string): string {
+  return isLocalHostname(hostname) ? "http:" : "https:"
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".test") ||
+    hostname.endsWith(".local")
+  )
 }
 
 function stripTrailingSlash(value: string): string {
