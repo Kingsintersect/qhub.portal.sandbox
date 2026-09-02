@@ -503,3 +503,68 @@ export const TICKETS: Ticket[] = [
     ],
   },
 ]
+
+export type LiveClass = {
+  course: string
+  title: string
+  when: string
+  dur: string
+  host: string
+  status: "SCHEDULED" | "LIVE" | "ENDED"
+  /** Null until the class has happened — never a zero. */
+  att: number | null
+  present: string
+}
+
+export const LIVE_CLASSES: LiveClass[] = [
+  {
+    course: "CSC 201",
+    title: "Trees and heaps — live walkthrough",
+    when: "Tomorrow · 10:00",
+    dur: "1h",
+    host: "Dr. F. Adeyemi",
+    status: "SCHEDULED",
+    att: null,
+    present: "",
+  },
+  {
+    course: "CSC 305",
+    title: "Scheduling algorithms Q&A",
+    when: "Thu · 14:00",
+    dur: "45m",
+    host: "Dr. F. Adeyemi",
+    status: "SCHEDULED",
+    att: null,
+    present: "",
+  },
+  {
+    course: "CSC 201",
+    title: "Recursion clinic",
+    when: "Aug 26 · 10:00",
+    dur: "1h",
+    host: "Dr. F. Adeyemi",
+    status: "ENDED",
+    att: 82,
+    present: "968 of 1,180",
+  },
+  {
+    course: "CSC 305",
+    title: "Deadlock detection lab brief",
+    when: "Aug 21 · 14:00",
+    dur: "1h",
+    host: "Dr. F. Adeyemi",
+    status: "ENDED",
+    att: 69,
+    present: "662 of 960",
+  },
+  {
+    course: "CSC 201",
+    title: "Week 5 review",
+    when: "Aug 19 · 10:00",
+    dur: "45m",
+    host: "Dr. F. Adeyemi",
+    status: "ENDED",
+    att: 74,
+    present: "873 of 1,180",
+  },
+]

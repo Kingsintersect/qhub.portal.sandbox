@@ -7,6 +7,8 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { LiveClasses } from "@/modules/portal/components/LiveClasses"
+import { ScheduleLiveClass } from "@/modules/portal/components/ScheduleLiveClass"
 import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
 import { UploadMedia } from "@/modules/portal/components/UploadMedia"
 import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
@@ -17,6 +19,7 @@ import {
   COURSES,
   LECTURERS,
   LEVELS,
+  LIVE_CLASSES,
   MEDIA,
   MY_CODES,
   OUR_ANNOUNCEMENTS,
@@ -26,6 +29,7 @@ import {
   type Lecturer,
   type Announcement,
   type MediaItem,
+  type LiveClass,
   type Ticket,
 } from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
@@ -68,6 +72,8 @@ export default function PortalPage() {
   const [sent, setSent] = useState<Announcement[]>([])
   const [raising, setRaising] = useState(false)
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS)
+  const [scheduling, setScheduling] = useState(false)
+  const [classes, setClasses] = useState<LiveClass[]>(LIVE_CLASSES)
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -296,6 +302,32 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "live" && !admin && (
+        <LiveClasses classes={classes} onSchedule={() => setScheduling(true)} />
+      )}
+
+      {scheduling && (
+        <ScheduleLiveClass
+          courses={MY_CODES}
+          host="Dr. F. Adeyemi"
+          onClose={() => setScheduling(false)}
+          onSchedule={(c) => {
+            setClasses((all) => [
+              { ...c, status: "SCHEDULED", att: null, present: "" },
+              ...all,
+            ])
+            setBell((n) => [
+              {
+                text: `Live class scheduled — ${c.course} · ${c.when} WAT · Zoom meeting created; the join link is on the course's Moodle page`,
+                when: "Just now",
+              },
+              ...n,
+            ])
+            setScheduling(false)
+          }}
+        />
+      )}
+
       {view === "support" && (
         <Support
           tickets={tickets}
@@ -489,6 +521,7 @@ export default function PortalPage() {
         view !== "media" &&
         view !== "announce" &&
         view !== "support" &&
+        !(view === "live" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{
