@@ -1,6 +1,12 @@
 "use client"
 
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
+import { toast } from "sonner"
+
+import apiClient from "@/lib/clients/apiClient"
+import { errorMessage } from "@/lib/api-error"
+import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
 
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import {
@@ -293,6 +299,12 @@ export function SystemsOverviewPage() {
 // --- Tenant health ----------------------------------------------------------
 
 const HEALTH_GRID = "150px 1.5fr 110px 110px 150px 110px 40px"
+const INCIDENT_GRID = "120px minmax(0,1.9fr) minmax(0,1.2fr) 80px 120px 130px"
+const PROVISIONING_GRID =
+  "90px minmax(0,1.3fr) minmax(0,1.6fr) 130px 80px 130px"
+const UPGRADE_GRID = "110px minmax(0,1.9fr) 110px 90px 120px 120px"
+const ANOMALY_GRID =
+  "110px minmax(0,1.2fr) minmax(0,1.4fr) 150px minmax(0,1.3fr) 170px"
 
 function HealthTab() {
   const { data, isPending } = useEstateOverview()
@@ -308,6 +320,42 @@ function HealthTab() {
 
   const [session, setSession] = useState<SupportSession | null>(null)
   const [reason, setReason] = useState("")
+
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
+
+  /*
+   * Suspend and resume, on the same endpoint the institution drawer uses.
+   * The draft puts these on the health panel as well, which is the point:
+   * whoever is reading a degraded institution's row is the person who decides
+   * to close its portal, and making them go and find another surface to do it
+   * is how the decision gets postponed.
+   */
+  const lifecycle = useMutation({
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: number
+      action: "suspend" | "resume"
+    }) =>
+      apiClient.post(
+        `/platform/tenants/${id}/${action}`,
+        {},
+        { access_token: true }
+      ),
+    onSuccess: (_data, { action }) => {
+      toast.success(action === "suspend" ? "Portal closed" : "Portal reopened")
+      void queryClient.invalidateQueries({ queryKey: ["platform"] })
+      void queryClient.invalidateQueries({
+        queryKey: ["platform-observability"],
+      })
+    },
+    onError: (error) =>
+      toast.error("That did not work", {
+        description: errorMessage(error, "Nothing changed."),
+      }),
+  })
 
   return (
     <>
@@ -450,6 +498,17 @@ function HealthTab() {
               onNote={() => setNoting(r)}
               onOpenConsole={() => setConsole(r)}
               onEscalate={() => setEscalating(r)}
+              onSuspend={async () => {
+                const ok = await confirm({
+                  title: `Suspend ${r.name}?`,
+                  body: "Their portal closes on the next request. Nothing is deleted and every record is kept — resuming puts it straight back.",
+                  label: "Suspend tenant",
+                  danger: true,
+                })
+
+                if (ok) lifecycle.mutate({ id: r.id, action: "suspend" })
+              }}
+              onResume={() => lifecycle.mutate({ id: r.id, action: "resume" })}
             />
           )}
         </div>
@@ -503,17 +562,58 @@ function HealthTab() {
  * whole reason to open it: look inside, escalate, or write down what the next
  * person needs to know.
  */
+/**
+ * The marker the draft puts beside a figure QHub derived rather than measured.
+ *
+ * Storage consumed and the health score are both rolled up by the collector,
+ * and the draft labels them so nobody reads them as a direct reading off the
+ * institution's own database.
+ */
+function AiBadge() {
+  return (
+    <span
+      style={{
+        fontSize: 9.5,
+        letterSpacing: ".06em",
+        border: "1px solid var(--line-strong)",
+        borderRadius: 5,
+        padding: "1px 5px",
+        color: "var(--icon2)",
+      }}
+    >
+      AI
+    </span>
+  )
+}
+
+/** 1.8 TB, not 1980000000000. */
+function formatBytes(n: number): string {
+  if (n <= 0) return "0 MB"
+
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)))
+  const value = n / 1024 ** i
+
+  return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`
+}
+
 function HealthRowPanel({
   institution,
   onNote,
   onOpenConsole,
   onEscalate,
+  onSuspend,
+  onResume,
 }: {
   institution: EstateInstitution
   onNote: () => void
   onOpenConsole: () => void
   onEscalate: () => void
+  onSuspend: () => void
+  onResume: () => void
 }) {
+  const suspended = institution.status === "SUSPENDED"
+
   return (
     <div
       style={{
@@ -542,14 +642,14 @@ function HealthRowPanel({
             whiteSpace: "nowrap",
           }}
         >
-          <div style={{ color: "var(--txt3)" }}>Programmes</div>
+          <div style={{ color: "var(--txt3)" }}>Modules Enabled</div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {institution.programCategories.length === 0 && (
-              <span style={{ color: "var(--txt3)" }}>None recorded</span>
+            {institution.modules.length === 0 && (
+              <span style={{ color: "var(--txt3)" }}>None enabled</span>
             )}
-            {institution.programCategories.map((category) => (
+            {institution.modules.map((module) => (
               <span
-                key={category}
+                key={module}
                 style={{
                   fontSize: 12,
                   padding: "4px 10px",
@@ -559,39 +659,72 @@ function HealthRowPanel({
                   whiteSpace: "nowrap",
                 }}
               >
-                {category.replace(/_/g, " ").toLowerCase()}
+                {module}
               </span>
             ))}
           </div>
 
-          <div style={{ color: "var(--txt3)" }}>Plan</div>
+          <div style={{ color: "var(--txt3)" }}>SIS Integration</div>
           <div>
-            <b style={{ fontWeight: 600 }}>{institution.plan ?? "none"}</b>
+            {institution.integrations.sis ? (
+              <>
+                <b style={{ fontWeight: 600 }}>
+                  {institution.integrations.sis.name}
+                </b>{" "}
+                <span style={{ color: "var(--txt3)" }}>
+                  ({institution.integrations.sis.detail})
+                </span>
+              </>
+            ) : (
+              /* No integration is a fact about the school, not a blank. */
+              <span style={{ color: "var(--txt3)" }}>None connected</span>
+            )}
           </div>
 
-          <div style={{ color: "var(--txt3)" }}>Learners</div>
+          <div
+            style={{
+              color: "var(--txt3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            Storage Consumed <AiBadge />
+          </div>
           <div>
             <b style={{ fontWeight: 600 }}>
-              {institution.students.toLocaleString()}
+              {formatBytes(institution.storage.usedBytes)}
             </b>{" "}
             <span style={{ color: "var(--txt3)" }}>
-              · {institution.lecturers.toLocaleString()} lecturers
+              {institution.storage.quotaBytes === null
+                ? "(no ceiling set)"
+                : `(of ${formatBytes(institution.storage.quotaBytes)} plan)`}
             </span>
           </div>
 
-          <div style={{ color: "var(--txt3)" }}>Open issues</div>
+          <div
+            style={{
+              color: "var(--txt3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            Health Score <AiBadge />
+          </div>
           <div>
-            <b
-              style={{
-                fontWeight: 600,
-                color: institution.issues > 0 ? "var(--neg)" : "var(--txt)",
-              }}
-            >
-              {institution.issues}
-            </b>{" "}
-            <span style={{ color: "var(--txt3)" }}>
-              ({healthLabel(institution.health).toLowerCase()})
-            </span>
+            {institution.healthScore === null ? (
+              /* Never scored is not zero: the collector has not run for this
+                 institution yet, and 0 would read as "in trouble". */
+              <span style={{ color: "var(--txt3)" }}>Not yet scored</span>
+            ) : (
+              <>
+                <b style={{ fontWeight: 600 }}>{institution.healthScore}</b>{" "}
+                <span style={{ color: "var(--txt3)" }}>
+                  ({healthLabel(institution.health)})
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -652,11 +785,31 @@ function HealthRowPanel({
           }}
         >
           <HealthDonut
+            score={institution.healthScore}
             health={institution.health}
-            issues={institution.issues}
           />
         </div>
       </div>
+
+      {suspended && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginTop: 16,
+            background: "var(--neg-bg)",
+            border: "1px solid var(--neg)",
+            borderRadius: 11,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "var(--txt)",
+          }}
+        >
+          This tenant is suspended &mdash; the portal is closed to all learners
+          and staff. Data and billing are untouched.
+        </div>
+      )}
 
       <div
         style={{
@@ -722,6 +875,65 @@ function HealthRowPanel({
         >
           Escalate to Engineering
         </button>
+
+        {suspended ? (
+          <button
+            type="button"
+            onClick={onResume}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              border: "1px solid var(--accent)",
+              background: "transparent",
+              color: "var(--accent)",
+              fontSize: 13.5,
+              fontWeight: 500,
+              fontFamily: "inherit",
+              padding: "11px 18px",
+              borderRadius: 11,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Resume Tenant
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSuspend}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              border: "1px solid var(--line-strong)",
+              background: "transparent",
+              color: "var(--txt2)",
+              fontSize: 13.5,
+              fontFamily: "inherit",
+              padding: "11px 18px",
+              borderRadius: 11,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Suspend Tenant
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            >
+              <rect x="3.5" y="5" width="17" height="4" rx="1.5" />
+              <path d="M5.5 9v9.5h13V9M10 13h4" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -729,12 +941,22 @@ function HealthRowPanel({
 
 /** The draft's ring, drawn from the institution's own health. */
 function HealthDonut({
+  score,
   health,
-  issues,
 }: {
+  score: number | null
   health: HealthStatus
-  issues: number
 }) {
+  /*
+   * The ring is the score, not the issue count.
+   *
+   * The draft draws it as `stroke-dasharray="224 264"` against r=42 — 85% of
+   * the circumference for a score of 85. An earlier version filled it from
+   * open issues instead, which meant a perfectly healthy institution with one
+   * stale check drew the same ring as one scoring 83.
+   */
+  const circumference = 2 * Math.PI * 42
+
   const tone =
     health === "OK"
       ? "var(--accent)"
@@ -742,9 +964,9 @@ function HealthDonut({
         ? "var(--warn)"
         : "var(--neg)"
 
-  // Full ring when healthy, and progressively less of one as issues mount.
-  const filled = Math.max(0.15, 1 - Math.min(issues, 6) / 6)
-  const circumference = 264
+  // Never scored is not zero. An empty ring reading 0 says "this institution
+  // is in trouble"; the truth is that the collector has not reached it.
+  const filled = score === null ? 0 : Math.min(100, Math.max(0, score)) / 100
 
   return (
     <div style={{ position: "relative", width: 96, height: 96 }}>
@@ -765,7 +987,7 @@ function HealthDonut({
           fill="none"
           strokeWidth="6"
           strokeLinecap="round"
-          strokeDasharray={`${Math.round(circumference * filled)} ${circumference}`}
+          strokeDasharray={`${Math.round(circumference * filled)} ${Math.round(circumference)}`}
           transform="rotate(-90 48 48)"
         />
       </svg>
@@ -779,12 +1001,12 @@ function HealthDonut({
           justifyContent: "center",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 600, color: tone }}>
-          {issues}
+        <div
+          style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" }}
+        >
+          {score === null ? "—" : score}
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--txt3)" }}>
-          {issues === 1 ? "issue" : "issues"}
-        </div>
+        <div style={{ fontSize: 10.5, color: "var(--txt3)" }}>Health</div>
       </div>
     </div>
   )
@@ -803,6 +1025,13 @@ function ProvisioningTab({
 
   return (
     <>
+      {rows.length > 0 && (
+        <TableHead
+          grid={PROVISIONING_GRID}
+          cols={["STARTED", "INSTITUTION", "STAGE", "OWNER", "ENV", "STATUS"]}
+        />
+      )}
+
       {rows.map((r) => (
         <ProvisioningRow
           key={r.id}
@@ -824,7 +1053,6 @@ function ProvisioningTab({
 function ProvisioningRow({
   tenantId,
   name,
-  slug,
 }: {
   tenantId: number
   name: string
@@ -832,63 +1060,123 @@ function ProvisioningRow({
 }) {
   const { data } = useProvisioningProgress(tenantId)
 
+  // "Stage 3 of 7" is what the draft shows, and it is the useful phrasing:
+  // a bare percentage does not say what is happening right now.
+  const stage =
+    data === undefined
+      ? "…"
+      : data.status === "FAILED"
+        ? `Failed at ${data.failedAt ?? "an unknown step"}`
+        : data.status === "QUEUED"
+          ? "Waiting to start"
+          : (data.steps.find((step) => !step.done)?.label ?? "Finishing up")
+
+  return (
+    <TableRow grid={PROVISIONING_GRID}>
+      <WhenCell>{shortWhen(data?.startedAt ?? null)}</WhenCell>
+      <TitleCell>{name}</TitleCell>
+      <MutedCell>
+        {data === undefined
+          ? "…"
+          : `Stage ${Math.min(data.completed + 1, data.total)} of ${data.total} — ${stage}`}
+      </MutedCell>
+      <MutedCell>{data?.owner ?? "Unassigned"}</MutedCell>
+      <MutedCell mono>{data?.environment ?? "—"}</MutedCell>
+      <div>
+        <StatusPill label={data?.status ?? "QUEUED"} />
+      </div>
+    </TableRow>
+  )
+}
+
+function TableHead({ grid, cols }: { grid: string; cols: string[] }) {
   return (
     <div
       style={{
-        padding: "13px 24px",
-        borderTop: "1px solid var(--line2)",
+        display: "grid",
+        gridTemplateColumns: grid,
+        columnGap: 18,
+        padding: "14px 24px 10px",
+        fontSize: 10.5,
+        letterSpacing: ".09em",
+        color: "var(--txt4)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--txt)" }}>
-          {name}
-        </div>
-        <div
-          className="qhub-mono"
-          style={{ fontSize: 11.5, color: "var(--txt4)" }}
-        >
-          {slug}
-        </div>
-        <div
-          className="qhub-mono"
-          style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--txt3)" }}
-        >
-          {data ? `${data.completed}/${data.total}` : "…"}
-        </div>
-      </div>
-
-      <div
-        style={{
-          height: 6,
-          borderRadius: 999,
-          background: "var(--panel)",
-          marginTop: 9,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${data?.percent ?? 0}%`,
-            background:
-              data?.status === "FAILED" ? "var(--neg)" : "var(--accent)",
-            transition: "width .4s ease",
-          }}
-        />
-      </div>
-
-      <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 6 }}>
-        {data?.status === "FAILED"
-          ? `Failed at ${data.failedAt ?? "an unknown step"}${data.error ? ` — ${data.error}` : ""}`
-          : data?.status === "QUEUED"
-            ? "Waiting for a worker to pick it up."
-            : (data?.steps.find((s) => !s.done)?.label ?? "Finishing up")}
-      </div>
+      {cols.map((c) => (
+        <div key={c}>{c}</div>
+      ))}
     </div>
   )
 }
 
-// --- Incidents --------------------------------------------------------------
+/** A table row, ruled and spaced as the draft has it. */
+function TableRow({
+  grid,
+  children,
+}: {
+  grid: string
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: grid,
+        columnGap: 18,
+        alignItems: "center",
+        padding: "13px 24px",
+        fontSize: 13.5,
+        borderTop: "1px solid var(--line2)",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** The muted first column every table starts with: when it happened. */
+function WhenCell({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>{children}</div>
+}
+
+/** The one column that carries the weight: what the row is about. */
+function TitleCell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontWeight: 500,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function MutedCell({
+  children,
+  mono,
+}: {
+  children: React.ReactNode
+  mono?: boolean
+}) {
+  return (
+    <div
+      className={mono ? "qhub-mono" : undefined}
+      style={{
+        fontSize: mono ? 11.5 : 12.5,
+        color: mono ? "var(--txt3)" : "var(--txt2)",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
 function IncidentsTab() {
   const [status, setStatus] = useState("open")
@@ -927,6 +1215,20 @@ function IncidentsTab() {
         <Empty>No incidents match these filters.</Empty>
       )}
 
+      {(data?.data.length ?? 0) > 0 && (
+        <TableHead
+          grid={INCIDENT_GRID}
+          cols={[
+            "STARTED",
+            "INCIDENT",
+            "AFFECTED",
+            "SEVERITY",
+            "STATUS",
+            "OWNER",
+          ]}
+        />
+      )}
+
       {data?.data.map((incident) => (
         <IncidentRow key={incident.id} incident={incident} />
       ))}
@@ -943,62 +1245,82 @@ function IncidentRow({ incident }: { incident: Incident }) {
         : { c: "var(--txt3)", bg: "var(--panel)" }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 14,
-        padding: "12px 0",
-        borderBottom: "1px solid var(--line2)",
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Pill tone={sev}>{incident.severity}</Pill>
-          <span
-            className="qhub-mono"
-            style={{ fontSize: 11, color: "var(--txt4)" }}
-          >
-            {incident.reference}
-          </span>
-          <span style={{ fontSize: 11.5, color: "var(--txt3)" }}>
-            {incident.status}
-          </span>
-        </div>
-
-        <div style={{ fontSize: 13.5, color: "var(--txt)", marginTop: 5 }}>
-          {incident.title}
-        </div>
-
-        <div style={{ fontSize: 11.5, color: "var(--txt3)", marginTop: 4 }}>
-          {incident.isPlatformWide
-            ? "Platform-wide"
-            : incident.institutions.length > 0
-              ? incident.institutions.join(", ")
-              : "No institutions attached"}
-          {incident.owner ? ` · owned by ${incident.owner}` : ""}
-        </div>
+    <TableRow grid={INCIDENT_GRID}>
+      <WhenCell>{shortWhen(incident.openedAt)}</WhenCell>
+      <TitleCell>{incident.title}</TitleCell>
+      <MutedCell>
+        {/* Platform-wide is not "every institution listed" — it is a
+            different kind of incident, and it says so. */}
+        {incident.isPlatformWide
+          ? "Platform-wide"
+          : incident.institutions.length > 0
+            ? incident.institutions.join(", ")
+            : "None attached"}
+      </MutedCell>
+      <div>
+        <span
+          className="qhub-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: ".05em",
+            padding: "4px 8px",
+            borderRadius: 7,
+            color: sev.c,
+            background: sev.bg,
+          }}
+        >
+          {incident.severity}
+        </span>
       </div>
-
-      <div
-        className="qhub-mono"
-        style={{ fontSize: 11, color: "var(--txt4)", whiteSpace: "nowrap" }}
-      >
-        {incident.openedAt
-          ? new Date(incident.openedAt).toLocaleString(undefined, {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : ""}
+      <div>
+        <StatusPill label={incident.status} />
       </div>
-    </div>
+      <MutedCell>{incident.owner ?? "Unassigned"}</MutedCell>
+    </TableRow>
   )
 }
 
-// --- Upgrades ---------------------------------------------------------------
+/** "3 Aug, 15:17" — the draft's format, not a full timestamp. */
+function shortWhen(iso: string | null): string {
+  if (iso === null) return "—"
+
+  return new Date(iso).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+/** The status chip every table's last-but-one column uses. */
+function StatusPill({ label }: { label: string }) {
+  const upper = label.toUpperCase()
+
+  const tone =
+    upper.includes("RESOLV") || upper.includes("COMPLETE")
+      ? { c: "var(--accent)", bg: "var(--good-bg)" }
+      : upper.includes("FAIL")
+        ? { c: "var(--neg)", bg: "var(--neg-bg)" }
+        : upper.includes("SCHEDUL") || upper.includes("QUEUE")
+          ? { c: "var(--txt3)", bg: "var(--panel)" }
+          : { c: "var(--warn)", bg: "var(--warn-bg)" }
+
+  return (
+    <span
+      style={{
+        fontSize: 10.5,
+        fontWeight: 500,
+        padding: "4px 9px",
+        borderRadius: 7,
+        color: tone.c,
+        background: tone.bg,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </span>
+  )
+}
 
 function UpgradesTab() {
   const [logging, setLogging] = useState(false)
@@ -1041,6 +1363,19 @@ function UpgradesTab() {
     <>
       {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
       {header}
+      {data.length > 0 && (
+        <TableHead
+          grid={UPGRADE_GRID}
+          cols={[
+            "DATE",
+            "UPGRADE",
+            "COMPONENT",
+            "VERSION",
+            "ROLLOUT",
+            "STATUS",
+          ]}
+        />
+      )}
       {data.map((u) => (
         <UpgradeRow key={u.id} upgrade={u} />
       ))}
@@ -1050,66 +1385,29 @@ function UpgradesTab() {
 
 function UpgradeRow({ upgrade }: { upgrade: Upgrade }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 14,
-        padding: "12px 0",
-        borderBottom: "1px solid var(--line2)",
-      }}
-    >
+    <TableRow grid={UPGRADE_GRID}>
+      {/* The date the draft shows is when it is happening, which for a
+          scheduled upgrade is the scheduled date, not when it was logged. */}
+      <WhenCell>
+        {shortWhen(
+          upgrade.startedAt ?? upgrade.scheduledFor ?? upgrade.completedAt
+        )}
+      </WhenCell>
+      <TitleCell>{upgrade.title}</TitleCell>
+      <MutedCell>{upgrade.component ?? "—"}</MutedCell>
+      <MutedCell mono>{upgrade.version ?? "—"}</MutedCell>
+      <MutedCell>
+        {upgrade.rolloutScope ??
+          (upgrade.institutions.length > 0
+            ? upgrade.institutions.join(", ")
+            : "—")}
+      </MutedCell>
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Pill
-            tone={
-              upgrade.status === "COMPLETED"
-                ? { c: "var(--accent)", bg: "var(--accent-soft)" }
-                : { c: "var(--warn)", bg: "var(--warn-bg)" }
-            }
-          >
-            {upgrade.status}
-          </Pill>
-          {upgrade.component && (
-            <span
-              className="qhub-mono"
-              style={{ fontSize: 10.5, color: "var(--txt4)" }}
-            >
-              {upgrade.component}
-              {upgrade.version ? ` ${upgrade.version}` : ""}
-            </span>
-          )}
-        </div>
-
-        <div style={{ fontSize: 13.5, color: "var(--txt)", marginTop: 5 }}>
-          {upgrade.title}
-        </div>
-
-        <div style={{ fontSize: 11.5, color: "var(--txt3)", marginTop: 4 }}>
-          {upgrade.rolloutScope ?? "scope unset"}
-          {upgrade.institutions.length > 0
-            ? ` · ${upgrade.institutions.length} institution${upgrade.institutions.length === 1 ? "" : "s"}`
-            : ""}
-          {upgrade.loggedBy ? ` · ${upgrade.loggedBy}` : ""}
-        </div>
+        <StatusPill label={upgrade.status} />
       </div>
-
-      <div
-        className="qhub-mono"
-        style={{ fontSize: 11, color: "var(--txt4)", whiteSpace: "nowrap" }}
-      >
-        {upgrade.scheduledFor
-          ? `scheduled ${new Date(upgrade.scheduledFor).toLocaleDateString()}`
-          : upgrade.completedAt
-            ? `done ${new Date(upgrade.completedAt).toLocaleDateString()}`
-            : ""}
-      </div>
-    </div>
+    </TableRow>
   )
 }
-
-// --- Anomalies --------------------------------------------------------------
 
 function AnomaliesTab() {
   const { can } = usePlatformPermissions()
@@ -1186,6 +1484,20 @@ function AnomaliesTab() {
         <Empty>No anomalies match these filters.</Empty>
       )}
 
+      {(data?.length ?? 0) > 0 && (
+        <TableHead
+          grid={ANOMALY_GRID}
+          cols={[
+            "DETECTED",
+            "INSTITUTION",
+            "ANOMALY",
+            "MAGNITUDE",
+            "LIKELY CAUSE",
+            "STATUS",
+          ]}
+        />
+      )}
+
       {data?.map((a) => (
         <AnomalyRow key={a.id} anomaly={a} canManage={canManage} />
       ))}
@@ -1204,142 +1516,100 @@ function AnomalyRow({
   const reAlerted = anomaly.reAlertedAt !== null
   const sign = anomaly.deviationPct > 0 ? "+" : ""
 
+  const tone = reAlerted
+    ? { c: "var(--neg)", bg: "var(--neg-bg)" }
+    : anomaly.acknowledgedAt !== null
+      ? { c: "var(--txt3)", bg: "var(--panel)" }
+      : { c: "var(--warn)", bg: "var(--warn-bg)" }
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 14,
-        padding: "12px 14px",
-        marginBottom: 8,
-        // A re-alert is tinted and railed so it cannot be mistaken for a
-        // first-time alert at a glance.
-        background: reAlerted ? "var(--neg-bg)" : "transparent",
-        borderLeft: reAlerted
-          ? "2px solid var(--neg)"
-          : "2px solid transparent",
-        borderBottom: "1px solid var(--line2)",
-      }}
-    >
+    <TableRow grid={ANOMALY_GRID}>
+      <WhenCell>{shortWhen(anomaly.detectedAt)}</WhenCell>
+      <TitleCell>{anomaly.institution ?? "Unknown institution"}</TitleCell>
       <div style={{ minWidth: 0 }}>
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            flexWrap: "wrap",
+            color: "var(--txt2)",
+            fontSize: 12.5,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
-          {reAlerted && (
-            <Pill tone={{ c: "#fff", bg: "var(--neg)" }}>RE-ALERTED</Pill>
-          )}
-
-          <span
-            className="qhub-mono"
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: reAlerted ? "var(--neg)" : "var(--txt)",
-            }}
-          >
-            {sign}
-            {anomaly.deviationPct.toFixed(0)}%
-          </span>
-
-          {/* Both magnitudes, per the design: what it is now, and what it was
-              when somebody judged it expected. */}
-          {reAlerted && anomaly.acknowledgedDeviationPct !== null && (
-            <span
-              className="qhub-mono"
-              style={{ fontSize: 11.5, color: "var(--txt3)" }}
-            >
-              · was {anomaly.acknowledgedDeviationPct > 0 ? "+" : ""}
-              {anomaly.acknowledgedDeviationPct.toFixed(0)}% when acknowledged
-            </span>
-          )}
-
-          <span style={{ fontSize: 11.5, color: "var(--txt3)" }}>
-            {anomaly.metric}
-          </span>
+          {anomaly.metric}
         </div>
-
-        <div style={{ fontSize: 13, color: "var(--txt)", marginTop: 5 }}>
-          {anomaly.institution ?? "Unknown institution"}
-        </div>
-
-        {anomaly.likelyCause && (
+        {/* A re-alert must never read like a first sighting: somebody already
+            looked at this one and judged it expected, and it came back
+            worse. */}
+        {reAlerted && (
           <div
             style={{
-              fontSize: 12,
-              color: "var(--txt3)",
-              marginTop: 3,
-              lineHeight: 1.5,
+              fontSize: 10.5,
+              color: "var(--neg)",
+              marginTop: 2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            {anomaly.likelyCause}
-          </div>
-        )}
-
-        {reAlerted && anomaly.previouslyAcknowledgedBy && (
-          <div style={{ fontSize: 12, color: "var(--neg)", marginTop: 5 }}>
-            Came back worse · acknowledged by {anomaly.previouslyAcknowledgedBy}
-          </div>
-        )}
-
-        {!reAlerted && anomaly.acknowledgedAt && anomaly.acknowledgedBy && (
-          <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 5 }}>
-            Acknowledged by {anomaly.acknowledgedBy}
+            Came back worse ·{" "}
+            {anomaly.previouslyAcknowledgedBy ?? "previously acknowledged"}
           </div>
         )}
       </div>
-
-      <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-        <div
-          className="qhub-mono"
-          style={{ fontSize: 11, color: "var(--txt4)" }}
+      <div className="qhub-mono" style={{ fontSize: 11.5, color: tone.c }}>
+        {sign}
+        {anomaly.deviationPct.toFixed(0)}%
+        {reAlerted && anomaly.acknowledgedDeviationPct !== null && (
+          <span style={{ color: "var(--txt4)" }}>
+            {" "}
+            (was {anomaly.acknowledgedDeviationPct.toFixed(0)}%)
+          </span>
+        )}
+      </div>
+      <MutedCell>{anomaly.likelyCause ?? "—"}</MutedCell>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{
+            fontSize: 10.5,
+            fontWeight: 500,
+            padding: "4px 9px",
+            borderRadius: 7,
+            color: tone.c,
+            background: tone.bg,
+            whiteSpace: "nowrap",
+          }}
         >
-          {anomaly.detectedAt
-            ? new Date(anomaly.detectedAt).toLocaleString(undefined, {
-                day: "numeric",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : ""}
-        </div>
-
-        {canManage && !anomaly.acknowledgedAt && (
+          {reAlerted
+            ? "Re-alerted"
+            : anomaly.acknowledgedAt !== null
+              ? "Acknowledged"
+              : "Open"}
+        </span>
+        {canManage && (anomaly.acknowledgedAt === null || reAlerted) && (
           <button
             type="button"
             onClick={() => acknowledge.mutate(anomaly.id)}
             disabled={acknowledge.isPending}
             style={{
-              fontSize: 12,
-              color: "var(--accent)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              marginTop: 6,
-              padding: 0,
+              border: "1px solid var(--line-strong)",
+              background: "transparent",
+              color: "var(--txt2)",
+              fontSize: 11,
+              fontWeight: 500,
               fontFamily: "inherit",
+              padding: "4px 9px",
+              borderRadius: 8,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
             Acknowledge
           </button>
         )}
       </div>
-    </div>
+    </TableRow>
   )
-}
-
-// --- Small pieces -----------------------------------------------------------
-
-function healthDot(health: HealthStatus): string {
-  if (health === "FAIL") return "var(--neg)"
-  if (health === "WARN") return "var(--warn)"
-
-  return "var(--accent)"
 }
 
 function healthTone(health: HealthStatus) {
@@ -1430,29 +1700,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Pill({
-  children,
-  tone,
-}: {
-  children: React.ReactNode
-  tone: { c: string; bg: string }
-}) {
-  return (
-    <span
-      className="qhub-mono"
-      style={{
-        fontSize: 9.5,
-        letterSpacing: ".06em",
-        color: tone.c,
-        background: tone.bg,
-        padding: "3px 6px",
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
 function Chip({
   label,
   active,
@@ -1510,4 +1757,11 @@ function ActionButton({
       {label}
     </button>
   )
+}
+
+function healthDot(health: HealthStatus): string {
+  if (health === "FAIL") return "var(--neg)"
+  if (health === "WARN") return "var(--warn)"
+
+  return "var(--accent)"
 }

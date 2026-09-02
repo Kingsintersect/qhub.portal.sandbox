@@ -14,6 +14,19 @@ export type EstateInstitution = {
   programs: number
   activity24h: number
   capturedAt: string | null
+
+  /** The four figures the designed health panel shows on an expanded row. */
+  healthScore: number | null
+  modules: string[]
+  integrations: {
+    sis?: { name: string; detail: string }
+    [key: string]: { name: string; detail: string } | undefined
+  }
+  storage: {
+    usedBytes: number
+    /** Null means no ceiling, which is not the same as a ceiling of zero. */
+    quotaBytes: number | null
+  }
 }
 
 export type EstateOverview = {
@@ -97,4 +110,11 @@ export type TrendPoint = {
   activity: number
   logins: number
   institutions: number
+  /**
+   * Percentage of requests that returned a 5xx.
+   *
+   * Null when nothing was served that day — no requests means no rate, and a
+   * plotted 0% would draw a healthy flat line across an outage.
+   */
+  errorRate: number | null
 }

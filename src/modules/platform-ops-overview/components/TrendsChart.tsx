@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from "react"
 
 import type { TrendPoint } from "@/modules/platform-observability/types"
 
-type SeriesKey = "activity" | "logins" | "students"
+type SeriesKey = "activity" | "logins" | "errorRate"
 
 const SERIES: Array<{
   key: SeriesKey
@@ -12,9 +12,19 @@ const SERIES: Array<{
   stroke: string
   width: number
 }> = [
-  { key: "activity", label: "Activity", stroke: "var(--accent)", width: 1.9 },
-  { key: "logins", label: "Sign-ins", stroke: "var(--series2)", width: 1.8 },
-  { key: "students", label: "Learners", stroke: "var(--series3)", width: 1.6 },
+  { key: "activity", label: "Traffic", stroke: "var(--accent)", width: 1.9 },
+  {
+    key: "logins",
+    label: "Active Learners",
+    stroke: "var(--series2)",
+    width: 1.8,
+  },
+  {
+    key: "errorRate",
+    label: "Error Rate",
+    stroke: "var(--series3)",
+    width: 1.6,
+  },
 ]
 
 const RANGES = [7, 30, 90, 365] as const
@@ -59,9 +69,17 @@ export function TrendsChart({
     const height = 212
 
     const pct = (key: SeriesKey) => {
-      const base = points[0][key] || 1
+      /*
+       * A day that served nothing has no error rate, and the API sends null
+       * rather than a zero for it. Read as 0 here because this axis is
+       * movement and a gap cannot be plotted — but that is a display choice,
+       * not a claim that no traffic means no errors.
+       */
+      const at = (p: TrendPoint) => p[key] ?? 0
 
-      return points.map((p) => ((p[key] - base) / base) * 100)
+      const base = at(points[0]) || 1
+
+      return points.map((p) => ((at(p) - base) / base) * 100)
     }
 
     const series = SERIES.map((s) => ({ ...s, values: pct(s.key) }))

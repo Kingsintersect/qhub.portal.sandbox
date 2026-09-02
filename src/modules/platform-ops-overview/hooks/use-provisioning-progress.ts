@@ -12,6 +12,10 @@ export type ProvisioningStep = {
 
 export type ProvisioningProgress = {
   status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED"
+  /** Who is running it, and where it is going. Both drawn as columns. */
+  owner: string | null
+  environment: string | null
+  startedAt: string | null
   completed: number
   total: number
   percent: number
