@@ -40,6 +40,13 @@ export type EstateOverview = {
     programs: number
     activity24h: number
     databaseBytes: number
+
+    /** The rest of the designed KPI strip, all measured. */
+    sessionsNow: number
+    openTickets: number
+    failedJobs24h: number
+    /** Null until something has been served — not 100%. */
+    uptime30d: number | null
   }
   health: {
     failing: number

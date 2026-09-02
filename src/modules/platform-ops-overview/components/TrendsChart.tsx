@@ -9,19 +9,35 @@ type SeriesKey = "activity" | "logins" | "errorRate"
 const SERIES: Array<{
   key: SeriesKey
   label: string
+  /*
+   * The draft labels the legend and the crosshair card differently: the
+   * legend reads "Active Learners" and "Error Rate", the card reads
+   * "Learners" and "Errors". The card is a floating box a few characters
+   * wide over the plot, and the long forms push it over the lines it is
+   * describing.
+   */
+  short: string
   stroke: string
   width: number
 }> = [
-  { key: "activity", label: "Traffic", stroke: "var(--accent)", width: 1.9 },
+  {
+    key: "activity",
+    label: "Traffic",
+    short: "Traffic",
+    stroke: "var(--accent)",
+    width: 1.9,
+  },
   {
     key: "logins",
     label: "Active Learners",
+    short: "Learners",
     stroke: "var(--series2)",
     width: 1.8,
   },
   {
     key: "errorRate",
     label: "Error Rate",
+    short: "Errors",
     stroke: "var(--series3)",
     width: 1.6,
   },
@@ -409,7 +425,7 @@ export function TrendsChart({
                             background: s.stroke,
                           }}
                         />
-                        {s.label}
+                        {s.short}
                       </div>
                       <div
                         className="qhub-mono"

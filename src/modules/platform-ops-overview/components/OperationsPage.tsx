@@ -7,6 +7,10 @@ import { toast } from "sonner"
 import apiClient from "@/lib/clients/apiClient"
 import { errorMessage } from "@/lib/api-error"
 import { useConfirm } from "@/modules/platform-shared/ConfirmProvider"
+import {
+  TableFooter,
+  useTablePage,
+} from "@/modules/platform-shared/TableFooter"
 
 import { usePlatformPermissions } from "@/lib/auth/platform-permissions"
 import {
@@ -29,7 +33,6 @@ import { useProvisioningProgress } from "@/modules/platform-ops-overview/hooks/u
 import {
   useAcknowledgeAnomaly,
   useAnomalies,
-  useDetectAnomalies,
   useIncidents,
   useUpgrades,
 } from "@/modules/platform-ops-overview/hooks/use-ops-overview"
@@ -107,42 +110,51 @@ export function SystemsOverviewPage() {
         }}
       >
         <Kpi
-          label="Institutions"
-          value={overview?.totals.institutions ?? 0}
-          note={`${overview?.totals.active ?? 0} active`}
+          label="Institutions live"
+          value={compact(overview?.totals.active ?? 0)}
+          note={`of ${overview?.totals.institutions ?? 0}`}
           loading={overviewLoading}
         />
         <Kpi
-          label="Needing attention"
-          value={needingAttention}
-          note="failing or warning"
-          tone={needingAttention > 0 ? "neg" : undefined}
-          loading={overviewLoading}
-        />
-        <Kpi
-          label="Open incidents"
-          value={incidents?.openCount ?? 0}
-          note="unresolved"
-          tone={(incidents?.openCount ?? 0) > 0 ? "neg" : undefined}
-        />
-        <Kpi
-          label="Learners"
-          value={overview?.totals.students ?? 0}
+          label="Active learners"
+          value={compact(overview?.totals.students ?? 0)}
           note="estate-wide"
           loading={overviewLoading}
         />
         <Kpi
-          label="Activity · 24h"
-          value={overview?.totals.activity24h ?? 0}
-          note="audited events"
+          label="Sessions now"
+          value={compact(overview?.totals.sessionsNow ?? 0)}
+          note="last 15 minutes"
           loading={overviewLoading}
         />
         <Kpi
-          label="Unacknowledged anomalies"
-          value={anomalies?.length ?? 0}
-          note="auto-flagged"
-          tone={(anomalies?.length ?? 0) > 0 ? "warn" : undefined}
+          label="Uptime (30d)"
+          // Null until something has been served. "—" says nothing has been
+          // measured; "100%" would claim an estate that answered nothing was
+          // perfectly available.
+          value={
+            overview?.totals.uptime30d === null ||
+            overview?.totals.uptime30d === undefined
+              ? "—"
+              : `${overview.totals.uptime30d}%`
+          }
+          note="of requests served"
+          loading={overviewLoading}
+        />
+        <Kpi
+          label="Open tickets"
+          value={compact(overview?.totals.openTickets ?? 0)}
+          note="unresolved"
+          tone={(overview?.totals.openTickets ?? 0) > 0 ? "warn" : undefined}
+          loading={overviewLoading}
+        />
+        <Kpi
+          label="Failed jobs · 24h"
+          value={compact(overview?.totals.failedJobs24h ?? 0)}
+          note="on the queue"
+          tone={(overview?.totals.failedJobs24h ?? 0) > 0 ? "neg" : undefined}
           last
+          loading={overviewLoading}
         />
       </div>
 
@@ -271,7 +283,53 @@ export function SystemsOverviewPage() {
               alignItems: "center",
               padding: "0 18px 6px",
             }}
-          />
+          >
+            {/*
+              The control at the end of the tab strip, lifted as drawn.
+              
+              It carries no handler in the draft either — the only onClick in
+              that block is the tab itself — so what it opens is a question for
+              Design rather than something to invent. Rendered as a plain icon
+              rather than a button until then: the draft's own product rule is
+              that a control which reports success and does nothing is worse
+              than no control, and a clickable-looking thing that opens nothing
+              is exactly that.
+            */}
+            <div
+              aria-hidden="true"
+              style={{
+                width: 32,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                style={{ stroke: "var(--icon3)" }}
+              >
+                <path d="M5 7h14M8 12h11M11 17h8" />
+                <circle
+                  style={{ fill: "var(--icon3)" }}
+                  cx="5"
+                  cy="12"
+                  r="1.2"
+                />
+                <circle
+                  style={{ fill: "var(--icon3)" }}
+                  cx="8"
+                  cy="17"
+                  r="1.2"
+                />
+              </svg>
+            </div>
+          </div>
         </div>
 
         <div
@@ -352,7 +410,8 @@ const ANOMALY_GRID =
 
 function HealthTab() {
   const { data, isPending } = useEstateOverview()
-  const rows = data?.institutions ?? []
+  const all = data?.institutions ?? []
+  const { rows, footer } = useTablePage(all)
 
   const [openId, setOpenId] = useState<number | null>(null)
 
@@ -425,7 +484,7 @@ function HealthTab() {
 
       {isPending && <Loading />}
 
-      {!isPending && rows.length === 0 && (
+      {!isPending && all.length === 0 && (
         <Empty>No institutions on the estate yet.</Empty>
       )}
 
@@ -558,6 +617,13 @@ function HealthTab() {
         </div>
       ))}
 
+      {all.length > 0 && (
+        <TableFooter
+          {...footer}
+          summary={`${rows.length} of ${all.length} ${all.length === 1 ? "institution" : "institutions"} · health recomputed every 5 minutes`}
+        />
+      )}
+
       {noting !== null && (
         <NoteDialog
           tenantId={noting.id}
@@ -628,6 +694,14 @@ function AiBadge() {
       AI
     </span>
   )
+}
+
+/** 1.24M rather than 1,240,000 — the strip has six columns to fit. */
+function compact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 10_000) return `${(n / 1000).toFixed(1)}k`
+
+  return n.toLocaleString()
 }
 
 /** 1.8 TB, not 1980000000000. */
@@ -1059,23 +1133,22 @@ function HealthDonut({
 // --- Provisioning -----------------------------------------------------------
 
 function ProvisioningTab({
-  rows,
+  rows: all,
 }: {
   rows: Array<{ id: number; name: string; slug: string }>
 }) {
-  if (rows.length === 0) {
+  const { rows, footer } = useTablePage(all)
+
+  if (all.length === 0) {
     return <Empty>Nothing being provisioned right now.</Empty>
   }
 
   return (
     <>
-      {rows.length > 0 && (
-        <TableHead
-          grid={PROVISIONING_GRID}
-          cols={["STARTED", "INSTITUTION", "STAGE", "OWNER", "ENV", "STATUS"]}
-        />
-      )}
-
+      <TableHead
+        grid={PROVISIONING_GRID}
+        cols={["STARTED", "INSTITUTION", "STAGE", "OWNER", "ENV", "STATUS"]}
+      />
       {rows.map((r) => (
         <ProvisioningRow
           key={r.id}
@@ -1084,6 +1157,10 @@ function ProvisioningTab({
           slug={r.slug}
         />
       ))}
+      <TableFooter
+        {...footer}
+        summary={`${all.length} ${all.length === 1 ? "onboarding" : "onboardings"} in flight`}
+      />
     </>
   )
 }
@@ -1231,31 +1308,37 @@ function IncidentsTab() {
    */
   const { data, isLoading } = useIncidents("")
 
+  const all = data?.data ?? []
+  const { rows, footer } = useTablePage(all)
+
   return (
     <>
       {isLoading && <Loading />}
 
-      {!isLoading && (data?.data.length ?? 0) === 0 && (
-        <Empty>No incidents match these filters.</Empty>
-      )}
+      {!isLoading && all.length === 0 && <Empty>No incidents logged.</Empty>}
 
-      {(data?.data.length ?? 0) > 0 && (
-        <TableHead
-          grid={INCIDENT_GRID}
-          cols={[
-            "STARTED",
-            "INCIDENT",
-            "AFFECTED",
-            "SEVERITY",
-            "STATUS",
-            "OWNER",
-          ]}
-        />
+      {all.length > 0 && (
+        <>
+          <TableHead
+            grid={INCIDENT_GRID}
+            cols={[
+              "STARTED",
+              "INCIDENT",
+              "AFFECTED",
+              "SEVERITY",
+              "STATUS",
+              "OWNER",
+            ]}
+          />
+          {rows.map((incident) => (
+            <IncidentRow key={incident.id} incident={incident} />
+          ))}
+          <TableFooter
+            {...footer}
+            summary={`${all.length} ${all.length === 1 ? "incident" : "incidents"} in the last 30 days`}
+          />
+        </>
       )}
-
-      {data?.data.map((incident) => (
-        <IncidentRow key={incident.id} incident={incident} />
-      ))}
     </>
   )
 }
@@ -1347,47 +1430,30 @@ function StatusPill({ label }: { label: string }) {
 }
 
 function UpgradesTab() {
-  const [logging, setLogging] = useState(false)
   const { data, isLoading } = useUpgrades()
 
-  // The action stays available while loading and when empty — an operator
-  // logging the first upgrade should not have to wait for a list of nothing.
-  if (isLoading) {
-    return (
-      <>
-        <Loading />
-      </>
-    )
-  }
+  const all = data ?? []
+  // Called before any early return: a hook behind a condition is a hook that
+  // runs a different number of times between renders.
+  const { rows, footer } = useTablePage(all)
 
-  if (!data?.length) {
-    return (
-      <>
-        {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
-        <Empty>No upgrades logged.</Empty>
-      </>
-    )
-  }
+  if (isLoading) return <Loading />
+
+  if (all.length === 0) return <Empty>No upgrades logged.</Empty>
 
   return (
     <>
-      {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
-      {data.length > 0 && (
-        <TableHead
-          grid={UPGRADE_GRID}
-          cols={[
-            "DATE",
-            "UPGRADE",
-            "COMPONENT",
-            "VERSION",
-            "ROLLOUT",
-            "STATUS",
-          ]}
-        />
-      )}
-      {data.map((u) => (
+      <TableHead
+        grid={UPGRADE_GRID}
+        cols={["DATE", "UPGRADE", "COMPONENT", "VERSION", "ROLLOUT", "STATUS"]}
+      />
+      {rows.map((u) => (
         <UpgradeRow key={u.id} upgrade={u} />
       ))}
+      <TableFooter
+        {...footer}
+        summary={`${all.length} ${all.length === 1 ? "upgrade" : "upgrades"} tracked`}
+      />
     </>
   )
 }
@@ -1419,97 +1485,56 @@ function UpgradeRow({ upgrade }: { upgrade: Upgrade }) {
 }
 
 function AnomaliesTab() {
+  /*
+   * Every anomaly, acknowledged ones included, as the draft has it: its
+   * footer counts new against re-alerted across the whole set, which only
+   * reads as a sentence if the whole set is on the table.
+   *
+   * The "include acknowledged" toggle and the manual detect button that were
+   * here are not in the draft. Detection is hourly and automatic — the note
+   * above the table says so — and a toggle that hides acknowledged rows hides
+   * exactly the ones a re-alert would come from.
+   */
+  const { data, isLoading } = useAnomalies(true)
   const { can } = usePlatformPermissions()
   const canManage = can("anomalies.manage")
 
-  const [includeAcknowledged, setIncludeAcknowledged] = useState(false)
-  const { data, isLoading } = useAnomalies(includeAcknowledged)
-  const detect = useDetectAnomalies()
+  const all = data ?? []
+  const { rows, footer } = useTablePage(all)
+
+  const newCount = all.filter((a) => a.acknowledgedAt === null).length
+  const reAlerted = all.filter((a) => a.reAlertedAt !== null).length
 
   return (
     <>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          marginBottom: 14,
-        }}
-      >
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 12,
-            color: "var(--txt3)",
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={includeAcknowledged}
-            onChange={(e) => setIncludeAcknowledged(e.target.checked)}
-          />
-          Include acknowledged
-        </label>
-
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => detect.mutate()}
-            disabled={detect.isPending}
-            style={{
-              fontSize: 12,
-              color: "var(--accent)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            Run detection now
-          </button>
-        )}
-      </div>
-
-      <p
-        style={{
-          fontSize: 12,
-          color: "var(--txt4)",
-          marginBottom: 14,
-          lineHeight: 1.55,
-        }}
-      >
-        Flagged automatically against each institution&apos;s own baseline —
-        never hand-entered. Acknowledging records that you have seen it and
-        judged it expected. It does not mean fixed.
-      </p>
-
       {isLoading && <Loading />}
 
-      {!isLoading && (data?.length ?? 0) === 0 && (
-        <Empty>No anomalies match these filters.</Empty>
+      {!isLoading && all.length === 0 && (
+        <Empty>Nothing has deviated from baseline.</Empty>
       )}
 
-      {(data?.length ?? 0) > 0 && (
-        <TableHead
-          grid={ANOMALY_GRID}
-          cols={[
-            "DETECTED",
-            "INSTITUTION",
-            "ANOMALY",
-            "MAGNITUDE",
-            "LIKELY CAUSE",
-            "STATUS",
-          ]}
-        />
+      {all.length > 0 && (
+        <>
+          <TableHead
+            grid={ANOMALY_GRID}
+            cols={[
+              "DETECTED",
+              "INSTITUTION",
+              "ANOMALY",
+              "MAGNITUDE",
+              "LIKELY CAUSE",
+              "STATUS",
+            ]}
+          />
+          {rows.map((a) => (
+            <AnomalyRow key={a.id} anomaly={a} canManage={canManage} />
+          ))}
+          <TableFooter
+            {...footer}
+            summary={`${newCount} new · ${reAlerted} re-alerted`}
+          />
+        </>
       )}
-
-      {data?.map((a) => (
-        <AnomalyRow key={a.id} anomaly={a} canManage={canManage} />
-      ))}
     </>
   )
 }
@@ -1648,7 +1673,7 @@ function Kpi({
   loading,
 }: {
   label: string
-  value: number
+  value: string
   note: string
   tone?: "neg" | "warn"
   last?: boolean
