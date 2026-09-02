@@ -7,6 +7,7 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { Messages } from "@/modules/portal/components/Messages"
 import { Grading } from "@/modules/portal/components/Grading"
 import { AssessmentBuilder } from "@/modules/portal/components/AssessmentBuilder"
 import { Assessments } from "@/modules/portal/components/Assessments"
@@ -34,6 +35,7 @@ import {
   LEVELS,
   LIVE_CLASSES,
   MEDIA,
+  MESSAGE_THREADS,
   MY_CODES,
   OUR_ANNOUNCEMENTS,
   PLATFORM_ANNOUNCEMENTS,
@@ -326,6 +328,21 @@ export default function PortalPage() {
             admin
               ? "The register of record — status is derived from enrolment, never set by hand"
               : "Students enrolled in CSC 201 and CSC 305"
+          }
+        />
+      )}
+
+      {view === "msgs" && !admin && (
+        <Messages
+          threads={MESSAGE_THREADS}
+          onReply={(student) =>
+            setBell((n) => [
+              {
+                text: `Reply sent to ${student} — they see it in the student app`,
+                when: "Just now",
+              },
+              ...n,
+            ])
           }
         />
       )}
@@ -681,6 +698,7 @@ export default function PortalPage() {
         !(view === "disc" && !admin) &&
         !(view === "assess" && !admin) &&
         !(view === "grades" && !admin) &&
+        !(view === "msgs" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{

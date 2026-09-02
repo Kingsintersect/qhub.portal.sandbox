@@ -970,3 +970,73 @@ export const GRADE_WEIGHTS = [
 
 export const GRADE_SCALE =
   "A ≥70 · B 60–69 · C 50–59 · D 45–49 · E 40–44 · F <40"
+
+export type StudentMessage = { who: "them" | "me"; when: string; text: string }
+
+export type MessageThread = {
+  id: string
+  student: string
+  matric: string
+  course: string
+  when: string
+  unread: boolean
+  msgs: StudentMessage[]
+}
+
+export const MESSAGE_THREADS: MessageThread[] = [
+  {
+    id: "th1",
+    student: "Adaeze Okafor",
+    matric: "UNILAG/2023/41207",
+    course: "CSC 201",
+    when: "1h ago",
+    unread: true,
+    msgs: [
+      {
+        who: "them",
+        when: "Yesterday 21:14",
+        text: "Good evening Dr. Adeyemi. In the week 6 video at 48:20 you rotate the AVL tree left, but the slide shows a right rotation — which is correct for the exam?",
+      },
+      {
+        who: "them",
+        when: "1h ago",
+        text: "Following up on this before Friday's quiz, please.",
+      },
+    ],
+  },
+  {
+    id: "th2",
+    student: "Ibrahim Lawal",
+    matric: "UNILAG/2024/50331",
+    course: "CSC 201",
+    when: "Yesterday",
+    unread: true,
+    msgs: [
+      {
+        who: "them",
+        when: "Yesterday 09:40",
+        text: "Sir, my week 4 quiz shows 0 for Q9 but I submitted an answer — could you check whether it reached you?",
+      },
+    ],
+  },
+  {
+    id: "th3",
+    student: "Kemi Adebayo",
+    matric: "UNILAG/2023/42115",
+    course: "CSC 305",
+    when: "Aug 28",
+    unread: false,
+    msgs: [
+      {
+        who: "them",
+        when: "Aug 28 15:02",
+        text: "Is the round-robin discussion counted toward the final grade or only participation?",
+      },
+      {
+        who: "me",
+        when: "Aug 28 17:30",
+        text: "It is graded — 5 points, collected at the deadline. Your post is already in.",
+      },
+    ],
+  },
+]
