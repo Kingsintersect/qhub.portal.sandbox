@@ -639,3 +639,118 @@ export const LESSONS: Lesson[] = [
     status: "DRAFT",
   },
 ]
+
+export type DiscussionPost = {
+  name: string
+  matric: string
+  meta: string
+  text: string
+}
+
+export type Discussion = {
+  title: string
+  course: string
+  graded: boolean
+  pts: number
+  /** A string, because the seed carries "1,842" already grouped. */
+  posts: string
+  inv: number
+  due: string
+  status: "OPEN" | "CLOSED"
+  prompt: string
+  postList: DiscussionPost[]
+}
+
+export const DISCUSSIONS: Discussion[] = [
+  {
+    title: "Compare quicksort vs mergesort trade-offs",
+    course: "CSC 201",
+    graded: true,
+    pts: 10,
+    posts: "1,842",
+    inv: 61,
+    due: "Fri",
+    status: "OPEN",
+    prompt:
+      "When would you pick quicksort over mergesort in a real system, and what does that cost you? Cite at least one property (stability, locality, worst case) in your answer.",
+    postList: [
+      {
+        name: "Adaeze Okafor",
+        matric: "UNILAG/2023/41207",
+        meta: "posted 2h ago · 3 replies",
+        text: "Quicksort wins on cache locality since it partitions in place, but you give up stability — for a leaderboard where ties must keep insertion order, mergesort is the honest choice even at 2x memory.",
+      },
+      {
+        name: "Ibrahim Lawal",
+        matric: "UNILAG/2024/50331",
+        meta: "posted 5h ago · 1 reply",
+        text: "Nobody ships textbook quicksort — introsort exists because the O(n²) worst case is adversarially reachable. So the real trade-off is engineered-quicksort vs mergesort, which mostly reduces to memory.",
+      },
+      {
+        name: "Ngozi Eze",
+        matric: "UNILAG/2023/44890",
+        meta: "replied to Adaeze · 1h ago",
+        text: "Adding to the locality point: on linked lists the picture flips completely — mergesort needs no random access, so quicksort's advantage evaporates.",
+      },
+      {
+        name: "Tunde Balogun",
+        matric: "UNILAG/2024/51002",
+        meta: "posted yesterday",
+        text: "Quicksort is faster.",
+      },
+    ],
+  },
+  {
+    title: "Is round-robin fair? Argue both ways",
+    course: "CSC 305",
+    graded: true,
+    pts: 5,
+    posts: "704",
+    inv: 48,
+    due: "Sep 5",
+    status: "OPEN",
+    prompt:
+      "Round-robin gives every process an equal slice. Make the case that this is fair, then make the case that it is unfair — both from the same definition of fairness.",
+    postList: [
+      {
+        name: "Kemi Adebayo",
+        matric: "UNILAG/2023/42115",
+        meta: "posted 1d ago · 2 replies",
+        text: "Equal slices are fair by opportunity but unfair by outcome: an interactive process that yields early is punished relative to a CPU hog. Fair-share schedulers exist precisely because equal ≠ equitable.",
+      },
+      {
+        name: "Musa Danladi",
+        matric: "UNILAG/2024/49877",
+        meta: "posted 2d ago",
+        text: "It is fair in the only sense a scheduler can promise: no starvation, bounded wait. Any outcome-based fairness needs to know what the process deserves, which the kernel cannot know.",
+      },
+    ],
+  },
+  {
+    title: "Introduce yourself + your build setup",
+    course: "CSC 201",
+    graded: false,
+    pts: 0,
+    posts: "2,203",
+    inv: 88,
+    due: "—",
+    status: "CLOSED",
+    prompt:
+      "Say hello — what machine, OS and editor are you working on this semester?",
+    postList: [
+      {
+        name: "Chioma Obi",
+        matric: "UNILAG/2024/50441",
+        meta: "posted Aug 12",
+        text: "Chioma, Year 2. A hand-me-down ThinkPad on Ubuntu, VS Code, and a lot of patience for NEPA.",
+      },
+    ],
+  },
+]
+
+/** The score buttons offered, by the discussion's points. */
+export function scoreSteps(pts: number): number[] {
+  if (pts === 5) return [1, 2, 3, 4, 5]
+  if (pts === 20) return [4, 8, 12, 16, 20]
+  return [2, 4, 6, 8, 10]
+}

@@ -7,6 +7,8 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { Discussions } from "@/modules/portal/components/Discussions"
+import { StartDiscussion } from "@/modules/portal/components/StartDiscussion"
 import { CreateLesson } from "@/modules/portal/components/CreateLesson"
 import { LessonContent } from "@/modules/portal/components/LessonContent"
 import { LiveClasses } from "@/modules/portal/components/LiveClasses"
@@ -20,6 +22,7 @@ import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
   COURSES,
   LECTURERS,
+  DISCUSSIONS,
   LESSONS,
   LEVELS,
   LIVE_CLASSES,
@@ -32,6 +35,7 @@ import {
   type Lecturer,
   type Announcement,
   type MediaItem,
+  type Discussion,
   type Lesson,
   type LiveClass,
   type Ticket,
@@ -80,6 +84,8 @@ export default function PortalPage() {
   const [classes, setClasses] = useState<LiveClass[]>(LIVE_CLASSES)
   const [creating, setCreating] = useState(false)
   const [lessons, setLessons] = useState<Lesson[]>(LESSONS)
+  const [starting, setStarting] = useState(false)
+  const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS)
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -308,6 +314,34 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "disc" && !admin && (
+        <Discussions
+          discussions={discussions}
+          onStart={() => setStarting(true)}
+          onPublish={(title, course, scored) =>
+            setBell((n) => [
+              {
+                text: `Discussion scores published — “${title}” · ${scored} students · written to the ${course} gradebook`,
+                when: "Just now",
+              },
+              ...n,
+            ])
+          }
+        />
+      )}
+
+      {starting && (
+        <StartDiscussion
+          courses={MY_CODES}
+          onClose={() => setStarting(false)}
+          onStart={(d, text) => {
+            setDiscussions((all) => [d, ...all])
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+            setStarting(false)
+          }}
+        />
+      )}
+
       {view === "lessons" && !admin && (
         <LessonContent
           lessons={lessons}
@@ -530,7 +564,13 @@ export default function PortalPage() {
               },
             },
             { label: "New quiz or exam", run: () => setView("assess") },
-            { label: "Start discussion", run: () => setView("disc") },
+            {
+              label: "Start discussion",
+              run: () => {
+                setView("disc")
+                setStarting(true)
+              },
+            },
             { label: "Open gradebook", run: () => setView("grades") },
           ]}
         />
@@ -561,6 +601,7 @@ export default function PortalPage() {
         view !== "support" &&
         !(view === "live" && !admin) &&
         !(view === "lessons" && !admin) &&
+        !(view === "disc" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{
