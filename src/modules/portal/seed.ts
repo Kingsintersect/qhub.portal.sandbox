@@ -454,3 +454,52 @@ export const OUR_ANNOUNCEMENTS: Announcement[] = [
     meta: "Sent by R. Osei · Year 1, Year 2 · read by 64%",
   },
 ]
+
+export type TicketMessage = { who: string; when: string; text: string }
+
+export type Ticket = {
+  ref: string
+  pri: string
+  subject: string
+  status: "OPEN" | "RESOLVED"
+  thread: TicketMessage[]
+}
+
+export const TICKETS: Ticket[] = [
+  {
+    ref: "TKT-5102",
+    pri: "P2",
+    subject: "Result upload validation rejecting a whole faculty",
+    status: "OPEN",
+    thread: [
+      {
+        who: "R. Osei (you)",
+        when: "Yesterday 14:20",
+        text: "Every CSV from the Faculty of Arts fails validation with a level mismatch since the session rolled over.",
+      },
+      {
+        who: "Qverse support",
+        when: "Yesterday 16:05",
+        text: "We can see the runs. The new session's levels were applied but Arts' sheets still carry last session's headers — we are preparing a mapping fix and will re-run the failed batches. Nothing was lost.",
+      },
+    ],
+  },
+  {
+    ref: "TKT-5079",
+    pri: "P3",
+    subject: "Request: extend media storage quota",
+    status: "RESOLVED",
+    thread: [
+      {
+        who: "R. Osei (you)",
+        when: "Aug 20",
+        text: "We are at 62% of the media pool and expect exam-week recordings to push past it.",
+      },
+      {
+        who: "Qverse support",
+        when: "Aug 21",
+        text: "Quota raised from 10 GB to 15 GB effective immediately. The commercial side lands on next session's invoice as agreed with your bursary.",
+      },
+    ],
+  },
+]

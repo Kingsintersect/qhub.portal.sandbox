@@ -5,6 +5,8 @@ import { useState } from "react"
 import { Overview, useNotice } from "@/modules/portal/components/Overview"
 import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
+import { NewTicket } from "@/modules/portal/components/NewTicket"
+import { Support } from "@/modules/portal/components/Support"
 import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
 import { UploadMedia } from "@/modules/portal/components/UploadMedia"
 import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
@@ -19,10 +21,12 @@ import {
   MY_CODES,
   OUR_ANNOUNCEMENTS,
   PLATFORM_ANNOUNCEMENTS,
+  TICKETS,
   STUDENTS,
   type Lecturer,
   type Announcement,
   type MediaItem,
+  type Ticket,
 } from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
 
@@ -62,6 +66,8 @@ export default function PortalPage() {
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState<MediaItem[]>([])
   const [sent, setSent] = useState<Announcement[]>([])
+  const [raising, setRaising] = useState(false)
+  const [tickets, setTickets] = useState<Ticket[]>(TICKETS)
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -78,7 +84,10 @@ export default function PortalPage() {
         name: admin ? "R. Osei" : "Dr. F. Adeyemi",
       }}
       notices={bell}
-      badges={admin ? { support: 2 } : { support: 2, msgs: 2 }}
+      badges={{
+        support: tickets.filter((t) => t.status === "OPEN").length,
+        ...(admin ? {} : { msgs: 2 }),
+      }}
       onSignOut={() => setRole(admin ? "lect" : "admin")}
     >
       {view === "overview" && (
@@ -143,7 +152,13 @@ export default function PortalPage() {
                   },
                   { k: "Registration closes", v: "Friday", tone: "warn" },
                   { k: "Courses in catalogue", v: "4,182" },
-                  { k: "Open support tickets", v: "2", tone: "accent" },
+                  {
+                    k: "Open support tickets",
+                    v: String(
+                      tickets.filter((t) => t.status === "OPEN").length
+                    ),
+                    tone: "accent",
+                  },
                   { k: "Platform health", v: "Degraded — video", tone: "warn" },
                 ]
               : [
@@ -169,7 +184,10 @@ export default function PortalPage() {
                   },
                   {
                     label: "Raise a support ticket",
-                    onClick: () => setView("support"),
+                    onClick: () => {
+                      setView("support")
+                      setRaising(true)
+                    },
                   },
                 ]
               : [
@@ -186,7 +204,10 @@ export default function PortalPage() {
                   },
                   {
                     label: "Raise a support ticket",
-                    onClick: () => setView("support"),
+                    onClick: () => {
+                      setView("support")
+                      setRaising(true)
+                    },
                   },
                 ]
           }
@@ -272,6 +293,67 @@ export default function PortalPage() {
               ? "The register of record — status is derived from enrolment, never set by hand"
               : "Students enrolled in CSC 201 and CSC 305"
           }
+        />
+      )}
+
+      {view === "support" && (
+        <Support
+          tickets={tickets}
+          onNew={() => setRaising(true)}
+          onReply={(ref, text) =>
+            setTickets((all) =>
+              all.map((t) =>
+                t.ref === ref
+                  ? {
+                      ...t,
+                      thread: [
+                        ...t.thread,
+                        {
+                          who: `${admin ? "R. Osei" : "Dr. F. Adeyemi"} (you)`,
+                          when: "Just now",
+                          text,
+                        },
+                      ],
+                    }
+                  : t
+              )
+            )
+          }
+        />
+      )}
+
+      {raising && (
+        <NewTicket
+          onClose={() => setRaising(false)}
+          onRaise={({ subject, pri, body }) => {
+            // The canvas derives the reference from how many have been
+            // raised this session, so it stays stable per ticket.
+            const ref = `TKT-${5200 + (((tickets.length - TICKETS.length) * 7) % 90)}`
+            setTickets((all) => [
+              {
+                ref,
+                pri,
+                subject,
+                status: "OPEN",
+                thread: [
+                  {
+                    who: `${admin ? "R. Osei" : "Dr. F. Adeyemi"} (you)`,
+                    when: "Just now",
+                    text: body,
+                  },
+                ],
+              },
+              ...all,
+            ])
+            setBell((n) => [
+              {
+                text: `Ticket ${ref} raised — ${pri} · the platform team has it and the SLA clock is running`,
+                when: "Just now",
+              },
+              ...n,
+            ])
+            setRaising(false)
+          }}
         />
       )}
 
@@ -406,6 +488,7 @@ export default function PortalPage() {
         view !== "courses" &&
         view !== "media" &&
         view !== "announce" &&
+        view !== "support" &&
         !(view === "lect" && admin) && (
           <div
             style={{
