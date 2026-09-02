@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import {
   HomeBanner,
@@ -15,6 +15,10 @@ import {
   type Announcement,
 } from "@/modules/learn/components/Announcements"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
+import {
+  LessonViewer,
+  type LessonPage,
+} from "@/modules/learn/components/LessonViewer"
 import {
   Messages,
   type MessageThread,
@@ -488,6 +492,61 @@ const RECIPIENTS: Recipient[] = [
   { name: "Dr. E. Nwachukwu", sub: "BIO 102 · Cell biology" },
 ]
 
+/** A lesson's pages, keyed by the lesson title the accordion opens. */
+const LESSON_PAGES: Record<string, LessonPage[]> = {
+  "Week 6: Trees, worked examples": [
+    {
+      kind: "video",
+      label: "Lecture video",
+      body: "Trees and heaps — 1h 42m. Your position is kept; the page counts as read once the video reaches the end or you scrub past 90%.",
+    },
+    {
+      kind: "audio",
+      label: "Audio recap",
+      body: "A 12-minute recap of rotations and heap-order — plays inline; listen while commuting.",
+    },
+    {
+      kind: "text",
+      label: "Reading — AVL invariants",
+      body: "An AVL tree maintains, at every node, a balance factor of −1, 0 or +1. Insertion may break this locally; a single or double rotation restores it. The discipline: identify the pivot (the lowest unbalanced node), classify the imbalance (LL, LR, RL, RR), then apply exactly one rotation pattern. Work both examples before the quiz — the exam reuses their shape.",
+    },
+    {
+      kind: "quiz",
+      label: "Check-in",
+      body: "Two questions — ungraded, instant feedback. They unlock the week 6 quiz badge on your progress.",
+    },
+  ],
+  "Week 4: Complexity in practice": [
+    {
+      kind: "text",
+      label: "Reading — sections 1–2",
+      body: "Big-O describes growth, not speed. Section 1 builds intuition with real measurements from the lab machines; section 2 formalises it.",
+    },
+    {
+      kind: "text",
+      label: "Reading — sections 3–5",
+      body: "Amortised analysis, with the dynamic array as the worked example. Section 5 closes with the cost model the quiz assumes.",
+    },
+    {
+      kind: "pdf",
+      label: "Handout",
+      body: "The complexity cheat-sheet — 12 pages, downloadable, allowed in the exam.",
+    },
+  ],
+  "Week 1: Why data structures exist": [
+    {
+      kind: "video",
+      label: "Lecture video",
+      body: "58 minutes — why the same data, structured differently, changes what a program can afford to do.",
+    },
+    {
+      kind: "text",
+      label: "Reading",
+      body: "Arrays, lists and memory — the mental model everything else in this course builds on.",
+    },
+  ],
+}
+
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
@@ -505,10 +564,41 @@ export default function LearnPage() {
   const [view, setView] = useState<LearnView>("home")
   const [courseCode, setCourseCode] = useState<string | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
+  const [lesson, setLesson] = useState<string | null>(null)
+  // Lessons finished in this session. The canvas ticks the item AND posts a
+  // notice on finish — a completion nobody is told about is one the student
+  // will re-check the list for.
+  const [done, setDone] = useState<Record<string, boolean>>({})
+  const [notices, setNotices] = useState(NOTICES)
+
+  const courses = useMemo(
+    () =>
+      COURSES.map((c) => ({
+        ...c,
+        modules: c.modules.map((m) => ({
+          ...m,
+          items: m.items.map((i) =>
+            done[i.title] === true ? { ...i, done: true } : i
+          ),
+        })),
+      })),
+    [done]
+  )
+
+  const finishLesson = (title: string) => {
+    setDone((d) => ({ ...d, [title]: true }))
+    setNotices((n) => [
+      { text: `Lesson complete — “${title}” · progress recorded`, when: "Now" },
+      ...n,
+    ])
+    setLesson(null)
+  }
 
   // A course is always selected in the hub; the rail's null just means the
   // sidebar is not highlighting one.
-  const selected = COURSES.find((c) => c.code === courseCode) ?? COURSES[0]!
+  // From the derived list, not the seed — otherwise a lesson finished in this
+  // session ticks nowhere, because the hub renders this object.
+  const selected = courses.find((c) => c.code === courseCode) ?? courses[0]!
 
   return (
     <LearnShell
@@ -533,7 +623,7 @@ export default function LearnPage() {
         setCourseCode(code)
         setView("lessons")
       }}
-      notices={NOTICES}
+      notices={notices}
       badges={{ assess: 3, msgs: 2, announce: 1 }}
     >
       {view === "home" && (
@@ -566,16 +656,35 @@ export default function LearnPage() {
         </div>
       )}
 
-      {view === "lessons" && (
+      {view === "lessons" && lesson !== null && (
+        <LessonViewer
+          title={lesson}
+          pages={
+            LESSON_PAGES[lesson] ?? [
+              {
+                kind: "text",
+                label: "Content",
+                body: "This lesson's content.",
+              },
+            ]
+          }
+          onBack={() => setLesson(null)}
+          onComplete={() => finishLesson(lesson)}
+        />
+      )}
+
+      {view === "lessons" && lesson === null && (
         <CourseHub
-          courses={COURSES}
+          courses={courses}
           selected={selected}
           onSelect={setCourseCode}
           onOpenModule={() => {
             /* The module overview page is the next slice. */
           }}
-          onOpenItem={() => {
-            /* The lesson viewer and quiz runner are later slices. */
+          onOpenItem={(item) => {
+            // A quiz opens the runner; anything else opens as a lesson.
+            if (item.kind === "quiz") setQuizOpen(true)
+            else setLesson(item.title)
           }}
         />
       )}
