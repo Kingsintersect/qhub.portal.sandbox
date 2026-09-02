@@ -7,6 +7,7 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { Billing } from "@/modules/portal/components/Billing"
 import { Messages } from "@/modules/portal/components/Messages"
 import { Grading } from "@/modules/portal/components/Grading"
 import { AssessmentBuilder } from "@/modules/portal/components/AssessmentBuilder"
@@ -331,6 +332,8 @@ export default function PortalPage() {
           }
         />
       )}
+
+      {view === "billing" && admin && <Billing />}
 
       {view === "msgs" && !admin && (
         <Messages
@@ -699,6 +702,7 @@ export default function PortalPage() {
         !(view === "assess" && !admin) &&
         !(view === "grades" && !admin) &&
         !(view === "msgs" && !admin) &&
+        !(view === "billing" && admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{
