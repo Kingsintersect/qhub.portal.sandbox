@@ -8,6 +8,10 @@ import {
 } from "@/modules/learn/components/HomeBanner"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
 import {
+  LiveClasses,
+  type LiveClass,
+} from "@/modules/learn/components/LiveClasses"
+import {
   LearnShell,
   type LearnCourse,
   type LearnView,
@@ -66,6 +70,59 @@ const NOTICES = [
   {
     text: "New lesson published — Week 6: Trees, worked examples",
     when: "Aug 28",
+  },
+]
+
+/**
+ * The heading above each section, and the line under it.
+ *
+ * The subtitle is where the rule lives — that a lesson only counts once every
+ * page is read, that a timer auto-submits at 00:00. Somebody arriving at the
+ * section is the person who needs telling.
+ */
+const SECTION: Partial<Record<LearnView, { title: string; sub: string }>> = {
+  lessons: {
+    title: "Courses",
+    sub: "Module by module — every page of a lesson must be read before it counts complete",
+  },
+  live: {
+    title: "Live classes",
+    sub: "Every scheduled and past class · attendance counts 10% of each course grade",
+  },
+  disc: {
+    title: "Discussions",
+    sub: "Open and closed threads — graded ones land in the gradebook at their deadline",
+  },
+  assess: {
+    title: "Quizzes & exams",
+    sub: "Every quiz and exam · timers are hard — attempts auto-submit at 00:00",
+  },
+}
+
+const LIVE: LiveClass[] = [
+  {
+    title: "GST 103 revision hour",
+    meta: "LIVE NOW · started 09:00 · Prof. C. Okonkwo · attendance counting",
+    badge: "LIVE NOW",
+    join: { label: "Join on Zoom", open: true },
+  },
+  {
+    title: "Trees and heaps — live walkthrough",
+    meta: "Tomorrow · 10:00 WAT · 1h · Dr. F. Adeyemi",
+    badge: "UPCOMING",
+    join: { label: "Join opens 09:45", open: false },
+  },
+  {
+    title: "Recursion clinic",
+    meta: "Aug 26 · you attended · 52 min in the room",
+    badge: "PRESENT",
+    recording: true,
+  },
+  {
+    title: "Week 5 review",
+    meta: "Aug 19 · you missed it — the recording does not count as attendance",
+    badge: "ABSENT",
+    recording: true,
   },
 ]
 
@@ -129,6 +186,23 @@ export default function LearnPage() {
         </div>
       )}
 
+      {SECTION[view] !== undefined && (
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: "-0.015em",
+            }}
+          >
+            {SECTION[view]?.title}
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
+            {SECTION[view]?.sub}
+          </div>
+        </div>
+      )}
+
       {view === "lessons" && (
         <CourseHub
           courses={COURSES}
@@ -143,7 +217,15 @@ export default function LearnPage() {
         />
       )}
 
-      {view !== "home" && view !== "lessons" && (
+      {view === "live" && (
+        <LiveClasses
+          classes={LIVE}
+          attendancePercent={82}
+          attendanceNote="9 of 11 classes · counts 10% of your grade"
+        />
+      )}
+
+      {view !== "home" && view !== "lessons" && view !== "live" && (
         <div
           style={{
             background: "var(--card)",
