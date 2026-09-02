@@ -104,9 +104,21 @@ export const FACULTY: Record<string, string> = {
 export const STUDENTS: Student[] = (() => {
   const out: Student[] = []
   let h = 991
+  // Two corrections to the canvas's generator, agreed with the user after the
+  // roll came out 95-of-96 at Year 1 with no suspended or withdrawn students.
+  //
+  // `h * 1103515245` passes 2^53 on the first iteration, so the product stops
+  // being exact in a double and the low bits round to zero. Math.imul keeps
+  // the multiply in exact 32-bit range.
+  //
+  // That alone is not enough: in any power-of-two-modulus LCG, bit i repeats
+  // with period 2^(i+1), so the bottom bits cycle far too fast to be read as
+  // a small remainder — taking `h % 4` straight off the state pins every
+  // student to one level. Reading from bit 16 up gives the long-period half
+  // of the state, which is what makes the draw spread.
   const rnd = (m: number) => {
-    h = (h * 1103515245 + 12345) % 2147483648
-    return h % m
+    h = (Math.imul(h, 1103515245) + 12345) >>> 0
+    return Math.floor(h / 65536) % m
   }
 
   for (let i = 0; i < 96; i++) {
