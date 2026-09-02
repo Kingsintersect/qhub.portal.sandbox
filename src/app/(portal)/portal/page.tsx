@@ -7,6 +7,9 @@ import { Announcements } from "@/modules/portal/components/Announcements"
 import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
+import { AssessmentBuilder } from "@/modules/portal/components/AssessmentBuilder"
+import { Assessments } from "@/modules/portal/components/Assessments"
+import { OcrQuestions } from "@/modules/portal/components/OcrQuestions"
 import { Discussions } from "@/modules/portal/components/Discussions"
 import { StartDiscussion } from "@/modules/portal/components/StartDiscussion"
 import { CreateLesson } from "@/modules/portal/components/CreateLesson"
@@ -22,6 +25,7 @@ import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
   COURSES,
   LECTURERS,
+  ASSESSMENTS,
   DISCUSSIONS,
   LESSONS,
   LEVELS,
@@ -35,6 +39,8 @@ import {
   type Lecturer,
   type Announcement,
   type MediaItem,
+  type Assessment,
+  type BuilderQuestion,
   type Discussion,
   type Lesson,
   type LiveClass,
@@ -86,6 +92,11 @@ export default function PortalPage() {
   const [lessons, setLessons] = useState<Lesson[]>(LESSONS)
   const [starting, setStarting] = useState(false)
   const [discussions, setDiscussions] = useState<Discussion[]>(DISCUSSIONS)
+  const [assessments, setAssessments] = useState<Assessment[]>(ASSESSMENTS)
+  const [building, setBuilding] = useState(false)
+  const [ocrOpen, setOcrOpen] = useState(false)
+  // Questions handed from an OCR pass into the builder it opens.
+  const [fromOcr, setFromOcr] = useState<BuilderQuestion[]>([])
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
@@ -311,6 +322,43 @@ export default function PortalPage() {
               ? "The register of record — status is derived from enrolment, never set by hand"
               : "Students enrolled in CSC 201 and CSC 305"
           }
+        />
+      )}
+
+      {view === "assess" && !admin && (
+        <Assessments
+          assessments={assessments}
+          onOcr={() => setOcrOpen(true)}
+          onNew={() => {
+            setFromOcr([])
+            setBuilding(true)
+          }}
+        />
+      )}
+
+      {ocrOpen && (
+        <OcrQuestions
+          onClose={() => setOcrOpen(false)}
+          onAccept={(questions, text) => {
+            setFromOcr(questions)
+            setOcrOpen(false)
+            setBuilding(true)
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+          }}
+        />
+      )}
+
+      {building && (
+        <AssessmentBuilder
+          courses={MY_CODES}
+          initialQuestions={fromOcr}
+          onClose={() => setBuilding(false)}
+          onSave={(a, text) => {
+            setAssessments((all) => [a, ...all])
+            setBell((n) => [{ text, when: "Just now" }, ...n])
+            setBuilding(false)
+            setFromOcr([])
+          }}
         />
       )}
 
@@ -563,7 +611,14 @@ export default function PortalPage() {
                 setScheduling(true)
               },
             },
-            { label: "New quiz or exam", run: () => setView("assess") },
+            {
+              label: "New quiz or exam",
+              run: () => {
+                setView("assess")
+                setFromOcr([])
+                setBuilding(true)
+              },
+            },
             {
               label: "Start discussion",
               run: () => {
@@ -602,6 +657,7 @@ export default function PortalPage() {
         !(view === "live" && !admin) &&
         !(view === "lessons" && !admin) &&
         !(view === "disc" && !admin) &&
+        !(view === "assess" && !admin) &&
         !(view === "lect" && admin) && (
           <div
             style={{

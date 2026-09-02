@@ -754,3 +754,108 @@ export function scoreSteps(pts: number): number[] {
   if (pts === 20) return [4, 8, 12, 16, 20]
   return [2, 4, 6, 8, 10]
 }
+
+export type Assessment = {
+  id: string
+  kind: "QUIZ" | "EXAM"
+  title: string
+  course: string
+  q: number
+  pts: number
+  window: string
+  timer?: string
+  status: "SCHEDULED" | "GRADED" | "GRADING" | "DRAFT"
+  sub: string
+  avg: string
+}
+
+export const ASSESSMENTS: Assessment[] = [
+  {
+    id: "as1",
+    kind: "QUIZ",
+    title: "Week 6 quiz — trees",
+    course: "CSC 201",
+    q: 12,
+    pts: 24,
+    window: "Sep 3 · 10:00 · 30 min",
+    status: "SCHEDULED",
+    sub: "—",
+    avg: "—",
+  },
+  {
+    id: "as2",
+    kind: "QUIZ",
+    title: "Week 4 quiz — complexity",
+    course: "CSC 201",
+    q: 10,
+    pts: 20,
+    window: "Closed Aug 22",
+    status: "GRADED",
+    sub: "1,104 of 1,180",
+    avg: "64%",
+  },
+  {
+    id: "as3",
+    kind: "EXAM",
+    title: "Mid-semester exam",
+    course: "CSC 305",
+    q: 40,
+    pts: 100,
+    window: "Exam week",
+    timer: "2h",
+    status: "DRAFT",
+    sub: "—",
+    avg: "—",
+  },
+]
+
+export type BuilderQuestion = {
+  type: string
+  prompt: string
+  pts: number
+  opts: string[]
+  correct: Record<number, boolean>
+}
+
+/** What the OCR pass claims to have found, with its confidence. */
+export const OCR_FOUND: {
+  prompt: string
+  type: string
+  pts: number
+  conf: number
+  opts?: string[]
+}[] = [
+  {
+    prompt: "Define a binary search tree and state its ordering invariant.",
+    type: "Short answer",
+    pts: 5,
+    conf: 96,
+  },
+  {
+    prompt: "Which traversal of a BST yields keys in sorted order?",
+    type: "Multiple choice",
+    pts: 2,
+    conf: 94,
+    opts: ["Pre-order", "In-order", "Post-order", "Level-order"],
+  },
+  {
+    prompt:
+      "A heap is a complete binary tree. True or false — justify in one line.",
+    type: "Short answer",
+    pts: 3,
+    conf: 88,
+  },
+  {
+    prompt:
+      "Insert 42 into the AVL tree shown in figure 3 and give the rotations performed.",
+    type: "Essay",
+    pts: 10,
+    conf: 61,
+  },
+]
+
+/** A choice question with nothing marked correct cannot auto-mark. */
+export function missingKey(q: BuilderQuestion): boolean {
+  const choice = q.type === "Multiple choice" || q.type === "Multi-select"
+  return choice && Object.values(q.correct).filter(Boolean).length === 0
+}
