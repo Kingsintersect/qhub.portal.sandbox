@@ -6,7 +6,12 @@ import {
   HomeBanner,
   type HomeStat,
 } from "@/modules/learn/components/HomeBanner"
+import {
+  Assessments,
+  type Assessment,
+} from "@/modules/learn/components/Assessments"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
+import { QuizRunner } from "@/modules/learn/components/QuizRunner"
 import {
   Discussions,
   type Discussion,
@@ -175,6 +180,82 @@ const THREADS: Discussion[] = [
   },
 ]
 
+const ASSESSMENTS: Assessment[] = [
+  {
+    kind: "QUIZ",
+    title: "Quiz — Week 6, trees",
+    meta: "12 questions · 24 pts · 30 min timer · closes today 23:59",
+    attempts: "0 of 1 attempts used",
+    mark: "—",
+    marked: false,
+    cta: "Start attempt",
+  },
+  {
+    kind: "QUIZ",
+    title: "Week 4 quiz — complexity",
+    meta: "10 questions · 20 pts · closed Aug 22",
+    attempts: "1 of 2 attempts used · best kept",
+    mark: "13/20 · 65%",
+    marked: true,
+    badge: { text: "GRADED", tone: "accent" },
+  },
+  {
+    kind: "QUIZ",
+    title: "Module 1 check-in quiz",
+    meta: "10 questions · 20 pts",
+    attempts: "2 of 2 attempts used · best kept",
+    mark: "16/20 · 80%",
+    marked: true,
+    badge: { text: "GRADED", tone: "accent" },
+  },
+  {
+    kind: "EXAM",
+    title: "Mid-semester exam",
+    meta: "40 questions · 100 pts · 2h hard timer · exam week",
+    attempts: "0 of 1 attempts",
+    mark: "—",
+    marked: false,
+    badge: { text: "SCHEDULED", tone: "warn" },
+  },
+]
+
+/* The canvas cycles four prompts across twelve questions. */
+const PROMPTS = [
+  {
+    prompt:
+      "Which traversal of a binary search tree yields keys in sorted order?",
+    options: ["Pre-order", "In-order", "Post-order", "Level-order"],
+  },
+  {
+    prompt: "A binary heap is always:",
+    options: [
+      "A complete binary tree",
+      "A full binary tree",
+      "Perfectly balanced",
+      "Sorted in-order",
+    ],
+  },
+  {
+    prompt:
+      "Inserting into an AVL tree may require at most how many rotations?",
+    options: [
+      "One single or one double rotation",
+      "Two double rotations",
+      "O(log n) rotations",
+      "None — AVL trees never rotate on insert",
+    ],
+  },
+  {
+    prompt: "The height of a balanced BST with n nodes is:",
+    options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+  },
+]
+
+const QUIZ_QUESTIONS = Array.from({ length: 12 }, (_, i) => ({
+  ...PROMPTS[i % PROMPTS.length]!,
+  points: 2,
+}))
+
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
@@ -191,6 +272,7 @@ const CRUMB: Record<LearnView, string> = {
 export default function LearnPage() {
   const [view, setView] = useState<LearnView>("home")
   const [courseCode, setCourseCode] = useState<string | null>(null)
+  const [quizOpen, setQuizOpen] = useState(false)
 
   // A course is always selected in the hub; the rail's null just means the
   // sidebar is not highlighting one.
@@ -276,10 +358,25 @@ export default function LearnPage() {
 
       {view === "disc" && <Discussions threads={THREADS} />}
 
+      {view === "assess" && !quizOpen && (
+        <Assessments rows={ASSESSMENTS} onStart={() => setQuizOpen(true)} />
+      )}
+
+      {view === "assess" && quizOpen && (
+        <QuizRunner
+          title="Quiz — Week 6, trees"
+          courseMeta="CSC 201 · 12 questions · 24 pts · one attempt"
+          questions={QUIZ_QUESTIONS}
+          seconds={1800}
+          onSubmit={() => setQuizOpen(false)}
+        />
+      )}
+
       {view !== "home" &&
         view !== "lessons" &&
         view !== "live" &&
-        view !== "disc" && (
+        view !== "disc" &&
+        view !== "assess" && (
           <div
             style={{
               background: "var(--card)",
