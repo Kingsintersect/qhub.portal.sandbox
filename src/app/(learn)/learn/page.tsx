@@ -19,6 +19,7 @@ import {
   LessonViewer,
   type LessonPage,
 } from "@/modules/learn/components/LessonViewer"
+import { ModuleOverview } from "@/modules/learn/components/ModuleOverview"
 import {
   Messages,
   type MessageThread,
@@ -565,6 +566,7 @@ export default function LearnPage() {
   const [courseCode, setCourseCode] = useState<string | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
   const [lesson, setLesson] = useState<string | null>(null)
+  const [moduleTitle, setModuleTitle] = useState<string | null>(null)
   // Lessons finished in this session. The canvas ticks the item AND posts a
   // notice on finish — a completion nobody is told about is one the student
   // will re-check the list for.
@@ -592,6 +594,9 @@ export default function LearnPage() {
       ...n,
     ])
     setLesson(null)
+    // The canvas returns to the course hub on finish, not to the module page
+    // — a finished lesson is a good moment to see the course move.
+    setModuleTitle(null)
   }
 
   // A course is always selected in the hub; the rail's null just means the
@@ -600,12 +605,19 @@ export default function LearnPage() {
   // session ticks nowhere, because the hub renders this object.
   const selected = courses.find((c) => c.code === courseCode) ?? courses[0]!
 
+  // Read back off the derived course, so a lesson finished from inside the
+  // module page ticks there too.
+  const openModule =
+    selected.modules.find((m) => m.title === moduleTitle) ?? null
+
   return (
     <LearnShell
       view={view}
       onNavigate={(next) => {
         setView(next)
         setCourseCode(null)
+        setModuleTitle(null)
+        setLesson(null)
       }}
       crumb={CRUMB[view]}
       identity={{
@@ -659,6 +671,9 @@ export default function LearnPage() {
       {view === "lessons" && lesson !== null && (
         <LessonViewer
           title={lesson}
+          context={`${selected.code} · ${
+            openModule?.title.split(" — ")[0] ?? "Module"
+          }`}
           pages={
             LESSON_PAGES[lesson] ?? [
               {
@@ -673,14 +688,24 @@ export default function LearnPage() {
         />
       )}
 
-      {view === "lessons" && lesson === null && (
+      {view === "lessons" && lesson === null && openModule !== null && (
+        <ModuleOverview
+          module={openModule}
+          courseCode={selected.code}
+          onBack={() => setModuleTitle(null)}
+          onOpenItem={(item) => {
+            if (item.kind === "quiz") setQuizOpen(true)
+            else setLesson(item.title)
+          }}
+        />
+      )}
+
+      {view === "lessons" && lesson === null && openModule === null && (
         <CourseHub
           courses={courses}
           selected={selected}
           onSelect={setCourseCode}
-          onOpenModule={() => {
-            /* The module overview page is the next slice. */
-          }}
+          onOpenModule={(m) => setModuleTitle(m.title)}
           onOpenItem={(item) => {
             // A quiz opens the runner; anything else opens as a lesson.
             if (item.kind === "quiz") setQuizOpen(true)
