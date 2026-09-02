@@ -27,7 +27,19 @@ const SERIES: Array<{
   },
 ]
 
-const RANGES = [7, 30, 90, 365] as const
+/*
+ * The draft's ranges, with its labels and its default.
+ *
+ * Shipped as 7d/30d/90d/1y, which is the same idea written differently — but
+ * the console is read beside the draft and a label that does not match is a
+ * question every time somebody checks one against the other.
+ */
+const RANGES = [
+  { days: 7, label: "7D" },
+  { days: 30, label: "1M" },
+  { days: 90, label: "3M" },
+  { days: 365, label: "1Y" },
+] as const
 
 /**
  * The estate's shape over time.
@@ -157,9 +169,9 @@ export function TrendsChart({
         >
           {RANGES.map((r) => (
             <button
-              key={r}
+              key={r.days}
               type="button"
-              onClick={() => onDaysChange(r)}
+              onClick={() => onDaysChange(r.days)}
               style={{
                 padding: "6px 14px",
                 borderRadius: 999,
@@ -167,13 +179,13 @@ export function TrendsChart({
                 fontWeight: 500,
                 cursor: "pointer",
                 border: "none",
-                color: days === r ? "var(--txt)" : "var(--txt3)",
-                background: days === r ? "var(--card)" : "transparent",
-                boxShadow: days === r ? "var(--shadow-sm)" : "none",
+                color: days === r.days ? "var(--txt)" : "var(--txt3)",
+                background: days === r.days ? "var(--card)" : "transparent",
+                boxShadow: days === r.days ? "var(--shadow-sm)" : "none",
                 fontFamily: "inherit",
               }}
             >
-              {r === 365 ? "1y" : `${r}d`}
+              {r.label}
             </button>
           ))}
         </div>

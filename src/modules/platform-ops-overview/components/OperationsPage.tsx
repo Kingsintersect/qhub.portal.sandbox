@@ -53,7 +53,9 @@ type Tab = "health" | "incidents" | "provisioning" | "upgrades" | "anomalies"
  */
 export function SystemsOverviewPage() {
   const [tab, setTab] = useState<Tab>("health")
-  const [days, setDays] = useState(30)
+  const [logging, setLogging] = useState(false)
+  // 3M, as the draft opens on — a quarter is where a trend becomes visible.
+  const [days, setDays] = useState(90)
 
   const { data: overview, isPending: overviewLoading } = useEstateOverview()
   const { data: trends, isFetching: trendsLoading } = useEstateTrends(days)
@@ -83,14 +85,13 @@ export function SystemsOverviewPage() {
 
   const note: Record<Tab, string> = {
     health:
-      "Fed automatically by probes and sync. Nothing here is hand-entered.",
-    incidents:
-      "Open incidents across the estate. Affected institutions see a banner in their own portal.",
+      "Fed automatically by platform probes and sync results — nothing here is entered by hand.",
+    incidents: "Logged by staff, or opened automatically by monitoring alarms.",
     provisioning:
-      "Onboardings still building. Each one is a queued job you can follow to ten of ten.",
-    upgrades: "Rollouts in flight and scheduled.",
+      "Rows appear when a tenant is created via New institution on the Institutions page.",
+    upgrades: "Rollouts logged here post to affected tenants' consoles.",
     anomalies:
-      "Flagged against each institution's own baseline. Acknowledging records that you have seen it and judged it expected — it does not mean fixed.",
+      "Detected hourly against each tenant's own baseline. Acknowledge to silence — an acknowledged anomaly that then doubles is un-acknowledged and re-alerts.",
   }
 
   return (
@@ -282,7 +283,50 @@ export function SystemsOverviewPage() {
           }}
         >
           <div style={{ fontSize: 12, color: "var(--txt3)" }}>{note[tab]}</div>
+
+          {(tab === "incidents" || tab === "upgrades") && (
+            <button
+              type="button"
+              onClick={() => setLogging(true)}
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                border: "none",
+                padding: "7px 13px",
+                borderRadius: 9,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              {tab === "incidents" ? "Log incident" : "Log upgrade"}
+            </button>
+          )}
         </div>
+
+        {logging && tab === "incidents" && (
+          <LogIncidentDialog onClose={() => setLogging(false)} />
+        )}
+        {logging && tab === "upgrades" && (
+          <LogUpgradeDialog onClose={() => setLogging(false)} />
+        )}
 
         <div style={{ paddingBottom: 4 }}>
           {tab === "health" && <HealthTab />}
@@ -1179,36 +1223,16 @@ function MutedCell({
 }
 
 function IncidentsTab() {
-  const [status, setStatus] = useState("open")
-  const [logging, setLogging] = useState(false)
-  const { data, isLoading } = useIncidents(status)
+  /*
+   * Unfiltered, as drawn. The draft pages this list rather than filtering it,
+   * and the Open/All chips that were here defaulted to "open" — so a resolved
+   * incident vanished from the tab that is supposed to be the record of what
+   * happened.
+   */
+  const { data, isLoading } = useIncidents("")
 
   return (
     <>
-      {logging && <LogIncidentDialog onClose={() => setLogging(false)} />}
-
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          marginBottom: 14,
-          alignItems: "center",
-        }}
-      >
-        {[
-          ["open", "Open"],
-          ["", "All"],
-        ].map(([value, label]) => (
-          <Chip
-            key={value || "all"}
-            label={label}
-            active={status === value}
-            onClick={() => setStatus(value)}
-          />
-        ))}
-        <ActionButton label="Log incident" onClick={() => setLogging(true)} />
-      </div>
-
       {isLoading && <Loading />}
 
       {!isLoading && (data?.data.length ?? 0) === 0 && (
@@ -1328,22 +1352,9 @@ function UpgradesTab() {
 
   // The action stays available while loading and when empty — an operator
   // logging the first upgrade should not have to wait for a list of nothing.
-  const header = (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        marginBottom: 14,
-      }}
-    >
-      <ActionButton label="Log upgrade" onClick={() => setLogging(true)} />
-    </div>
-  )
-
   if (isLoading) {
     return (
       <>
-        {header}
         <Loading />
       </>
     )
@@ -1353,7 +1364,6 @@ function UpgradesTab() {
     return (
       <>
         {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
-        {header}
         <Empty>No upgrades logged.</Empty>
       </>
     )
@@ -1362,7 +1372,6 @@ function UpgradesTab() {
   return (
     <>
       {logging && <LogUpgradeDialog onClose={() => setLogging(false)} />}
-      {header}
       {data.length > 0 && (
         <TableHead
           grid={UPGRADE_GRID}
@@ -1689,73 +1698,20 @@ function Kpi({
 }
 
 function Loading() {
-  return <div style={{ fontSize: 13, color: "var(--txt3)" }}>Loading…</div>
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
+  // Inset to match the rows it stands in for. Without it the placeholder sits
+  // flush against the card edge and the table appears to shift when it loads.
   return (
-    <div style={{ fontSize: 13, color: "var(--txt3)", padding: "20px 0" }}>
-      {children}
+    <div style={{ fontSize: 13, color: "var(--txt3)", padding: "20px 24px" }}>
+      Loading…
     </div>
   )
 }
 
-function Chip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
+function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: "6px 11px",
-        fontSize: 12,
-        border: `1px solid ${active ? "var(--accent-brd)" : "var(--line-strong)"}`,
-        background: active ? "var(--accent-soft)" : "transparent",
-        color: active ? "var(--accent)" : "var(--txt3)",
-        cursor: "pointer",
-        fontFamily: "inherit",
-      }}
-    >
-      {label}
-    </button>
-  )
-}
-
-/** The right-aligned action on a tab's filter row. */
-function ActionButton({
-  label,
-  onClick,
-}: {
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        marginLeft: "auto",
-        background: "var(--accent)",
-        color: "#fff",
-        border: "none",
-        fontSize: 12.5,
-        fontWeight: 500,
-        padding: "8px 14px",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-    </button>
+    <div style={{ fontSize: 13, color: "var(--txt3)", padding: "20px 24px" }}>
+      {children}
+    </div>
   )
 }
 
