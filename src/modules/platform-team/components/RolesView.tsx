@@ -12,6 +12,7 @@ import {
   useUpdateRolePermissions,
 } from "@/modules/platform-team/hooks/use-platform-team"
 import type { PlatformRole, PlatformUser } from "@/modules/platform-team/types"
+import { CompareRoles } from "@/modules/platform-team/components/CompareRoles"
 import { InviteUserDialog } from "@/modules/platform-team/components/InviteUserDialog"
 
 type Tab = "roles" | "matrix" | "people"
@@ -112,27 +113,33 @@ export function RolesView() {
             color: "var(--txt2)",
           }}
         >
-          Read-only — this account does not hold{" "}
+          Read-only — this account holds{" "}
           <span className="qhub-mono" style={{ fontSize: 11.5 }}>
-            roles.manage
-          </span>
-          . Everything is visible; nothing is editable.
+            roles.read
+          </span>{" "}
+          only. Everything is visible; nothing is editable.
         </div>
       )}
 
       {isPending && <Empty>Loading…</Empty>}
 
       {tab === "roles" && roles && (
-        <RoleCards
-          roles={roles}
-          users={users ?? []}
-          canManage={canManage}
-          permissionCount={permissionCount}
-          onOpenMatrix={(id) => {
-            setOpenRoleId(id)
-            setTab("matrix")
-          }}
-        />
+        <>
+          <RoleCards
+            roles={roles}
+            users={users ?? []}
+            canManage={canManage}
+            permissionCount={permissionCount}
+            onOpenMatrix={(id) => {
+              setOpenRoleId(id)
+              setTab("matrix")
+            }}
+          />
+
+          {/* Beneath the cards, as drawn — the comparison is the question you
+              ask after reading them, not instead of. */}
+          <CompareRoles roles={roles} catalog={catalog ?? {}} />
+        </>
       )}
 
       {tab === "matrix" && roles && catalog && (

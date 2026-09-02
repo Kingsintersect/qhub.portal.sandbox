@@ -180,13 +180,31 @@ function RoleEditor({
         <p className="text-sm text-muted-foreground">{role.description}</p>
 
         {/* Not an empty matrix: this role bypasses permission checks entirely,
-            so a grid of unchecked boxes would misreport it as powerless. */}
-        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-          This role has full access to everything, including permissions added
-          later. It is not built from the list below, so there is nothing here
-          to change — which is also why it cannot be granted to a role you
-          create.
-        </p>
+            so a grid of unchecked boxes would misreport it as powerless.
+            Copy and hierarchy taken from the draft — a heading, the reason,
+            and the rule underneath. */}
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 600 }}>
+            This role bypasses permission checks.
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--txt2)",
+              lineHeight: 1.6,
+              marginTop: 6,
+              maxWidth: 520,
+            }}
+          >
+            {role.name} holds everything — including permissions added later.
+            There is nothing to tick or untick: it is not a set of grants, it is
+            a flag the checks step around. To limit what someone can do, give
+            them a different role instead.
+          </div>
+          <div style={{ fontSize: 12, color: "var(--txt4)", marginTop: 8 }}>
+            Superuser cannot be granted to any other role.
+          </div>
+        </div>
       </div>
     )
   }
