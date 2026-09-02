@@ -222,3 +222,91 @@ export function initialsOf(name: string): string {
     .slice(0, 2)
     .toUpperCase()
 }
+
+export type Course = {
+  code: string
+  title: string
+  dept: string
+  level: string
+  lect: string
+  students: number
+  media: number
+}
+
+/** The codes the seeded lecturer teaches. */
+export const MY_CODES = ["CSC 201", "CSC 305"]
+
+export const COURSES: Course[] = [
+  {
+    code: "CSC 201",
+    title: "Data structures and algorithms",
+    dept: "Computer Science",
+    level: "Year 2",
+    lect: "Dr. F. Adeyemi",
+    students: 1180,
+    media: 3,
+  },
+  {
+    code: "CSC 305",
+    title: "Operating systems",
+    dept: "Computer Science",
+    level: "Year 3",
+    lect: "Dr. F. Adeyemi",
+    students: 960,
+    media: 1,
+  },
+  {
+    code: "GST 103",
+    title: "Logic and critical thinking",
+    dept: "General Studies",
+    level: "Year 1",
+    lect: "Prof. C. Okonkwo",
+    students: 8320,
+    media: 2,
+  },
+  {
+    code: "MTH 110",
+    title: "Calculus I — limits and continuity",
+    dept: "Mathematics",
+    level: "Year 1",
+    lect: "Dr. B. Lawal",
+    students: 2210,
+    media: 1,
+  },
+  {
+    code: "ECO 101",
+    title: "Principles of economics",
+    dept: "Economics",
+    level: "Year 1",
+    lect: "Dr. B. Lawal",
+    students: 950,
+    media: 0,
+  },
+  {
+    code: "EEE 305",
+    title: "Control systems engineering",
+    dept: "Electrical Engineering",
+    level: "Year 3",
+    lect: "Engr. S. Danladi",
+    students: 940,
+    media: 1,
+  },
+  {
+    code: "LAW 401",
+    title: "Law of evidence",
+    dept: "Law",
+    level: "Year 4",
+    lect: "Prof. H. Yusuf",
+    students: 1210,
+    media: 1,
+  },
+  {
+    code: "BIO 102",
+    title: "Cell biology",
+    dept: "Biochemistry",
+    level: "Year 1",
+    lect: "Dr. E. Nwachukwu",
+    students: 2870,
+    media: 2,
+  },
+]

@@ -3,11 +3,18 @@
 import { useState } from "react"
 
 import { Overview, useNotice } from "@/modules/portal/components/Overview"
+import { CourseCatalogue } from "@/modules/portal/components/CourseCatalogue"
 import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
 import { PortalShell } from "@/modules/portal/components/PortalShell"
 import { StudentRoll } from "@/modules/portal/components/StudentRoll"
 import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
-import { LECTURERS, STUDENTS, type Lecturer } from "@/modules/portal/seed"
+import {
+  COURSES,
+  LECTURERS,
+  MY_CODES,
+  STUDENTS,
+  type Lecturer,
+} from "@/modules/portal/seed"
 import type { PortalRole, PortalView } from "@/modules/portal/types"
 
 /**
@@ -56,7 +63,7 @@ export default function PortalPage() {
         school: "University of Lagos",
         host: "unilag.qhub.io",
         schoolInitials: "UL",
-        name: admin ? "Ngozi Balogun" : "Dr. Femi Adeyemi",
+        name: admin ? "R. Osei" : "Dr. F. Adeyemi",
       }}
       notices={bell}
       badges={admin ? { support: 2 } : { support: 2, msgs: 2 }}
@@ -247,6 +254,43 @@ export default function PortalPage() {
         />
       )}
 
+      {view === "courses" && (
+        <CourseCatalogue
+          courses={
+            admin ? COURSES : COURSES.filter((c) => MY_CODES.includes(c.code))
+          }
+          title={admin ? "Course catalogue" : "My courses"}
+          sub={
+            admin
+              ? `${COURSES.length} shown of 4,182 · the catalogue is fed by SIS sync and bulk import`
+              : "The courses assigned to you this session"
+          }
+          footer={
+            admin
+              ? "Courses are never typed in by hand — rows arrive validated from the SIS or a bulk import, and media/announcement targeting validates against this list."
+              : "Course assignment is managed by your registry — raise it with them if a course is missing."
+          }
+          isAdmin={admin}
+          myCodes={admin ? [] : MY_CODES}
+          onImport={() =>
+            setBell((n) => [
+              {
+                text: "Course import queued — validation report lands in notifications when it finishes",
+                when: "Just now",
+              },
+              ...n,
+            ])
+          }
+          actionsFor={() => [
+            { label: "Create lesson", run: () => setView("lessons") },
+            { label: "Schedule live class", run: () => setView("live") },
+            { label: "New quiz or exam", run: () => setView("assess") },
+            { label: "Start discussion", run: () => setView("disc") },
+            { label: "Open gradebook", run: () => setView("grades") },
+          ]}
+        />
+      )}
+
       {view === "lect" && admin && (
         <TeachingStaff
           lecturers={[...invited, ...LECTURERS]}
@@ -266,6 +310,7 @@ export default function PortalPage() {
 
       {view !== "overview" &&
         view !== "students" &&
+        view !== "courses" &&
         !(view === "lect" && admin) && (
           <div
             style={{
