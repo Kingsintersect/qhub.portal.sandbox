@@ -11,6 +11,10 @@ import {
   type Assessment,
 } from "@/modules/learn/components/Assessments"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
+import {
+  MediaLibrary,
+  type MediaItem,
+} from "@/modules/learn/components/MediaLibrary"
 import { QuizRunner } from "@/modules/learn/components/QuizRunner"
 import {
   Discussions,
@@ -256,6 +260,81 @@ const QUIZ_QUESTIONS = Array.from({ length: 12 }, (_, i) => ({
   points: 2,
 }))
 
+const MEDIA: MediaItem[] = [
+  {
+    kind: "video",
+    type: "Video",
+    course: "CSC 201",
+    title: "Trees and heaps — lecture recording",
+    meta: "1h 42m · Dr. F. Adeyemi · Week 6",
+    progress: "watched to 48:20",
+    when: "Aug 24",
+  },
+  {
+    kind: "video",
+    type: "Video",
+    course: "CSC 201",
+    title: "Scheduling algorithms walkthrough",
+    meta: "1h 10m · Dr. F. Adeyemi",
+    progress: "not started",
+    when: "Aug 9",
+  },
+  {
+    kind: "audio",
+    type: "Audio",
+    course: "CSC 201",
+    title: "Recursion clinic — audio recap",
+    meta: "41m · plays inline",
+    progress: "played",
+    when: "Aug 27",
+  },
+  {
+    kind: "pdf",
+    type: "PDF",
+    course: "CSC 201",
+    title: "Worked examples — AVL rotations",
+    meta: "12 pages · downloadable",
+    progress: "page 12 of 12",
+    when: "Aug 20",
+  },
+  {
+    kind: "video",
+    type: "Video",
+    course: "GST 103",
+    title: "Logic and critical thinking, week 4",
+    meta: "58m · Prof. C. Okonkwo",
+    progress: "watched",
+    when: "Aug 22",
+  },
+  {
+    kind: "video",
+    type: "Video",
+    course: "MTH 110",
+    title: "Limits and continuity",
+    meta: "1h 15m · Dr. B. Lawal",
+    progress: "watched to 22:05",
+    when: "Aug 21",
+  },
+  {
+    kind: "pdf",
+    type: "PDF",
+    course: "BIO 102",
+    title: "Cell biology practical briefing",
+    meta: "34 pages · downloadable",
+    progress: "page 21 of 34",
+    when: "Aug 15",
+  },
+  {
+    kind: "audio",
+    type: "Audio",
+    course: "GST 103",
+    title: "Week 5 reflection prompts",
+    meta: "24m · plays inline",
+    progress: "not started",
+    when: "Aug 25",
+  },
+]
+
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
@@ -358,6 +437,10 @@ export default function LearnPage() {
 
       {view === "disc" && <Discussions threads={THREADS} />}
 
+      {view === "medialib" && (
+        <MediaLibrary items={MEDIA} courses={COURSES.map((c) => c.code)} />
+      )}
+
       {view === "assess" && !quizOpen && (
         <Assessments rows={ASSESSMENTS} onStart={() => setQuizOpen(true)} />
       )}
@@ -376,7 +459,8 @@ export default function LearnPage() {
         view !== "lessons" &&
         view !== "live" &&
         view !== "disc" &&
-        view !== "assess" && (
+        view !== "assess" &&
+        view !== "medialib" && (
           <div
             style={{
               background: "var(--card)",
