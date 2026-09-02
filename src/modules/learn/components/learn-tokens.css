@@ -11,11 +11,11 @@
  * file carries the console's 0.8 zoom, and the student app is drawn at 100%.
  * Borrowing the file to get the colours would have brought the scale too.
  *
- * One deliberate divergence. The Student App canvas gives `--neg-bg` as
- * #F9EBE9, where the console and Institution Portal canvases both give
- * #F9EBE6. Two of three agree and the README says the tokens are shared, so
- * this follows the shared value and the one-character difference is raised
- * with Design rather than forked into a second red.
+ * `--neg-bg` read #F9EBE9 here in the bundle 24 canvas, where the console and
+ * Institution Portal both gave #F9EBE6. This file followed the two that
+ * agreed and the difference was raised. Design had already corrected it in
+ * the bundle 24 sync and the canvas has read #F9EBE6 since bundle 25, so no
+ * divergence remains — the value below is simply the shared one.
  *
  * Both themes are complete sets. A token defined in only one block renders one
  * theme's text on the other theme's ground.

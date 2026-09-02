@@ -204,16 +204,38 @@ const THREADS: Discussion[] = [
   },
 ]
 
-const ASSESSMENTS: Assessment[] = [
-  {
-    kind: "QUIZ",
-    title: "Quiz — Week 6, trees",
-    meta: "12 questions · 24 pts · 30 min timer · closes today 23:59",
-    attempts: "0 of 1 attempts used",
-    mark: "—",
-    marked: false,
-    cta: "Start attempt",
-  },
+/**
+ * The week 6 row is the only one that changes: before the attempt it offers
+ * the CTA, and after it carries AWAITING GRADING. That badge is where a
+ * student who dismissed the submission screen reads the grading contract, so
+ * the state has to be reachable rather than decorative.
+ */
+function assessments(submitted: boolean): Assessment[] {
+  return [
+    submitted
+      ? {
+          kind: "QUIZ",
+          title: "Quiz — Week 6, trees",
+          meta: "12 questions · 24 pts · 30 min timer · closes today 23:59",
+          attempts: "1 of 1 attempts used",
+          mark: "submitted",
+          marked: true,
+          badge: { text: "AWAITING GRADING", tone: "warn" },
+        }
+      : {
+          kind: "QUIZ",
+          title: "Quiz — Week 6, trees",
+          meta: "12 questions · 24 pts · 30 min timer · closes today 23:59",
+          attempts: "0 of 1 attempts used",
+          mark: "—",
+          marked: false,
+          cta: "Start attempt",
+        },
+    ...REST,
+  ]
+}
+
+const REST: Assessment[] = [
   {
     kind: "QUIZ",
     title: "Week 4 quiz — complexity",
@@ -567,6 +589,9 @@ export default function LearnPage() {
   const [courseCode, setCourseCode] = useState<string | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
   const [quizDone, setQuizDone] = useState(false)
+  // Survives the confirmation being dismissed — the assessments row is the
+  // lasting record that the attempt is in.
+  const [quizSubmitted, setQuizSubmitted] = useState(false)
   const [lesson, setLesson] = useState<string | null>(null)
   const [moduleTitle, setModuleTitle] = useState<string | null>(null)
   // Lessons finished in this session. The canvas ticks the item AND posts a
@@ -756,7 +781,10 @@ export default function LearnPage() {
       )}
 
       {overlay === null && view === "assess" && (
-        <Assessments rows={ASSESSMENTS} onStart={() => setQuizOpen(true)} />
+        <Assessments
+          rows={assessments(quizSubmitted)}
+          onStart={() => setQuizOpen(true)}
+        />
       )}
 
       {quizOpen && (
@@ -768,6 +796,7 @@ export default function LearnPage() {
           onSubmit={() => {
             setQuizOpen(false)
             setQuizDone(true)
+            setQuizSubmitted(true)
           }}
         />
       )}
