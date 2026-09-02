@@ -8,6 +8,10 @@ import {
 } from "@/modules/learn/components/HomeBanner"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
 import {
+  Discussions,
+  type Discussion,
+} from "@/modules/learn/components/Discussions"
+import {
   LiveClasses,
   type LiveClass,
 } from "@/modules/learn/components/LiveClasses"
@@ -126,6 +130,51 @@ const LIVE: LiveClass[] = [
   },
 ]
 
+const THREADS: Discussion[] = [
+  {
+    id: "d1",
+    title: "Compare quicksort vs mergesort trade-offs",
+    meta: "Graded · 10 pts · closes Fri · 1,842 posts",
+    badge: "YOU POSTED",
+    tone: "accent",
+    prompt:
+      "When would you pick quicksort over mergesort in a real system, and what does that cost you? Cite at least one property (stability, locality, worst case).",
+    posts: [
+      {
+        name: "You",
+        initials: "AO",
+        when: "2h ago · 3 replies",
+        isYou: true,
+        text: "Quicksort wins on cache locality since it partitions in place, but you give up stability — for a leaderboard where ties must keep insertion order, mergesort is the honest choice even at 2x memory.",
+      },
+      {
+        name: "Ibrahim Lawal",
+        initials: "IL",
+        when: "5h ago",
+        text: "Nobody ships textbook quicksort — introsort exists because the O(n²) worst case is adversarially reachable. The real trade-off is engineered-quicksort vs mergesort, which mostly reduces to memory.",
+      },
+    ],
+  },
+  {
+    id: "d2",
+    title: "Introduce yourself + your build setup",
+    meta: "Ungraded · closed · 2,203 posts",
+    badge: "CLOSED",
+    tone: "muted",
+    closed: true,
+    prompt:
+      "Say hello — what machine, OS and editor are you working on this semester?",
+    posts: [
+      {
+        name: "Chioma Obi",
+        initials: "CO",
+        when: "Aug 12",
+        text: "Chioma, Year 2. A hand-me-down ThinkPad on Ubuntu, VS Code, and a lot of patience for NEPA.",
+      },
+    ],
+  },
+]
+
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
@@ -225,20 +274,25 @@ export default function LearnPage() {
         />
       )}
 
-      {view !== "home" && view !== "lessons" && view !== "live" && (
-        <div
-          style={{
-            background: "var(--card)",
-            borderRadius: 20,
-            boxShadow: "var(--shadow-card)",
-            padding: "26px 28px",
-            fontSize: 13,
-            color: "var(--txt3)",
-          }}
-        >
-          {CRUMB[view]} — not lifted yet.
-        </div>
-      )}
+      {view === "disc" && <Discussions threads={THREADS} />}
+
+      {view !== "home" &&
+        view !== "lessons" &&
+        view !== "live" &&
+        view !== "disc" && (
+          <div
+            style={{
+              background: "var(--card)",
+              borderRadius: 20,
+              boxShadow: "var(--shadow-card)",
+              padding: "26px 28px",
+              fontSize: 13,
+              color: "var(--txt3)",
+            }}
+          >
+            {CRUMB[view]} — not lifted yet.
+          </div>
+        )}
     </LearnShell>
   )
 }
