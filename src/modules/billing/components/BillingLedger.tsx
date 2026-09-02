@@ -558,7 +558,7 @@ function PlansView({ revenue }: { revenue: RevenueRow[] }) {
                 </div>
               </div>
               <div>
-                Collected
+                Collected 30d
                 <div
                   style={{
                     fontSize: 16,

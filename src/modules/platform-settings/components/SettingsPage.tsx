@@ -558,10 +558,14 @@ function MfaSection() {
           </div>
 
           <div style={{ flex: 1, minWidth: 240 }}>
-            <div
-              style={{ fontSize: 12.5, color: "var(--txt2)", lineHeight: 1.55 }}
-            >
-              Scan the code, or type this into your authenticator by hand:
+            {/* Two lines, as the draft has it: what to do, then the fallback
+                for a device that cannot scan. One combined sentence buries
+                the manual route in the middle of the instruction. */}
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              Scan with your authenticator app
+            </div>
+            <div style={{ fontSize: 12, color: "var(--txt3)", marginTop: 4 }}>
+              Or enter the secret by hand:
             </div>
             <div
               className="qhub-mono"

@@ -34,7 +34,7 @@ export function PlatformAuditPanel() {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState<number>(50)
 
-  const { data, isError } = usePlatformAudit(
+  const { data, isError, refetch, isFetching } = usePlatformAudit(
     {
       page,
       perPage,
@@ -132,9 +132,32 @@ export function PlatformAuditPanel() {
               <path d="M12 8v5M12 16.5v.5" />
               <circle cx="12" cy="12" r="9" />
             </svg>
-            Connection lost — showing events up to the last received. Nothing is
-            missing from the log itself; the feed resumes when the connection
-            returns.
+            Connection lost — showing events up to the last received (cursor
+            poll, every 6s). Nothing is missing from the log itself; the feed
+            resumes when the connection returns.
+            {/* An explicit retry, because waiting six seconds for the next
+                poll is a long time to sit looking at a warning with nothing
+                to press. */}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              style={{
+                marginLeft: "auto",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                border: "none",
+                padding: "7px 14px",
+                borderRadius: 9,
+                cursor: isFetching ? "default" : "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isFetching ? "Retrying…" : "Retry now"}
+            </button>
           </div>
         )}
 

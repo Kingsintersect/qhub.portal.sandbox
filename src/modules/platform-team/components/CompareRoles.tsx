@@ -99,7 +99,7 @@ export function CompareRoles({
           Toggle
         </button>
         <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--txt3)" }}>
-          Answers &ldquo;how does support differ from read_only&rdquo; without
+          Answers &quot;how does support differ from read_only&quot; without
           opening either.
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   useCancelTask,
   useResolveTask,
   useTasks,
+  useTagColleague,
   useTeamMetrics,
 } from "@/modules/platform-tasks/hooks/use-platform-tasks"
 import {
@@ -188,6 +189,7 @@ export function TasksPage() {
             teamScope={scope === "all"}
             expanded={openId === task.id}
             onToggle={() => setOpenId(openId === task.id ? null : task.id)}
+            colleagues={team ?? []}
           />
         ))}
       </div>
@@ -207,11 +209,15 @@ function TaskRow({
   teamScope,
   expanded,
   onToggle,
+  colleagues,
 }: {
   task: PlatformTask
   teamScope: boolean
   expanded: boolean
   onToggle: () => void
+  /** Who can be pulled onto the thread. Passed in rather than fetched per
+      row: one list for the page, not one request per task. */
+  colleagues: TeamMetric[]
 }) {
   const [timeline, setTimeline] = useState<TaskTimeline | null>(null)
   const [stepBody, setStepBody] = useState("")
@@ -221,6 +227,7 @@ function TaskRow({
   const cancel = useCancelTask()
   const addStep = useAddTaskStep()
   const completeStep = useCompleteTaskStep()
+  const tagColleague = useTagColleague()
 
   const done = task.steps.filter((s) => s.done).length
   const stepsNote = `${done} of ${task.steps.length} steps`
@@ -704,35 +711,67 @@ function TaskRow({
             </div>
           )}
 
-          {task.tags.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
-              <span style={{ fontSize: 11.5, color: "var(--txt4)" }}>
-                Tagged — they were notified and see the thread:
+          {/*
+            Always shown, not only once somebody has already been tagged.
+            The row was rendering only when tags existed and phrased in the
+            past — "Tagged — they were notified" — so the one thing it is for,
+            pulling a colleague in, was unreachable from a task with none.
+          */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: 11.5, color: "var(--txt4)" }}>
+              Tag a colleague — they get notified and see the thread:
+            </span>
+
+            {task.tags.map((g, i) => (
+              <span
+                key={`${g.user}-${i}`}
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  color: "var(--accent)",
+                  background: "var(--accent-soft)",
+                  padding: "5px 11px",
+                  borderRadius: 999,
+                }}
+              >
+                {g.user}
               </span>
-              {task.tags.map((g, i) => (
-                <span
-                  key={`${g.user}-${i}`}
+            ))}
+
+            {/* Anyone not already on the thread. Offering somebody who is
+                already tagged would send a second notification for nothing. */}
+            {colleagues
+              .filter((c) => !task.tags.some((g) => g.user === c.staff))
+              .map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={tagColleague.isPending}
+                  onClick={() =>
+                    tagColleague.mutate({ id: task.id, platformUserId: c.id })
+                  }
                   style={{
                     fontSize: 11.5,
-                    fontWeight: 500,
-                    color: "var(--accent)",
-                    background: "var(--accent-soft)",
+                    color: "var(--txt3)",
+                    border: "1px dashed var(--line-strong)",
+                    background: "transparent",
                     padding: "5px 11px",
                     borderRadius: 999,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
                   }}
                 >
-                  {g.user}
-                </span>
+                  + {c.staff}
+                </button>
               ))}
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>

@@ -146,7 +146,7 @@ export function RateEditorDialog({
             }}
           >
             Zero is a real rate — a free pilot. It renders as {currency} 0 ·
-            NEGOTIATED, never as &ldquo;not set&rdquo;.
+            NEGOTIATED, never as &quot;not set&quot;.
           </div>
         )}
 

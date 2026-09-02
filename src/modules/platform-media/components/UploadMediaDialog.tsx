@@ -145,7 +145,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
             on={institutionId === "*"}
             onClick={() => pickInstitution("*")}
             title="All institutions"
-            note="Level targeting still applies at each school"
+            note="Every tenant on the platform · the level targeting below still applies at each"
           />
           {institutions.map((i) => (
             <Choice
@@ -205,7 +205,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
             />
             {courseId === null && courseSearch.trim() !== "" && (
               <Options
-                empty="No match. Courses arrive via SIS sync or bulk import, not here."
+                empty="Not in this school's catalogue — courses arrive via SIS sync or bulk import, not here."
                 items={(courses ?? []).map((c) => ({
                   id: c.id,
                   label: c.label,
@@ -217,7 +217,10 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
               />
             )}
 
-            <Label>Tutor — optional, credited on the video</Label>
+            <Label>
+              Tutor — optional, credited on the video · must exist on the
+              school&rsquo;s platform
+            </Label>
             <input
               value={tutorLabel ?? tutorSearch}
               onChange={(e) => {
@@ -230,7 +233,7 @@ export function UploadMediaDialog({ onClose }: { onClose: () => void }) {
             />
             {tutorId === null && tutorSearch.trim() !== "" && (
               <Options
-                empty="No match. A tutor must already exist on the school's platform."
+                empty="No lecturer by that name — only staff on the school's platform can be credited."
                 items={(tutors ?? []).map((t) => ({
                   id: t.id,
                   label: t.label,
