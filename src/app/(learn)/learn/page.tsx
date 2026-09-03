@@ -35,6 +35,8 @@ import {
   type MediaItem,
 } from "@/modules/learn/components/MediaLibrary"
 import { QuizSubmitted } from "@/modules/learn/components/QuizSubmitted"
+import { StudentSignIn } from "@/modules/learn/components/StudentSignIn"
+import { loginWithBackend } from "@/lib/auth/backendAuth"
 import { QuizRunner } from "@/modules/learn/components/QuizRunner"
 import {
   Discussions,
@@ -586,6 +588,12 @@ const CRUMB: Record<LearnView, string> = {
 
 export default function LearnPage() {
   const [view, setView] = useState<LearnView>("home")
+  // Null until a session exists. Nothing about a student — not their name,
+  // not their marks — renders before they have signed in.
+  const [student, setStudent] = useState<{
+    name: string
+    matric: string
+  } | null>(null)
   const [courseCode, setCourseCode] = useState<string | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
   const [quizDone, setQuizDone] = useState(false)
@@ -639,6 +647,43 @@ export default function LearnPage() {
   const openModule =
     selected.modules.find((m) => m.title === moduleTitle) ?? null
 
+  if (student === null) {
+    return (
+      <StudentSignIn
+        school="University of Lagos"
+        host="lms.learn.unilag.edu.ng"
+        schoolInitials="UL"
+        onSignIn={async (matric, password) => {
+          try {
+            const user = await loginWithBackend({
+              identifier: matric,
+              password,
+            })
+            const roles = [user.role, ...user.roles].map((r) =>
+              String(r).toUpperCase()
+            )
+
+            if (!roles.includes("STUDENT")) {
+              // The sign-in copy already says where staff go; this is the
+              // same sentence at the moment it becomes relevant.
+              return "That account is not a student account. Staff sign in on the institution portal."
+            }
+
+            setStudent({
+              name: user.name.trim() !== "" ? user.name : matric,
+              matric,
+            })
+            return null
+          } catch {
+            // The same message for a wrong password as for a matric number
+            // with no account behind it.
+            return "Those details do not match. Check and try again."
+          }
+        }}
+      />
+    )
+  }
+
   return (
     <LearnShell
       view={view}
@@ -654,9 +699,14 @@ export default function LearnPage() {
         school: "UNILAG Learning",
         host: "lms.learn.unilag.edu.ng",
         schoolInitials: "UL",
-        name: "Adaeze Okafor",
-        initials: "AO",
-        matric: "UNILAG/2023/41207",
+        name: student.name,
+        initials: student.name
+          .split(" ")
+          .map((p) => p[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+        matric: student.matric,
         year: "Year 2",
       }}
       courses={RAIL}
@@ -667,6 +717,10 @@ export default function LearnPage() {
       }}
       notices={notices}
       badges={{ assess: 3, msgs: 2, announce: 1 }}
+      onSignOut={() => {
+        setStudent(null)
+        setView("home")
+      }}
     >
       {overlay === null && view === "home" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

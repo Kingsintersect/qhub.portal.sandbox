@@ -102,6 +102,7 @@ export function LearnShell({
   onCourse,
   notices,
   badges,
+  onSignOut,
   children,
 }: {
   view: LearnView
@@ -114,6 +115,7 @@ export function LearnShell({
   notices: LearnNotice[]
   /** Per-nav unread counts. A key absent means no badge, not a zero. */
   badges: Partial<Record<LearnView, number>>
+  onSignOut: () => void
   children: ReactNode
 }) {
   // next-themes rather than local state: the app already runs it, and it
@@ -539,7 +541,12 @@ export function LearnShell({
               )}
             </div>
 
-            <div
+            {/* The identity chip is the sign-out control, as in the canvas —
+                there is nowhere else in the app to leave from. */}
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign out"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -548,6 +555,11 @@ export function LearnShell({
                 boxShadow: "var(--shadow-sm)",
                 borderRadius: 11,
                 padding: "6px 12px 6px 6px",
+                cursor: "pointer",
+                border: "none",
+                fontFamily: "inherit",
+                textAlign: "left",
+                color: "var(--txt)",
               }}
             >
               <div
@@ -574,7 +586,7 @@ export function LearnShell({
                   {identity.matric} · {identity.year}
                 </div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
 
