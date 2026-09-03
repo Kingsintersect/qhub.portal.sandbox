@@ -5,10 +5,7 @@ name: Deploy to VPS - Production
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
-    branches: [develop]
-
-# The portal/student-app preview deploys from its own branch to its own
-# vhost, so the sandbox the team is system-testing on is never replaced.
+    branches: [sandbox/portal-preview]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURE THESE for each application — everything else is generic.
@@ -37,9 +34,9 @@ on:
 
 env:
   # ── App identity (change these for each application) ────────────────────────
-  APP_NAME: qhub.portal.sandbox.qverselearning.org    # PM2 process name — must be unique per app on the server
-  APP_PORT: '3030'                            # port Next.js listens on — must be unique per app on the server
-  DOMAIN: qhub.portal.sandbox.qverselearning.org       # public domain name
+  APP_NAME: qhub.preview.sandbox.qverselearning.org    # PM2 process name — must be unique per app on the server
+  APP_PORT: '3031'                            # port Next.js listens on — must be unique per app on the server
+  DOMAIN: qhub.preview.sandbox.qverselearning.org       # public domain name
   LE_EMAIL: support@qverselearning.com        # SSL contact email (cPanel AutoSSL / Let's Encrypt)
 
   # Backend proxy — set to https://your-api.com/api/v1/ (trailing slash required).
