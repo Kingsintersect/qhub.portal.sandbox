@@ -152,23 +152,24 @@ export function LiveClasses({
                   </div>
                 ))}
 
+              {/* Drawn as clickable in the canvas and wired to nothing, like
+                  the lesson viewer's PDF control. Rendered as drawn rather
+                  than as a button that announces an action it cannot take.
+                  Raised with Design. */}
               {l.recording === true && (
-                <button
-                  type="button"
+                <div
                   style={{
                     border: "1px solid var(--line-strong)",
-                    background: "transparent",
                     color: "var(--txt2)",
                     fontSize: 12,
                     fontWeight: 500,
-                    fontFamily: "inherit",
                     padding: "8px 15px",
                     borderRadius: 9,
                     cursor: "pointer",
                   }}
                 >
                   Watch recording
-                </button>
+                </div>
               )}
 
               <span

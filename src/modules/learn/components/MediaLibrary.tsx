@@ -178,22 +178,19 @@ export function MediaLibrary({
               <Tile background={tileBg} stroke={tileTone} kind={m.kind} />
 
               <div style={{ minWidth: 0, flex: 1 }}>
-                <button
-                  type="button"
+                {/* Plain text: the canvas gives the media title no click target — no
+                      onClick, no cursor. It was a button here, which announced an action
+                      to assistive tech that never existed. */}
+
+                <div
                   style={{
                     fontSize: 13.5,
                     fontWeight: 500,
                     color: "var(--accent)",
-                    cursor: "pointer",
-                    border: "none",
-                    background: "transparent",
-                    padding: 0,
-                    fontFamily: "inherit",
-                    textAlign: "left",
                   }}
                 >
                   {m.title}
-                </button>
+                </div>
                 <div
                   style={{
                     fontSize: 11.5,

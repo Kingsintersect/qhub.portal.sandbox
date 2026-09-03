@@ -252,9 +252,13 @@ export function LessonViewer({
             </div>
             <div style={{ fontSize: 15, fontWeight: 600 }}>{current.label}</div>
 
+            {/* The canvas draws this with cursor:pointer and wires nothing to
+                it, so nothing is wired here either — an action nobody designed
+                would be an invention. It is not a <button>, though, because a
+                button announces an action to assistive tech that does not
+                exist. Raised with Design as a dead control. */}
             {current.kind === "pdf" && (
-              <button
-                type="button"
+              <div
                 style={{
                   marginLeft: "auto",
                   border: "1px solid var(--line-strong)",
@@ -264,12 +268,10 @@ export function LessonViewer({
                   padding: "7px 14px",
                   borderRadius: 9,
                   cursor: "pointer",
-                  background: "transparent",
-                  fontFamily: "inherit",
                 }}
               >
                 Download PDF
-              </button>
+              </div>
             )}
           </div>
 
