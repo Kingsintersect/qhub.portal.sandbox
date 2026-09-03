@@ -698,7 +698,6 @@ export default function PortalPage() {
               ? catalogue
               : catalogue.filter((c) => MY_CODES.includes(c.code))
           }
-          loading={coursesQuery.isPending}
           title={admin ? "Course catalogue" : "My courses"}
           sub={
             admin
@@ -759,7 +758,6 @@ export default function PortalPage() {
       {view === "lect" && admin && (
         <TeachingStaff
           lecturers={[...invited, ...staff]}
-          loading={tutorsQuery.isPending}
           onInvite={() => setInviting(true)}
         />
       )}

@@ -53,12 +53,13 @@ export function lastActive(iso: string | null): string {
   if (days <= 0) return "Today"
   if (days === 1) return "Yesterday"
   if (days < 7) return `${days}d ago`
-  if (days < 14) return "This week"
 
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-  })
+  // The canvas defines exactly these four buckets and nothing beyond them. A
+  // fifth — a short date for older sign-ins — would be a new format nobody
+  // designed, so anything older than a week reads as the last bucket the
+  // canvas gives. Raised with Design, since a roll of long-dormant students
+  // will all read "This week", which is wrong and worth a real treatment.
+  return "This week"
 }
 
 export function levelLabel(numeric: number): string {

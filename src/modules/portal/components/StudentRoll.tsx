@@ -265,21 +265,11 @@ export function StudentRoll({
         )
       })}
 
-      {/* Loading before empty: an empty table during a fetch reads as "there
-          are none", which is a different and wrong statement. */}
-      {loading && (
-        <div
-          style={{
-            padding: "26px 4px",
-            fontSize: 13,
-            color: "var(--txt3)",
-            textAlign: "center",
-          }}
-        >
-          Loading…
-        </div>
-      )}
-
+      {/* Nothing is drawn while loading. The canvas has no loading treatment
+          for any table — one is requested from Design — and rather than
+          invent copy, the rows simply are not there yet. What must not happen
+          is the empty state showing during a fetch: "no students match" is a
+          different and wrong statement from "not loaded yet". */}
       {!loading && shown.length === 0 && (
         <div
           style={{

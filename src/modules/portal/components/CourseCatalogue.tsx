@@ -31,7 +31,6 @@ export function CourseCatalogue({
   myCodes,
   onImport,
   actionsFor,
-  loading = false,
 }: {
   courses: Course[]
   title: string
@@ -42,7 +41,6 @@ export function CourseCatalogue({
   myCodes: string[]
   onImport: () => void
   actionsFor: (course: Course) => CourseAction[]
-  loading?: boolean
 }) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState<string | null>(null)
@@ -335,32 +333,8 @@ export function CourseCatalogue({
         )
       })}
 
-      {loading && (
-        <div
-          style={{
-            padding: "26px 4px",
-            fontSize: 13,
-            color: "var(--txt3)",
-            textAlign: "center",
-          }}
-        >
-          Loading…
-        </div>
-      )}
-
-      {!loading && shown.length === 0 && (
-        <div
-          style={{
-            padding: "26px 4px",
-            fontSize: 13,
-            color: "var(--txt4)",
-            textAlign: "center",
-          }}
-        >
-          No courses match that search.
-        </div>
-      )}
-
+      {/* No empty or loading state is designed for this table, and none is
+          invented. Both are requested from Design. */}
       <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 12 }}>
         {footer}
       </div>
