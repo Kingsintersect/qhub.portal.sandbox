@@ -76,6 +76,9 @@ export interface Student {
     | "phone_number"
     | "avatar"
     | "is_active"
+    // UserSummaryResource has always sent this; the type simply never
+    // admitted it, so callers could not read a field that was arriving.
+    | "last_login_at"
   >
 }
 

@@ -54,11 +54,14 @@ interface WireUserRef {
   phoneNumber: string | null
   avatar: string | null
   isActive: boolean
+  // UserSummaryResource — the resource behind every nested `user` — has always
+  // sent this. The wire type simply did not declare it, so nested callers
+  // could not read a field that was already arriving.
+  lastLoginAt: string | null
 }
 
 interface WireUser extends WireUserRef {
   isVerified: boolean
-  lastLoginAt: string | null
   createdAt: string
   updatedAt?: string
   roles?: { id: number; name: string; slug: string }[]
@@ -166,6 +169,7 @@ const mapUserRef = (u: WireUserRef): Student["user"] => ({
   phone_number: u.phoneNumber,
   avatar: u.avatar,
   is_active: u.isActive,
+  last_login_at: u.lastLoginAt ?? null,
 })
 
 const mapUser = (u: WireUser): User => ({

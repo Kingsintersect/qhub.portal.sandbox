@@ -18,8 +18,12 @@ import type { Student } from "@/modules/portal/seed"
  * are not invented one; they reuse the designed tone whose meaning they share,
  * so nothing renders untoned while the gap is open.
  *
- * LAST ACTIVE. The column exists in the canvas and has no source in the API.
- * It shows an em-dash rather than a fabricated date.
+ * LAST ACTIVE. This one turned out to be wrong in the original request to the
+ * backend team: `users.last_login_at` has always been maintained on sign-in,
+ * UserSummaryResource has always sent it, and usersApi has always mapped it.
+ * Only the frontend `Student` type omitted it, so nothing could read a field
+ * that was arriving. It is bucketed into the canvas's own vocabulary —
+ * Today / Yesterday / Nd ago / This week — rather than a new date format.
  */
 
 /** Statuses the canvas draws, and the tone each unmapped one borrows. */
@@ -33,6 +37,28 @@ const STATUS_TONE: Record<StudentStatus, Student["status"]> = {
   // treatment says. Neither is a failure state and neither is coloured as one.
   GRADUATED: "WITHDRAWN",
   DEFERRED: "WITHDRAWN",
+}
+
+/**
+ * The canvas's own buckets, so the column reads as it was drawn. A student who
+ * has never signed in gets an em-dash, which is different from a long-ago one.
+ */
+export function lastActive(iso: string | null): string {
+  if (iso === null || iso === "") return "—"
+
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return "—"
+
+  const days = Math.floor((Date.now() - then) / 86_400_000)
+  if (days <= 0) return "Today"
+  if (days === 1) return "Yesterday"
+  if (days < 7) return `${days}d ago`
+  if (days < 14) return "This week"
+
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  })
 }
 
 export function levelLabel(numeric: number): string {
@@ -53,7 +79,7 @@ export function toRollStudent(s: ApiStudent): Student & { rawStatus: string } {
     prog: s.program_name,
     level: levelLabel(s.current_level),
     status: STATUS_TONE[s.status] ?? "WITHDRAWN",
-    last: "—",
+    last: lastActive(s.user.last_login_at),
     rawStatus: s.status,
   }
 }
