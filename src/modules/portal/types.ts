@@ -118,3 +118,20 @@ export const NAV_LECTURER: NavEntry[] = [
 ]
 
 export type PortalNotice = { text: string; when: string }
+
+/**
+ * The portal role for a signed-in user, from the session's roles.
+ *
+ * Design's rule: the role comes from the session, never inferred from the
+ * email address. Returns null for anyone who is not portal staff — students
+ * have their own app, and being able to authenticate is not the same as
+ * belonging here.
+ */
+export function portalRoleFor(roles: string[]): PortalRole | null {
+  if (roles.includes("TUTOR")) return "lect"
+
+  const staff = ["ADMIN", "SUPER_ADMIN", "STAFF", "HOD", "DEAN", "DIRECTOR"]
+  if (roles.some((r) => staff.includes(r))) return "admin"
+
+  return null
+}

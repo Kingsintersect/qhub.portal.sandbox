@@ -201,3 +201,55 @@
 [data-theme="dark"] .qhub-portal .portal-theme-dark svg {
   stroke: var(--accent);
 }
+
+/* The sign-in's password step slides in rather than appearing, so the card
+   reads as one form growing rather than two forms swapping. */
+@keyframes ipReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 220px;
+  }
+}
+
+/*
+ * The sign-in is always light — it sits on a photograph, and the canvas pins
+ * data-theme="light" on that screen for that reason.
+ *
+ * next-themes puts `.dark` on <html>, so `.dark .qhub-portal` would otherwise
+ * win here and paint the card with dark tokens over the photo. This block ties
+ * on specificity and comes later in the file, so it takes precedence.
+ */
+.qhub-portal[data-theme="light"] {
+  --bg: #e8ebef;
+  --card: #ffffff;
+  --panel: #f5f7fa;
+  --row-hover: #fafbfd;
+  --txt: #151c26;
+  --txt2: #48525e;
+  --txt3: #7a8490;
+  --txt4: #a4acb6;
+  --icon: #6d7883;
+  --line: #edf0f4;
+  --line2: #f3f5f8;
+  --line-strong: #dfe4ea;
+  --scroll: #c9d1da;
+  --surface-solid: #ffffff;
+  --accent: #1d5fbf;
+  --accent-hover: #174c99;
+  --accent-soft: #e8effa;
+  --accent-brd: #c9d9f0;
+  --good-bg: #e6eef9;
+  --series2: #e8853d;
+  --neg: #b4553c;
+  --neg-bg: #f9ebe6;
+  --warn: #8a6a22;
+  --warn-bg: #f6efdd;
+  --ghost-hover: #f6f8f6;
+  --grid-line: #eceff3;
+}

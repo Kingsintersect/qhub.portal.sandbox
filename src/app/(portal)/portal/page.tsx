@@ -24,6 +24,7 @@ import { MediaLibrary } from "@/modules/portal/components/MediaLibrary"
 import { UploadMedia } from "@/modules/portal/components/UploadMedia"
 import { InviteLecturer } from "@/modules/portal/components/InviteLecturer"
 import { PortalShell } from "@/modules/portal/components/PortalShell"
+import { PortalSignIn } from "@/modules/portal/components/PortalSignIn"
 import { StudentRoll } from "@/modules/portal/components/StudentRoll"
 import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
@@ -54,7 +55,12 @@ import {
   type LiveClass,
   type Ticket,
 } from "@/modules/portal/seed"
-import type { PortalRole, PortalView } from "@/modules/portal/types"
+import {
+  portalRoleFor,
+  type PortalRole,
+  type PortalView,
+} from "@/modules/portal/types"
+import { loginWithBackend } from "@/lib/auth/backendAuth"
 
 /**
  * The institution portal, from the bundle 25 canvas.
@@ -82,7 +88,10 @@ const BELL = [
 ]
 
 export default function PortalPage() {
-  const [role, setRole] = useState<PortalRole>("admin")
+  // Null until a session exists. The role comes from that session's roles —
+  // never from the address typed at sign-in.
+  const [role, setRole] = useState<PortalRole | null>(null)
+  const [me, setMe] = useState("")
   const [view, setView] = useState<PortalView>("overview")
   const { notice, dismiss } = useNotice(NOTICE)
   const [inviting, setInviting] = useState(false)
@@ -110,6 +119,43 @@ export default function PortalPage() {
 
   const admin = role === "admin"
 
+  if (role === null) {
+    return (
+      <PortalSignIn
+        school="University of Lagos"
+        host="unilag.qhub.io"
+        domain="unilag.edu.ng"
+        schoolInitials="UL"
+        onSignIn={async (email, password) => {
+          try {
+            const user = await loginWithBackend({
+              identifier: email,
+              password,
+            })
+            // Both the primary role and the full list, since a lecturer who
+            // also holds a staff role should reach the portal either way.
+            const portalRole = portalRoleFor(
+              [user.role, ...user.roles].map((r) => String(r).toUpperCase())
+            )
+            if (portalRole === null) {
+              // Authenticating is not the same as belonging here; a student
+              // with valid credentials still has no portal.
+              return "This account does not have portal access. Students use the student app."
+            }
+
+            setMe(user.name.trim() !== "" ? user.name : email)
+            setRole(portalRole)
+            return null
+          } catch {
+            // Deliberately the same message for a wrong password and an
+            // address with no account behind it.
+            return "Those details do not match. Check and try again."
+          }
+        }}
+      />
+    )
+  }
+
   return (
     <PortalShell
       role={role}
@@ -119,14 +165,18 @@ export default function PortalPage() {
         school: "University of Lagos",
         host: "unilag.qhub.io",
         schoolInitials: "UL",
-        name: admin ? "R. Osei" : "Dr. F. Adeyemi",
+        name: me !== "" ? me : admin ? "R. Osei" : "Dr. F. Adeyemi",
       }}
       notices={bell}
       badges={{
         support: tickets.filter((t) => t.status === "OPEN").length,
         ...(admin ? {} : { msgs: 2 }),
       }}
-      onSignOut={() => setRole(admin ? "lect" : "admin")}
+      onSignOut={() => {
+        setRole(null)
+        setMe("")
+        setView("overview")
+      }}
     >
       {view === "overview" && (
         <Overview
