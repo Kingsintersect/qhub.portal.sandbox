@@ -9,6 +9,9 @@ import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
 import { Settings } from "@/modules/portal/components/Settings"
 import { Billing } from "@/modules/portal/components/Billing"
+import { levelsPresent, toRollStudent } from "@/modules/portal/data/students"
+import { usersQueryOptions } from "@/services/usersApi"
+import { useQuery } from "@tanstack/react-query"
 import { Messages } from "@/modules/portal/components/Messages"
 import { Grading } from "@/modules/portal/components/Grading"
 import { AssessmentBuilder } from "@/modules/portal/components/AssessmentBuilder"
@@ -43,7 +46,6 @@ import {
   OUR_ANNOUNCEMENTS,
   PLATFORM_ANNOUNCEMENTS,
   TICKETS,
-  STUDENTS,
   type Lecturer,
   type Announcement,
   type MediaItem,
@@ -118,6 +120,15 @@ export default function PortalPage() {
   const [bell, setBell] = useState(BELL)
 
   const admin = role === "admin"
+
+  // The roll is real. It stays enabled only while a session exists, so the
+  // sign-in screen never fires a request nobody is authorised to make.
+  const studentsQuery = useQuery({
+    ...usersQueryOptions.students.list({ limit: 100 }),
+    enabled: role !== null,
+  })
+  // The list endpoint answers with a { data, total } envelope, not an array.
+  const roll = (studentsQuery.data?.data ?? []).map(toRollStudent)
 
   if (role === null) {
     return (
@@ -369,12 +380,9 @@ export default function PortalPage() {
 
       {view === "students" && (
         <StudentRoll
-          // A lecturer's roll is their own students, not the institution's.
-          students={
-            admin
-              ? STUDENTS
-              : STUDENTS.filter((s) => s.prog === "Computer Science")
-          }
+          students={roll}
+          levels={levelsPresent(roll)}
+          loading={studentsQuery.isPending}
           title={admin ? "Student roll" : "My students"}
           sub={
             admin

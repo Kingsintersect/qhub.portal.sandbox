@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-import { LEVELS, initialsOf, type Student } from "@/modules/portal/seed"
+import { initialsOf, type Student } from "@/modules/portal/seed"
 
 /**
  * The student roll, lifted from the bundle 25 canvas.
@@ -25,10 +25,15 @@ export function StudentRoll({
   students,
   title,
   sub,
+  levels,
+  loading = false,
 }: {
   students: Student[]
   title: string
   sub: string
+  /** The levels actually present, so a chip never matches nothing. */
+  levels: string[]
+  loading?: boolean
 }) {
   const [query, setQuery] = useState("")
   const [level, setLevel] = useState("All")
@@ -110,7 +115,7 @@ export function StudentRoll({
               padding: 3,
             }}
           >
-            {["All", ...LEVELS].map((lv) => {
+            {["All", ...levels].map((lv) => {
               const on = level === lv
 
               return (
@@ -260,7 +265,22 @@ export function StudentRoll({
         )
       })}
 
-      {shown.length === 0 && (
+      {/* Loading before empty: an empty table during a fetch reads as "there
+          are none", which is a different and wrong statement. */}
+      {loading && (
+        <div
+          style={{
+            padding: "26px 4px",
+            fontSize: 13,
+            color: "var(--txt3)",
+            textAlign: "center",
+          }}
+        >
+          Loading…
+        </div>
+      )}
+
+      {!loading && shown.length === 0 && (
         <div
           style={{
             padding: "26px 4px",
