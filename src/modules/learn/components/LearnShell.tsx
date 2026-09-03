@@ -482,40 +482,33 @@ export function LearnShell({
                     padding: 8,
                   }}
                 >
-                  {notices.length === 0 ? (
-                    <div
-                      style={{
-                        padding: "14px 12px",
-                        fontSize: 12.5,
-                        color: "var(--txt3)",
-                      }}
-                    >
-                      Nothing new.
-                    </div>
-                  ) : (
-                    notices.map((b, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          padding: "10px 12px",
-                          borderBottom: "1px solid var(--line)",
-                          fontSize: 12.5,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <div style={{ color: "var(--txt2)" }}>{b.text}</div>
+                  {/* The canvas designs no empty state for the bell. Rather
+                      than invent copy for it, an empty list simply shows no
+                      rows. Requested from Design. */}
+                  {notices.length === 0
+                    ? null
+                    : notices.map((b, i) => (
                         <div
+                          key={i}
                           style={{
-                            fontSize: 11,
-                            color: "var(--txt4)",
-                            marginTop: 3,
+                            padding: "10px 12px",
+                            borderBottom: "1px solid var(--line)",
+                            fontSize: 12.5,
+                            lineHeight: 1.5,
                           }}
                         >
-                          {b.when}
+                          <div style={{ color: "var(--txt2)" }}>{b.text}</div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--txt4)",
+                              marginTop: 3,
+                            }}
+                          >
+                            {b.when}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      ))}
                   <button
                     type="button"
                     onClick={() => {

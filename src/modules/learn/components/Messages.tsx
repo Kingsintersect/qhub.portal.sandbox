@@ -149,11 +149,9 @@ export function Messages({
             padding: "20px 22px",
           }}
         >
-          {thread === null ? (
-            <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
-              Pick a conversation.
-            </div>
-          ) : (
+          {/* The canvas opens the first thread and designs nothing for the
+              no-thread case, so nothing is drawn for it. */}
+          {thread === null ? null : (
             <>
               <div style={{ fontSize: 14.5, fontWeight: 600 }}>
                 {thread.name}

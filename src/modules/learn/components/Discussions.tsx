@@ -195,19 +195,11 @@ export function Discussions({ threads }: { threads: Discussion[] }) {
                   </div>
                 ))}
 
-                {/* A closed thread is readable and not writable. Offering a box
-                    that will be refused is worse than saying it is closed. */}
-                {d.closed === true ? (
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      color: "var(--txt4)",
-                      marginTop: 12,
-                    }}
-                  >
-                    This discussion is closed — you can read it, but not post.
-                  </div>
-                ) : (
+                {/* A closed thread is readable and not writable, so the
+                    composer is withheld. The canvas states that only through
+                    the CLOSED badge on the row — the explanatory line that
+                    used to sit here was mine, not Design's, and is gone. */}
+                {d.closed === true ? null : (
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                     <input
                       value={draft}

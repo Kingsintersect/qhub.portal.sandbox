@@ -156,17 +156,9 @@ export function MediaLibrary({
         </div>
       </div>
 
-      {shown.length === 0 && (
-        <div
-          style={{
-            fontSize: 12.5,
-            color: "var(--txt3)",
-            padding: "20px 0",
-          }}
-        >
-          Nothing here for that course and type.
-        </div>
-      )}
+      {/* No empty state is designed for the student media library — the
+          Institution Portal's has one, this does not — so none is invented
+          here. Requested from Design. */}
 
       {!grid &&
         shown.map((m, i) => {
