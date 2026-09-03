@@ -9,7 +9,10 @@ import { NewTicket } from "@/modules/portal/components/NewTicket"
 import { Support } from "@/modules/portal/components/Support"
 import { Settings } from "@/modules/portal/components/Settings"
 import { Billing } from "@/modules/portal/components/Billing"
+import { toCatalogueRow } from "@/modules/portal/data/courses"
+import { toStaffRow } from "@/modules/portal/data/lecturers"
 import { levelsPresent, toRollStudent } from "@/modules/portal/data/students"
+import { courseManagementQueryOptions } from "@/services/courseManagementApi"
 import { usersQueryOptions } from "@/services/usersApi"
 import { useQuery } from "@tanstack/react-query"
 import { Messages } from "@/modules/portal/components/Messages"
@@ -31,8 +34,6 @@ import { PortalSignIn } from "@/modules/portal/components/PortalSignIn"
 import { StudentRoll } from "@/modules/portal/components/StudentRoll"
 import { TeachingStaff } from "@/modules/portal/components/TeachingStaff"
 import {
-  COURSES,
-  LECTURERS,
   ASSESSMENTS,
   DISCUSSIONS,
   GRADEBOOK,
@@ -129,6 +130,18 @@ export default function PortalPage() {
   })
   // The list endpoint answers with a { data, total } envelope, not an array.
   const roll = (studentsQuery.data?.data ?? []).map(toRollStudent)
+
+  const tutorsQuery = useQuery({
+    ...usersQueryOptions.tutors.list({ limit: 100 }),
+    enabled: role !== null && admin,
+  })
+  const staff = (tutorsQuery.data?.data ?? []).map(toStaffRow)
+
+  const coursesQuery = useQuery({
+    ...courseManagementQueryOptions.courses.list(),
+    enabled: role !== null,
+  })
+  const catalogue = (coursesQuery.data?.data ?? []).map(toCatalogueRow)
 
   if (role === null) {
     return (
@@ -665,7 +678,9 @@ export default function PortalPage() {
       {uploading && (
         <UploadMedia
           courses={
-            admin ? COURSES : COURSES.filter((c) => MY_CODES.includes(c.code))
+            admin
+              ? catalogue
+              : catalogue.filter((c) => MY_CODES.includes(c.code))
           }
           isAdmin={admin}
           onClose={() => setUploading(false)}
@@ -679,12 +694,15 @@ export default function PortalPage() {
       {view === "courses" && (
         <CourseCatalogue
           courses={
-            admin ? COURSES : COURSES.filter((c) => MY_CODES.includes(c.code))
+            admin
+              ? catalogue
+              : catalogue.filter((c) => MY_CODES.includes(c.code))
           }
+          loading={coursesQuery.isPending}
           title={admin ? "Course catalogue" : "My courses"}
           sub={
             admin
-              ? `${COURSES.length} shown of 4,182 · the catalogue is fed by SIS sync and bulk import`
+              ? `${catalogue.length} shown · the catalogue is fed by SIS sync and bulk import`
               : "The courses assigned to you this session"
           }
           footer={
@@ -740,7 +758,8 @@ export default function PortalPage() {
 
       {view === "lect" && admin && (
         <TeachingStaff
-          lecturers={[...invited, ...LECTURERS]}
+          lecturers={[...invited, ...staff]}
+          loading={tutorsQuery.isPending}
           onInvite={() => setInviting(true)}
         />
       )}

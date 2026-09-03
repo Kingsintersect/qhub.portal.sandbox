@@ -19,9 +19,12 @@ const GRID = "minmax(0,1.5fr) minmax(0,1.2fr) minmax(0,1.2fr) 110px 100px 120px"
 export function TeachingStaff({
   lecturers,
   onInvite,
+  loading = false,
 }: {
-  lecturers: Lecturer[]
+  /** `faculty` overrides the department lookup when the API supplies it. */
+  lecturers: (Lecturer & { faculty?: string })[]
   onInvite: () => void
+  loading?: boolean
 }) {
   const [query, setQuery] = useState("")
 
@@ -201,7 +204,9 @@ export function TeachingStaff({
                   marginTop: 2,
                 }}
               >
-                {FACULTY[l.dept] ?? `Faculty of ${l.dept.split(" ")[0]}`}
+                {l.faculty ??
+                  FACULTY[l.dept] ??
+                  `Faculty of ${l.dept.split(" ")[0]}`}
               </div>
             </div>
 
@@ -242,6 +247,32 @@ export function TeachingStaff({
           </div>
         )
       })}
+
+      {loading && (
+        <div
+          style={{
+            padding: "26px 4px",
+            fontSize: 13,
+            color: "var(--txt3)",
+            textAlign: "center",
+          }}
+        >
+          Loading…
+        </div>
+      )}
+
+      {!loading && shown.length === 0 && (
+        <div
+          style={{
+            padding: "26px 4px",
+            fontSize: 13,
+            color: "var(--txt4)",
+            textAlign: "center",
+          }}
+        >
+          No teaching staff match that search.
+        </div>
+      )}
 
       <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 12 }}>
         Removing a lecturer keeps their courses and media — ownership transfers

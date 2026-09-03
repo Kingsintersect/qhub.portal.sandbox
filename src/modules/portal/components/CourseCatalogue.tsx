@@ -31,6 +31,7 @@ export function CourseCatalogue({
   myCodes,
   onImport,
   actionsFor,
+  loading = false,
 }: {
   courses: Course[]
   title: string
@@ -41,6 +42,7 @@ export function CourseCatalogue({
   myCodes: string[]
   onImport: () => void
   actionsFor: (course: Course) => CourseAction[]
+  loading?: boolean
 }) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState<string | null>(null)
@@ -204,7 +206,9 @@ export function CourseCatalogue({
               {c.lect}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--txt3)" }}>
-              {c.students.toLocaleString()}
+              {/* Zero enrolled and "not reported" are different facts; the
+                  endpoint reports neither, so this stays an em-dash. */}
+              {c.students > 0 ? c.students.toLocaleString() : "—"}
             </div>
             {/* No media is an em-dash, not a zero — nothing has been counted
                 wrong, there is simply nothing there yet. */}
@@ -330,6 +334,32 @@ export function CourseCatalogue({
           </div>
         )
       })}
+
+      {loading && (
+        <div
+          style={{
+            padding: "26px 4px",
+            fontSize: 13,
+            color: "var(--txt3)",
+            textAlign: "center",
+          }}
+        >
+          Loading…
+        </div>
+      )}
+
+      {!loading && shown.length === 0 && (
+        <div
+          style={{
+            padding: "26px 4px",
+            fontSize: 13,
+            color: "var(--txt4)",
+            textAlign: "center",
+          }}
+        >
+          No courses match that search.
+        </div>
+      )}
 
       <div style={{ fontSize: 11.5, color: "var(--txt4)", marginTop: 12 }}>
         {footer}
