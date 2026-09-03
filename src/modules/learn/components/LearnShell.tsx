@@ -18,6 +18,9 @@ import "@/modules/learn/components/learn-tokens.css"
 
 export type LearnView =
   | "home"
+  // A single course, opened from the rail: its own header and tab strip,
+  // rather than the section heading the other views carry.
+  | "course"
   | "lessons"
   | "live"
   | "disc"

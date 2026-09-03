@@ -14,6 +14,10 @@ import {
   Announcements,
   type Announcement,
 } from "@/modules/learn/components/Announcements"
+import {
+  CourseHeader,
+  type CourseTab,
+} from "@/modules/learn/components/CourseHeader"
 import { CourseHub } from "@/modules/learn/components/CourseHub"
 import {
   LessonViewer,
@@ -576,6 +580,8 @@ const LESSON_PAGES: Record<string, LessonPage[]> = {
 /** The breadcrumb per view, from the canvas's own map. */
 const CRUMB: Record<LearnView, string> = {
   home: "Home",
+  // The canvas names the course in its own crumb rather than saying "Course".
+  course: "CSC 201 — Data structures and algorithms",
   lessons: "Courses",
   live: "Live classes",
   disc: "Discussions",
@@ -602,6 +608,8 @@ export default function LearnPage() {
   const [quizSubmitted, setQuizSubmitted] = useState(false)
   const [lesson, setLesson] = useState<string | null>(null)
   const [moduleTitle, setModuleTitle] = useState<string | null>(null)
+  // Which tab the course view is showing. Lessons, as the canvas opens on.
+  const [courseTab, setCourseTab] = useState<CourseTab>("lessons")
   // Lessons finished in this session. The canvas ticks the item AND posts a
   // notice on finish — a completion nobody is told about is one the student
   // will re-check the list for.
@@ -713,7 +721,8 @@ export default function LearnPage() {
       courseCode={courseCode}
       onCourse={(code) => {
         setCourseCode(code)
-        setView("lessons")
+        setCourseTab("lessons")
+        setView("course")
       }}
       notices={notices}
       badges={{ assess: 3, msgs: 2, announce: 1 }}
@@ -735,7 +744,16 @@ export default function LearnPage() {
         </div>
       )}
 
-      {overlay === null && SECTION[view] !== undefined && (
+      {overlay === null && view === "course" && (
+        <CourseHeader
+          course={selected}
+          tab={courseTab}
+          onTab={setCourseTab}
+          onMessageLecturer={() => setView("msgs")}
+        />
+      )}
+
+      {overlay === null && view !== "course" && SECTION[view] !== undefined && (
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
@@ -750,6 +768,18 @@ export default function LearnPage() {
             {SECTION[view]?.sub}
           </div>
         </div>
+      )}
+
+      {overlay === null && view === "course" && courseTab === "grades" && (
+        <Grades
+          stats={GRADE_STATS}
+          rows={GRADE_ROWS}
+          term="Grades — 2026/2027 · 1st semester"
+        />
+      )}
+
+      {overlay === null && view === "course" && courseTab === "media" && (
+        <MediaLibrary items={MEDIA} courses={COURSES.map((c) => c.code)} />
       )}
 
       {overlay === null && view === "lessons" && lesson !== null && (

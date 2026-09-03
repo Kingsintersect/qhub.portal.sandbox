@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { JoinLiveClass } from "@/modules/learn/components/JoinLiveClass"
 import { KIND_ICON, KIND_TONE } from "@/modules/learn/types"
 
 /**
@@ -219,116 +220,8 @@ export function LiveClasses({
       </div>
 
       {joining !== null && (
-        <JoinDialog title={joining} onClose={() => setJoining(null)} />
+        <JoinLiveClass title={joining} onClose={() => setJoining(null)} />
       )}
     </>
-  )
-}
-
-/**
- * What joining commits you to.
- *
- * The rules are stated before the click rather than after: renaming yourself
- * in the room is how attendance gets lost, and ten minutes is the threshold
- * somebody leaving early needs to know about beforehand.
- */
-function JoinDialog({
-  title,
-  onClose,
-}: {
-  title: string
-  onClose: () => void
-}) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 300,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        onClick={onClose}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(8,12,18,.45)",
-        }}
-      />
-      <div
-        role="dialog"
-        aria-label="Join live class"
-        style={{
-          position: "relative",
-          width: 460,
-          maxWidth: "94vw",
-          background: "var(--surface-solid)",
-          border: "1px solid var(--line-strong)",
-          borderRadius: 18,
-          boxShadow: "0 30px 80px rgba(8,12,18,.35)",
-          padding: 24,
-          color: "var(--txt)",
-        }}
-      >
-        <div style={{ fontSize: 16, fontWeight: 600 }}>{title}</div>
-        <div
-          style={{
-            fontSize: 12.5,
-            color: "var(--txt3)",
-            marginTop: 8,
-            lineHeight: 1.6,
-          }}
-        >
-          Join under your matric number — no renaming. You are marked present
-          after 10 minutes in the room.
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            marginTop: 20,
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: "1px solid var(--line-strong)",
-              background: "transparent",
-              color: "var(--txt2)",
-              fontSize: 12.5,
-              fontFamily: "inherit",
-              padding: "9px 16px",
-              borderRadius: 10,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "var(--accent)",
-              color: "#fff",
-              border: "none",
-              fontSize: 12.5,
-              fontWeight: 500,
-              fontFamily: "inherit",
-              padding: "9px 18px",
-              borderRadius: 10,
-              cursor: "pointer",
-            }}
-          >
-            Join on Zoom
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
