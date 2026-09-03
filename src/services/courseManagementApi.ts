@@ -27,7 +27,11 @@ interface WireCourse {
   creditUnits: number
   courseType: CourseType
   levelId: number
+  // Nested relations, as staff and student payloads carry theirs. Null from a
+  // caller that did not eager-load them, so reading is always safe.
+  level?: { id: number; name: string; numericValue: number } | null
   owningDepartmentId: number | null
+  owningDepartment?: { id: number; name: string } | null
   syllabus: string | null
   curriculumSemester: number | null
   isActive: boolean
@@ -43,7 +47,10 @@ const mapCourse = (c: WireCourse): Course => ({
   credit_units: c.creditUnits,
   course_type: c.courseType,
   level_id: c.levelId,
+  level_value: c.level?.numericValue ?? null,
+  level_name: c.level?.name ?? null,
   owning_department_id: c.owningDepartmentId,
+  owning_department_name: c.owningDepartment?.name ?? null,
   syllabus: c.syllabus,
   curriculum_semester: c.curriculumSemester,
   is_active: c.isActive,

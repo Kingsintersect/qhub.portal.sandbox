@@ -272,7 +272,11 @@ export interface Course {
   credit_units: number
   course_type: CourseType
   level_id: number
+  /** Named relations — null unless the endpoint eager-loaded them. */
+  level_value: number | null
+  level_name: string | null
   owning_department_id: number | null
+  owning_department_name: string | null
   syllabus: string | null
   curriculum_semester: number | null
   is_active: boolean
