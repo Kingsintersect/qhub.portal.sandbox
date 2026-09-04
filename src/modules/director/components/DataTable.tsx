@@ -1,6 +1,6 @@
 "use client"
 
-import React, { ReactNode } from "react"
+import { ReactNode } from "react"
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,14 +10,14 @@ import {
 import { PaginationState } from "../types/director.types"
 
 export interface Column<T> {
-  key: string
+  key: keyof T & string
   header: string
   width?: string
   align?: "left" | "center" | "right"
   render?: (row: T) => ReactNode
 }
 
-interface DataTableProps<T extends Record<string, any>> {
+interface DataTableProps<T> {
   columns: Column<T>[]
   data: T[]
   pagination?: PaginationState
@@ -27,7 +27,7 @@ interface DataTableProps<T extends Record<string, any>> {
   rowKey?: (row: T) => string
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T>({
   columns,
   data,
   pagination,
@@ -85,7 +85,9 @@ export function DataTable<T extends Record<string, any>>({
                       key={col.key}
                       style={{ textAlign: col.align || "left" }}
                     >
-                      {col.render ? col.render(row) : (row[col.key] ?? "—")}
+                      {col.render
+                        ? col.render(row)
+                        : ((row[col.key] as ReactNode) ?? "—")}
                     </td>
                   ))}
                 </tr>

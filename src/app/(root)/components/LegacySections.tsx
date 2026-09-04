@@ -180,15 +180,6 @@ const stats = [
   { value: "100", label: "Years Of Experience" },
 ]
 
-const faqs = [
-  "What courses do you offer?",
-  "What can I do?",
-  "Can I visit the University?",
-  "How can I order a prospectus?",
-  "How do I get to the University?",
-  "Can I park my car on campus?",
-]
-
 const testimonials = [
   {
     name: "Ifeoma Nwankwo",

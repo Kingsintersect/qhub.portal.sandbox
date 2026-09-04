@@ -2,16 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Loader2, Receipt } from "lucide-react"
+import { Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { InvoiceCard } from "./invoice-card"
 import { PaymentModal } from "./payment-modal"
 import { useMyInvoices } from "../../hooks/use-invoices"

@@ -2,6 +2,8 @@
 // Shared Admin Domain Types
 // ──────────────────────────────────────────────
 
+import type { CourseOfferingEnrichment } from "@/lib/academic/course-offering-enrichment"
+
 export interface AcademicSession {
   id: number
   name: string
@@ -323,7 +325,11 @@ export interface CoursePrerequisite {
 export type CourseOfferingStatus = "PLANNED" | "OPEN" | "CLOSED" | "CANCELLED"
 export type OfferingLecturerRole = "primary" | "assistant" | "tutorial"
 
-export interface CourseOffering {
+// Base offering fields plus the shared enrichment block (credit units, term
+// names, level, department/faculty, programmes, category path, enrolled_count).
+// See sandbox/course/missing_course_offering_enrichment.readme.md; the
+// enrichment block is `null` / `[]` until that ships.
+export interface CourseOffering extends CourseOfferingEnrichment {
   id: number
   course_id: number
   course_code: string
@@ -334,10 +340,6 @@ export interface CourseOffering {
   status: CourseOfferingStatus
   created_at: string
   updated_at: string
-  // MISSING_BACKEND_APIS.md §2.10 — now shipped by the backend team. Still
-  // nullable defensively (shown as "—" rather than fabricated) in case an
-  // older cached response or edge case omits it.
-  enrolled_count: number | null
 }
 
 export interface OfferingLecturerAssignment {

@@ -20,7 +20,7 @@ export default function UpcomingEventsPage() {
   >("all")
 
   const { data, isLoading } = useMyUpcomingEvents()
-  const events = data ?? []
+  const events = useMemo(() => data ?? [], [data])
 
   const filteredEvents = useMemo(() => {
     const search = searchTerm.trim().toLowerCase()

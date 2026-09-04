@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -59,6 +59,10 @@ export default function SystemFeaturesPage() {
   const form = useForm<FeatureFormValues>({
     resolver: zodResolver(featureFormSchema),
     defaultValues: toDefaults(),
+  })
+  const defaultEnabled = useWatch({
+    control: form.control,
+    name: "defaultEnabled",
   })
 
   const canSubmit = !upsertMutation.isPending
@@ -323,7 +327,7 @@ export default function SystemFeaturesPage() {
 
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
-              checked={!!form.watch("defaultEnabled")}
+              checked={!!defaultEnabled}
               onCheckedChange={(checked) =>
                 form.setValue("defaultEnabled", checked === true, {
                   shouldValidate: true,

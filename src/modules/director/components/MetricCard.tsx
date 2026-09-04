@@ -1,6 +1,5 @@
 "use client"
 
-import React from "react"
 import {
   Users,
   BookOpen,
@@ -10,10 +9,11 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  type LucideIcon,
 } from "lucide-react"
 import { DashboardMetric } from "../types/director.types"
 
-const ICON_MAP: Record<string, React.FC<any>> = {
+const ICON_MAP: Record<string, LucideIcon> = {
   users: Users,
   "book-open": BookOpen,
   banknote: Banknote,
@@ -235,7 +235,7 @@ const ACCENT_CYCLE: MetricCardProps["accentColor"][] = [
 
 export function MetricsGrid({ metrics, isLoading }: MetricsGridProps) {
   const items = isLoading
-    ? Array.from({ length: 6 }, (_, i) => ({
+    ? Array.from({ length: 6 }, () => ({
         label: "",
         value: 0,
         change: 0,

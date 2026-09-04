@@ -1,9 +1,8 @@
 "use client"
 
-import { useForm, FormProvider } from "react-hook-form"
+import { useForm, useWatch, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2, CalendarIcon } from "lucide-react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,12 +65,15 @@ export function FeeTypeForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors },
   } = form
   const isPending = createMutation.isPending || updateMutation.isPending
-  const defaultDueDate = watch("defaultDueDate")
+  const [defaultDueDate, isMandatory, allowInstallments] = useWatch({
+    control,
+    name: ["defaultDueDate", "isMandatory", "allowInstallments"],
+  })
 
   function onSubmit(dto: CreateFeeTypeDto) {
     if (isEditing && defaultValues?.id) {
@@ -158,7 +160,7 @@ export function FeeTypeForm({
               </p>
             </div>
             <Switch
-              checked={watch("isMandatory") ?? true}
+              checked={isMandatory ?? true}
               onCheckedChange={(v) => setValue("isMandatory", v)}
               aria-label="Mandatory fee"
             />
@@ -172,7 +174,7 @@ export function FeeTypeForm({
               </p>
             </div>
             <Switch
-              checked={watch("allowInstallments") ?? false}
+              checked={allowInstallments ?? false}
               onCheckedChange={(v) => setValue("allowInstallments", v)}
               aria-label="Allow installments"
             />

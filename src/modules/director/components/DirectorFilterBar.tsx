@@ -1,42 +1,89 @@
-"use client";
+"use client"
 
-import React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Search, Filter, RotateCcw, Download } from "lucide-react";
-import { DirectorFilterSchema, DirectorFilterInput } from "../schemas/director.schemas";
-import { DirectorFilter } from "../types/director.types";
+import React from "react"
+import { useForm, useWatch } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Search, Filter, RotateCcw, Download } from "lucide-react"
+import {
+  DirectorFilterSchema,
+  DirectorFilterInput,
+} from "../schemas/director.schemas"
+import { DirectorFilter } from "../types/director.types"
 
 const FACULTIES = [
-  "Engineering", "Sciences", "Arts", "Social Sciences",
-  "Medicine", "Law", "Education", "Management Sciences",
-];
+  "Engineering",
+  "Sciences",
+  "Arts",
+  "Social Sciences",
+  "Medicine",
+  "Law",
+  "Education",
+  "Management Sciences",
+]
 
 const DEPARTMENTS: Record<string, string[]> = {
-  Engineering: ["Civil Engineering", "Electrical Engineering", "Mechanical Engineering", "Chemical Engineering"],
-  Sciences: ["Mathematics", "Physics", "Chemistry", "Biology", "Computer Science"],
+  Engineering: [
+    "Civil Engineering",
+    "Electrical Engineering",
+    "Mechanical Engineering",
+    "Chemical Engineering",
+  ],
+  Sciences: [
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Computer Science",
+  ],
   Arts: ["English", "History", "Philosophy", "Linguistics", "Theatre Arts"],
-  "Social Sciences": ["Economics", "Political Science", "Sociology", "Mass Communication", "Psychology"],
-  Medicine: ["Medicine & Surgery", "Nursing Science", "Medical Laboratory Science", "Physiotherapy"],
+  "Social Sciences": [
+    "Economics",
+    "Political Science",
+    "Sociology",
+    "Mass Communication",
+    "Psychology",
+  ],
+  Medicine: [
+    "Medicine & Surgery",
+    "Nursing Science",
+    "Medical Laboratory Science",
+    "Physiotherapy",
+  ],
   Law: ["Law"],
-  Education: ["Educational Management", "Guidance & Counselling", "Science Education", "Arts Education"],
-  "Management Sciences": ["Accounting", "Business Administration", "Banking & Finance", "Marketing"],
-};
+  Education: [
+    "Educational Management",
+    "Guidance & Counselling",
+    "Science Education",
+    "Arts Education",
+  ],
+  "Management Sciences": [
+    "Accounting",
+    "Business Administration",
+    "Banking & Finance",
+    "Marketing",
+  ],
+}
 
-const ACADEMIC_YEARS = ["2024/2025", "2023/2024", "2022/2023", "2021/2022", "2020/2021"];
-const LEVELS = ["100", "200", "300", "400", "500"];
+const ACADEMIC_YEARS = [
+  "2024/2025",
+  "2023/2024",
+  "2022/2023",
+  "2021/2022",
+  "2020/2021",
+]
+const LEVELS = ["100", "200", "300", "400", "500"]
 
 interface FilterBarProps {
-  filter: DirectorFilter;
-  onFilter: (f: Partial<DirectorFilter>) => void;
-  onReset: () => void;
-  onExport?: () => void;
-  showSemester?: boolean;
-  showLevel?: boolean;
-  showStatus?: boolean;
-  statusOptions?: { label: string; value: string }[];
-  isLoading?: boolean;
-  title?: string;
+  filter: DirectorFilter
+  onFilter: (f: Partial<DirectorFilter>) => void
+  onReset: () => void
+  onExport?: () => void
+  showSemester?: boolean
+  showLevel?: boolean
+  showStatus?: boolean
+  statusOptions?: { label: string; value: string }[]
+  isLoading?: boolean
+  title?: string
 }
 
 export function DirectorFilterBar({
@@ -51,29 +98,33 @@ export function DirectorFilterBar({
   isLoading = false,
   title,
 }: FilterBarProps) {
-  const { register, handleSubmit, watch, reset } = useForm<DirectorFilterInput>({
-    resolver: zodResolver(DirectorFilterSchema),
-    defaultValues: {
-      faculty: filter.faculty as any,
-      department: filter.department,
-      academicYear: filter.academicYear,
-      semester: filter.semester as any,
-      level: filter.level as any,
-      search: filter.search,
-    },
-  });
+  const { register, handleSubmit, control, reset } =
+    useForm<DirectorFilterInput>({
+      resolver: zodResolver(DirectorFilterSchema),
+      defaultValues: {
+        faculty: filter.faculty,
+        department: filter.department,
+        academicYear: filter.academicYear,
+        semester: filter.semester,
+        level: filter.level,
+        search: filter.search,
+      },
+    })
 
-  const selectedFaculty = watch("faculty");
-  const depts = selectedFaculty && selectedFaculty !== "all" ? DEPARTMENTS[selectedFaculty] || [] : [];
+  const selectedFaculty = useWatch({ control, name: "faculty" })
+  const depts =
+    selectedFaculty && selectedFaculty !== "all"
+      ? DEPARTMENTS[selectedFaculty] || []
+      : []
 
   const onSubmit = (data: DirectorFilterInput) => {
-    onFilter(data as Partial<DirectorFilter>);
-  };
+    onFilter(data as Partial<DirectorFilter>)
+  }
 
   const handleReset = () => {
-    reset();
-    onReset();
-  };
+    reset()
+    onReset()
+  }
 
   return (
     <div className="director-filter-bar">
@@ -94,10 +145,16 @@ export function DirectorFilterBar({
 
         {/* Faculty */}
         <div className="filter-field">
-          <select {...register("faculty")} className="filter-select" disabled={isLoading}>
+          <select
+            {...register("faculty")}
+            className="filter-select"
+            disabled={isLoading}
+          >
             <option value="all">All Faculties</option>
             {FACULTIES.map((f) => (
-              <option key={f} value={f}>{f}</option>
+              <option key={f} value={f}>
+                {f}
+              </option>
             ))}
           </select>
         </div>
@@ -105,10 +162,16 @@ export function DirectorFilterBar({
         {/* Department (conditional) */}
         {depts.length > 0 && (
           <div className="filter-field">
-            <select {...register("department")} className="filter-select" disabled={isLoading}>
+            <select
+              {...register("department")}
+              className="filter-select"
+              disabled={isLoading}
+            >
               <option value="all">All Departments</option>
               {depts.map((d) => (
-                <option key={d} value={d}>{d}</option>
+                <option key={d} value={d}>
+                  {d}
+                </option>
               ))}
             </select>
           </div>
@@ -116,9 +179,15 @@ export function DirectorFilterBar({
 
         {/* Academic Year */}
         <div className="filter-field">
-          <select {...register("academicYear")} className="filter-select" disabled={isLoading}>
+          <select
+            {...register("academicYear")}
+            className="filter-select"
+            disabled={isLoading}
+          >
             {ACADEMIC_YEARS.map((y) => (
-              <option key={y} value={y}>{y}</option>
+              <option key={y} value={y}>
+                {y}
+              </option>
             ))}
           </select>
         </div>
@@ -126,7 +195,11 @@ export function DirectorFilterBar({
         {/* Semester */}
         {showSemester && (
           <div className="filter-field">
-            <select {...register("semester")} className="filter-select" disabled={isLoading}>
+            <select
+              {...register("semester")}
+              className="filter-select"
+              disabled={isLoading}
+            >
               <option value="all">Both Semesters</option>
               <option value="First">First Semester</option>
               <option value="Second">Second Semester</option>
@@ -137,10 +210,16 @@ export function DirectorFilterBar({
         {/* Level */}
         {showLevel && (
           <div className="filter-field">
-            <select {...register("level")} className="filter-select" disabled={isLoading}>
+            <select
+              {...register("level")}
+              className="filter-select"
+              disabled={isLoading}
+            >
               <option value="all">All Levels</option>
               {LEVELS.map((l) => (
-                <option key={l} value={l}>{l}L</option>
+                <option key={l} value={l}>
+                  {l}L
+                </option>
               ))}
             </select>
           </div>
@@ -149,10 +228,16 @@ export function DirectorFilterBar({
         {/* Status */}
         {showStatus && statusOptions.length > 0 && (
           <div className="filter-field">
-            <select {...register("status" as any)} className="filter-select" disabled={isLoading}>
+            <select
+              {...register("status")}
+              className="filter-select"
+              disabled={isLoading}
+            >
               <option value="all">All Statuses</option>
               {statusOptions.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
               ))}
             </select>
           </div>
@@ -164,11 +249,21 @@ export function DirectorFilterBar({
             <Filter size={15} />
             <span>Apply</span>
           </button>
-          <button type="button" className="btn-reset" onClick={handleReset} disabled={isLoading}>
+          <button
+            type="button"
+            className="btn-reset"
+            onClick={handleReset}
+            disabled={isLoading}
+          >
             <RotateCcw size={15} />
           </button>
           {onExport && (
-            <button type="button" className="btn-export" onClick={onExport} disabled={isLoading}>
+            <button
+              type="button"
+              className="btn-export"
+              onClick={onExport}
+              disabled={isLoading}
+            >
               <Download size={15} />
               <span>Export</span>
             </button>
@@ -225,7 +320,9 @@ export function DirectorFilterBar({
           border-radius: 8px;
           color: var(--foreground);
           outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s;
+          transition:
+            border-color 0.15s,
+            box-shadow 0.15s;
           appearance: none;
           -webkit-appearance: none;
         }
@@ -235,7 +332,8 @@ export function DirectorFilterBar({
         .filter-input:focus,
         .filter-select:focus {
           border-color: var(--primary);
-          box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 15%, transparent);
+          box-shadow: 0 0 0 3px
+            color-mix(in oklch, var(--primary) 15%, transparent);
         }
         .filter-input:disabled,
         .filter-select:disabled {
@@ -265,7 +363,9 @@ export function DirectorFilterBar({
           background: var(--primary);
           color: var(--primary-foreground);
         }
-        .btn-filter:hover:not(:disabled) { opacity: 0.88; }
+        .btn-filter:hover:not(:disabled) {
+          opacity: 0.88;
+        }
         .btn-reset {
           background: var(--muted);
           color: var(--muted-foreground);
@@ -280,7 +380,9 @@ export function DirectorFilterBar({
           background: var(--accent);
           color: var(--accent-foreground);
         }
-        .btn-export:hover:not(:disabled) { opacity: 0.88; }
+        .btn-export:hover:not(:disabled) {
+          opacity: 0.88;
+        }
         .btn-filter:disabled,
         .btn-reset:disabled,
         .btn-export:disabled {
@@ -288,10 +390,15 @@ export function DirectorFilterBar({
           cursor: not-allowed;
         }
         @media (max-width: 768px) {
-          .filter-form { flex-direction: column; }
-          .filter-field, .search-field { min-width: 100%; }
+          .filter-form {
+            flex-direction: column;
+          }
+          .filter-field,
+          .search-field {
+            min-width: 100%;
+          }
         }
       `}</style>
     </div>
-  );
+  )
 }

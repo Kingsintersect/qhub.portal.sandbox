@@ -15,6 +15,12 @@ import type {
   CreateSchedulePayload,
   UpdateSchedulePayload,
 } from "@/types/school"
+import {
+  fetchAcademicTermNames,
+  mapCourseOfferingEnrichment,
+  type AcademicTermNames,
+  type WireEnrichedCourseFields,
+} from "@/lib/academic/course-offering-enrichment"
 
 // Real backend contract per bruno/course (Offering/Offering Lecturer/Schedule
 // collections) and sandbox/course/course_README.md — source of truth, see
@@ -31,10 +37,12 @@ interface WireOffering {
   status: CourseOfferingStatus
   createdAt: string
   updatedAt: string
-  course: { code: string; title: string }
-  // MISSING_BACKEND_APIS.md §2.10 — now shipped by the backend team. Still
-  // not documented in bruno, and kept optional defensively rather than
-  // required, in case an older cached response omits it.
+  course: { code: string; title: string } & WireEnrichedCourseFields
+  // `session`/`semester` (names) and `enrolledCount` + the enriched `course`
+  // fields come from sandbox/course/missing_course_offering_enrichment.readme.md
+  // and are mapped defensively via `mapCourseOfferingEnrichment`.
+  session?: { id: number; name: string }
+  semester?: { id: number; name: string }
   enrolledCount?: number
 }
 
@@ -59,18 +67,21 @@ interface WireOfferingDetail extends WireOffering {
   schedule?: WireSchedule[]
 }
 
-const mapOffering = (o: WireOffering): CourseOffering => ({
+const mapOffering = (
+  o: WireOffering,
+  terms?: AcademicTermNames
+): CourseOffering => ({
   id: o.id,
   course_id: o.courseId,
-  course_code: o.course.code,
-  course_title: o.course.title,
+  course_code: o.course?.code ?? "—",
+  course_title: o.course?.title ?? "Untitled course",
   academic_session_id: o.academicSessionId,
   semester_id: o.semesterId,
   max_capacity: o.maxCapacity,
   status: o.status,
   created_at: o.createdAt,
   updated_at: o.updatedAt,
-  enrolled_count: o.enrolledCount ?? null,
+  ...mapCourseOfferingEnrichment(o, terms),
 })
 
 const mapSchedule = (s: WireSchedule): ClassSchedule => ({
@@ -95,21 +106,24 @@ export const offeringsApi = {
   async list(
     filters?: OfferingListFilters
   ): Promise<{ data: CourseOffering[] }> {
-    const res = await apiClient.get<{ data: WireOffering[] }>(
-      "/courses/offerings",
-      {
+    const [res, terms] = await Promise.all([
+      apiClient.get<{ data: WireOffering[] }>("/courses/offerings", {
         ...AUTH,
         params: filters as Record<string, unknown> | undefined,
-      }
-    )
-    return { data: res.data.map(mapOffering) }
+      }),
+      fetchAcademicTermNames(),
+    ])
+    return { data: (res.data ?? []).map((o) => mapOffering(o, terms)) }
   },
 
   async getById(id: number): Promise<{ data: CourseOfferingDetail }> {
-    const res = await apiClient.get<{ data: WireOfferingDetail }>(
-      `/courses/offerings/${id}`,
-      AUTH
-    )
+    const [res, terms] = await Promise.all([
+      apiClient.get<{ data: WireOfferingDetail }>(
+        `/courses/offerings/${id}`,
+        AUTH
+      ),
+      fetchAcademicTermNames(),
+    ])
     const lecturers: OfferingLecturerAssignment[] = (
       res.data.lecturers ?? []
     ).map((l) => ({
@@ -117,7 +131,9 @@ export const offeringsApi = {
       role: l.role,
     }))
     const schedules = (res.data.schedule ?? []).map(mapSchedule)
-    return { data: { ...mapOffering(res.data), lecturers, schedules } }
+    return {
+      data: { ...mapOffering(res.data, terms), lecturers, schedules },
+    }
   },
 
   async create(

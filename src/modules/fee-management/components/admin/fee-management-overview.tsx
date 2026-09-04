@@ -7,7 +7,6 @@ import {
   ArrowRight,
   BarChart3,
   FileText,
-  Loader2,
   Tags,
   TrendingUp,
 } from "lucide-react"

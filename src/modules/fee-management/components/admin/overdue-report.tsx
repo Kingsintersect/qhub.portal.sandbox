@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import { AlertTriangle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,8 @@ import type { FeeCategory } from "../../types"
 export function OverdueReport() {
   const { data, isLoading, refetch } = useOverdueInvoices()
   const invoices = data?.data ?? []
+  // "now" captured once on mount so the render stays pure.
+  const [now] = useState(() => Date.now())
 
   // Aggregate totals from overdue invoices
   const totalOutstanding = invoices.reduce(
@@ -115,7 +118,7 @@ export function OverdueReport() {
                   Number(inv.amount) - Number(inv.amountPaid)
                 )
                 const daysOverdue = Math.floor(
-                  (Date.now() - new Date(inv.dueDate).getTime()) /
+                  (now - new Date(inv.dueDate).getTime()) /
                     (1000 * 60 * 60 * 24)
                 )
                 return (
