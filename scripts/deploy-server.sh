@@ -45,7 +45,7 @@ APP_NAME="${2:-qhub.portal.sandbox.qverselearning.org}"
 APP_PORT="${3:-3030}"
 DOMAIN="${4:-qhub.portal.sandbox.qverselearning.org}"
 LE_EMAIL="${5:-support@qverselearning.com}"
-BACKEND_URL="${6:-https://qhub.api.sandbox.qverselearning.org/api/v1/}"   # optional — trailing slash required
+BACKEND_URL="${6:-}"   # optional — trailing slash required; empty means no /api/v1/ proxy
 WEBSERVER_OVERRIDE="${7:-}"   # optional: force "nginx" or "apache" — leave blank for auto-detect
 ENV_INCOMING_PATH="${8:-}"    # optional: path to a file with the full .env contents
 
