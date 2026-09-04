@@ -17,6 +17,8 @@ import axios, {
 
 export type TokenPersistence = "memory" | "local" | "session"
 
+export type RequestBodyFormat = "json" | "multipart"
+
 export type RequestOptions = {
   access_token?: boolean
   headers?: Record<string, string>
@@ -25,6 +27,68 @@ export type RequestOptions = {
   skipAuthRefresh?: boolean
   meta?: Record<string, unknown>
   responseType?: "json" | "blob" | "text" | "arraybuffer"
+  /**
+   * How to encode the request body. Defaults to `"json"`
+   * (`Content-Type: application/json`).
+   *
+   * Pass `"multipart"` for uploads (images, documents): a plain object body
+   * is converted to `FormData` via {@link objectToFormData} and the browser
+   * sets the `multipart/form-data` boundary itself. A body that is already a
+   * `FormData` instance is sent as multipart regardless of this option.
+   */
+  contentType?: RequestBodyFormat
+}
+
+/**
+ * Recursively flattens a plain object into `FormData`, using the
+ * `key[nested]` / `key[index]` bracket notation Laravel expects.
+ *
+ * - `File` / `Blob` values are appended as-is (the point of multipart)
+ * - `boolean` becomes `"1"` / `"0"` (Laravel's `boolean` validation rule
+ *   rejects the literals `"true"` / `"false"`)
+ * - `Date` becomes an ISO string
+ * - `null`, `undefined`, and `""` entries are skipped entirely — in a
+ *   `multipart/form-data` create/upload an empty field is equivalent to an
+ *   omitted one, and the backend's `nullable`/`sometimes` rules treat them
+ *   the same. Append to a `FormData` by hand if you need to send a literal
+ *   empty string.
+ * - nested objects and arrays recurse
+ */
+export function objectToFormData(
+  input: Record<string, unknown>,
+  form: FormData = new FormData(),
+  parentKey?: string
+): FormData {
+  const append = (key: string, value: unknown): void => {
+    if (value === undefined || value === null || value === "") return
+    if (value instanceof File || value instanceof Blob) {
+      form.append(key, value)
+      return
+    }
+    if (value instanceof Date) {
+      form.append(key, value.toISOString())
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => append(`${key}[${index}]`, item))
+      return
+    }
+    if (typeof value === "object") {
+      objectToFormData(value as Record<string, unknown>, form, key)
+      return
+    }
+    if (typeof value === "boolean") {
+      form.append(key, value ? "1" : "0")
+      return
+    }
+    form.append(key, String(value))
+  }
+
+  Object.entries(input).forEach(([key, value]) => {
+    append(parentKey ? `${parentKey}[${key}]` : key, value)
+  })
+
+  return form
 }
 
 type RequestMethod = NonNullable<AxiosRequestConfig["method"]>
@@ -463,10 +527,24 @@ export class ApiClient {
   private async request<TResponse, TBody = unknown>(
     method: RequestMethod,
     url: string,
-    data?: TBody,
+    body?: TBody,
     opts: RequestOptions = {}
   ): Promise<TResponse> {
     const headers = AxiosHeaders.from(opts.headers ?? {})
+
+    // `contentType: "multipart"` — convert a plain object body to FormData so
+    // callers can pass `{ firstName, passportPhoto: File, documents: File[] }`
+    // directly instead of hand-building FormData. An existing FormData instance
+    // is left untouched. Either way the request interceptor strips the default
+    // JSON Content-Type header so the browser can set the multipart boundary.
+    let data: TBody | FormData | undefined = body
+    if (
+      opts.contentType === "multipart" &&
+      body != null &&
+      !(body instanceof FormData)
+    ) {
+      data = objectToFormData(body as Record<string, unknown>)
+    }
 
     const response = await this.axios.request<TResponse>({
       url,

@@ -26,11 +26,6 @@ const PERM = {
   manageDepts: { resource: "departments", action: "manage" },
 } as const
 
-// ── Props ─────────────────────────────────────────────────────────────────────
-interface StaffPageProps {
-  canDelete?: boolean
-}
-
 const columns: Column<Staff & Record<string, unknown>>[] = [
   {
     key: "name",
@@ -83,15 +78,10 @@ const columns: Column<Staff & Record<string, unknown>>[] = [
   },
 ]
 
-export default function StaffPage({
-  canDelete: canDeleteProp,
-}: StaffPageProps = {}) {
+export default function StaffPage() {
   const { can } = usePermissions()
 
-  // Props take precedence; fall back to internally-derived values
   const canCreate = can(PERM.manageDepts) // Staff creation is SUPER_ADMIN only
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _canDelete = canDeleteProp ?? can(PERM.manageDepts) // reserved for delete action
 
   const { data, isLoading } = useStaffList()
   const createStaff = useCreateStaff()

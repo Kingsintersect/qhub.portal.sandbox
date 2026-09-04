@@ -42,7 +42,6 @@ const PERM = {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface StudentsPageProps {
-  canDelete?: boolean
   canCreate?: boolean
   canExport?: boolean
 }
@@ -109,7 +108,6 @@ const columns: Column<Student & Record<string, unknown>>[] = [
 ]
 
 export default function StudentsPage({
-  canDelete: canDeleteProp,
   canCreate: canCreateProp,
   canExport: canExportProp,
 }: StudentsPageProps = {}) {
@@ -118,8 +116,6 @@ export default function StudentsPage({
   // Props take precedence; fall back to internally-derived values
   const canCreate = canCreateProp ?? can(PERM.manageStudents)
   const canExport = canExportProp ?? can(PERM.manageDepts)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _canDelete = canDeleteProp ?? can(PERM.manageStudents) // reserved for delete action
 
   const { data, isLoading } = useStudents()
   const updateStudent = useUpdateStudent()

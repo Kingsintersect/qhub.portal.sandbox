@@ -30,6 +30,7 @@ import { useCourses } from "@/hooks/useCourseManagement"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 import { useSemesters } from "@/hooks/useSemesters"
 import { useTutors } from "@/modules/user-management/hooks/useUsersData"
+import { formatOfferingCategory } from "@/lib/academic/course-offering-enrichment"
 import type {
   ClassSchedule,
   CourseOfferingStatus,
@@ -283,6 +284,11 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
                       <p className="line-clamp-1 text-xs text-muted-foreground">
                         {o.course_title}
                       </p>
+                      {formatOfferingCategory(o) && (
+                        <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground/80">
+                          {formatOfferingCategory(o)}
+                        </p>
+                      )}
                     </div>
                     <StatusBadge
                       label={statusBadge[o.status].label}
@@ -290,6 +296,19 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
                       dot
                     />
                   </div>
+                  {(o.credit_units != null ||
+                    o.level_name ||
+                    o.course_type) && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {[
+                        o.credit_units != null ? `${o.credit_units} CU` : null,
+                        o.level_name,
+                        o.course_type,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Users className="size-3.5" />
                     {o.enrolled_count !== null
@@ -297,6 +316,20 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
                       : "Enrolled: —"}
                     {o.max_capacity ? ` / ${o.max_capacity}` : " (unlimited)"}
                   </div>
+                  {o.programs.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {o.programs.map((p) => (
+                        <span
+                          key={p.id}
+                          className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          title={`${p.name}${p.is_required ? " · required" : " · elective"}`}
+                        >
+                          {p.code}
+                          {p.is_required ? "" : " (elective)"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {canManage && (
                     <div className="flex gap-2 pt-1">
                       <Button
@@ -633,6 +666,46 @@ function OfferingDetailModal({
         </div>
       ) : (
         <div className="max-h-[65vh] space-y-6 overflow-y-auto pr-1">
+          {/* Offering context */}
+          <div className="space-y-1.5 rounded-xl border border-border bg-muted/30 p-3">
+            {formatOfferingCategory(offering) && (
+              <p className="text-xs text-muted-foreground">
+                {formatOfferingCategory(offering)}
+              </p>
+            )}
+            <p className="text-xs text-foreground">
+              {[
+                offering.credit_units != null
+                  ? `${offering.credit_units} CU`
+                  : null,
+                offering.level_name,
+                offering.course_type,
+                [offering.semester_name, offering.session_name]
+                  .filter(Boolean)
+                  .join(", ") || null,
+                offering.enrolled_count != null
+                  ? `${offering.enrolled_count} enrolled`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "No additional details"}
+            </p>
+            {offering.programs.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {offering.programs.map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center rounded-md bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                    title={`${p.name} · ${p.degree_type}${p.is_required ? " · required" : " · elective"}`}
+                  >
+                    {p.code}
+                    {p.is_required ? "" : " (elective)"}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Lecturers */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">

@@ -20,7 +20,7 @@ export default function MyCalendarPage() {
   >("all")
 
   const { data, isLoading } = useMyCalendarEvents()
-  const events = data?.data ?? []
+  const events = useMemo(() => data?.data ?? [], [data])
 
   const filteredEvents = useMemo(() => {
     const search = searchTerm.trim().toLowerCase()

@@ -10,6 +10,7 @@ import {
   Loader2,
   BookMarked,
   X,
+  UploadCloud,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
@@ -17,8 +18,13 @@ import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
 import Combobox from "@/components/custom/Combobox"
+import { BulkImportTutorsModal } from "./BulkImportTutorsModal"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { usePermissions } from "@/lib/permissions/usePermissions"
+import {
+  formatOfferingCategory,
+  formatOfferingMeta,
+} from "@/lib/academic/course-offering-enrichment"
 import {
   useTutors,
   useCreateTutor,
@@ -91,21 +97,17 @@ const baseColumns: Column<Tutor & Record<string, unknown>>[] = [
 
 // ── Props ────────────────────────────────────────────────────────────────────
 interface TutorsPageProps {
-  canDelete?: boolean
   canCreate?: boolean
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function TutorsPage({
-  canDelete: canDeleteProp,
   canCreate: canCreateProp,
 }: TutorsPageProps = {}) {
   const { can } = usePermissions()
 
   // Props take precedence; fall back to internally-derived values
   const canCreate = canCreateProp ?? can(PERM.maanageTutors)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _canDelete = canDeleteProp ?? can(PERM.maanageTutors) // reserved for delete action
   const canEdit = can(PERM.maanageTutors)
   const canManageCourses = can(PERM.manageDepts) // SUPER_ADMIN only
 
@@ -115,6 +117,7 @@ export default function TutorsPage({
 
   const [selected, setSelected] = useState<Tutor | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [editing, setEditing] = useState<Tutor | null>(null)
   const [coursesFor, setCoursesFor] = useState<Tutor | null>(null)
 
@@ -180,16 +183,30 @@ export default function TutorsPage({
                 Tutors
               </h1>
               <p className="text-sm text-muted-foreground">
-                Manage tutors — assign tutor roles to existing users.
+                Manage tutors — bulk import a registrar&apos;s list, or assign
+                the tutor role to a single existing user.
               </p>
             </div>
           </div>
 
-          {/* Add Tutor — gated to users:manage */}
+          {/* Bulk Import + Add Tutor — both gated to tutors:manage. Bulk
+              import is the primary path (registrar list → CSV → whole
+              department onboarded at once); "Add Tutor" stays for the
+              one-off case of promoting a single existing user. See
+              sandbox/user/tutor_onboarding_workflow.md §1. */}
           <PermissionGate require={PERM.maanageTutors}>
-            <Button onClick={() => setShowCreate(true)} className="gap-2">
-              <Plus size={16} /> Add Tutor
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkImport(true)}
+                className="gap-2"
+              >
+                <UploadCloud size={16} /> Bulk Import
+              </Button>
+              <Button onClick={() => setShowCreate(true)} className="gap-2">
+                <Plus size={16} /> Add Tutor
+              </Button>
+            </div>
           </PermissionGate>
         </div>
       </motion.div>
@@ -227,6 +244,14 @@ export default function TutorsPage({
       >
         {selected && <TutorDetail tutor={selected} />}
       </Modal>
+
+      {/* Bulk Import modal — only reachable if canCreate, same gate as "Add Tutor" */}
+      {canCreate && (
+        <BulkImportTutorsModal
+          open={showBulkImport}
+          onClose={() => setShowBulkImport(false)}
+        />
+      )}
 
       {/* Create modal — only reachable if canCreate, but guard the open state too */}
       {canCreate && (
@@ -681,11 +706,23 @@ function TutorCoursesPanel({ tutor }: { tutor: Tutor }) {
 
   const offeringOptions = useMemo(
     () =>
-      availableOfferings.map((o) => ({
-        value: o.id,
-        label: `${o.course_code} — ${o.course_title}`,
-        description: `${o.credit_units} CU · ${o.semester_name}, ${o.session_name} · ${o.status}`,
-      })),
+      availableOfferings.map((o) => {
+        const category = formatOfferingCategory(o)
+        const programmes = o.programs.length
+          ? `${o.programs.length} programme${o.programs.length === 1 ? "" : "s"}`
+          : null
+        return {
+          value: o.id,
+          label: `${o.course_code} — ${o.course_title}`,
+          description: [
+            [formatOfferingMeta(o), o.status].filter(Boolean).join(" · "),
+            category,
+            programmes,
+          ]
+            .filter(Boolean)
+            .join("  ·  "),
+        }
+      }),
     [availableOfferings]
   )
 
@@ -775,7 +812,7 @@ function TutorCoursesPanel({ tutor }: { tutor: Tutor }) {
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-foreground">
                       {a.offering.course_code}
                     </span>
@@ -786,11 +823,37 @@ function TutorCoursesPanel({ tutor }: { tutor: Tutor }) {
                         a.offering.status === "OPEN" ? "success" : "default"
                       }
                     />
+                    {a.offering.course_type && (
+                      <StatusBadge
+                        label={a.offering.course_type}
+                        variant="default"
+                      />
+                    )}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {a.offering.course_title} · {a.offering.credit_units} CU ·{" "}
-                    {a.offering.semester_name}, {a.offering.session_name}
+                    {a.offering.course_title}
+                    {formatOfferingMeta(a.offering) &&
+                      ` · ${formatOfferingMeta(a.offering)}`}
                   </p>
+                  {formatOfferingCategory(a.offering) && (
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground/80">
+                      {formatOfferingCategory(a.offering)}
+                    </p>
+                  )}
+                  {a.offering.programs.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {a.offering.programs.map((p) => (
+                        <span
+                          key={p.id}
+                          className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          title={`${p.name}${p.is_required ? " · required" : " · elective"}`}
+                        >
+                          {p.code}
+                          {p.is_required ? "" : " (elective)"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="ghost"

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import Modal from "@/components/custom/Modal"
@@ -50,14 +50,14 @@ export function TemplateFormModal({
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<CreateTemplatePayload>({
     resolver: zodResolver(createTemplateSchema),
     defaultValues: { name: "", subject: "", body: "", channel: "EMAIL" },
   })
 
-  const channel = watch("channel")
+  const channel = useWatch({ control, name: "channel" })
 
   useEffect(() => {
     if (open && isEdit && template) {

@@ -50,13 +50,12 @@ export const documentService = {
     return res.data
   },
 
-  uploadDocument: ({ file, studentId, documentType }: UploadDocumentDto) => {
-    const form = new FormData()
-    form.append("file", file)
-    form.append("studentId", String(studentId))
-    form.append("documentType", documentType)
-    return apiClient.post<DocumentResponse>(BASE, form, AUTH)
-  },
+  uploadDocument: ({ file, studentId, documentType }: UploadDocumentDto) =>
+    apiClient.post<DocumentResponse>(
+      BASE,
+      { file, studentId, documentType },
+      { ...AUTH, contentType: "multipart" }
+    ),
 
   updateDocument: (id: number, dto: UpdateDocumentDto) =>
     apiClient.patch<DocumentResponse>(`${BASE}/${id}`, dto, AUTH),

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Send, Users, Loader2 } from "lucide-react"
@@ -113,26 +113,26 @@ export function SendPanel() {
     handleSubmit: handleSingle,
     reset: resetSingle,
     setValue: setSingle,
-    watch: watchSingle,
+    control: controlSingle,
     formState: { errors: singleErrors },
   } = useForm<SingleForm>({
     resolver: zodResolver(singleSchema),
     defaultValues: { userId: "", subject: "", body: "", channel: "EMAIL" },
   })
-  const singleChannel = watchSingle("channel")
+  const singleChannel = useWatch({ control: controlSingle, name: "channel" })
 
   const {
     register: regBulk,
     handleSubmit: handleBulk,
     reset: resetBulk,
     setValue: setBulk,
-    watch: watchBulk,
+    control: controlBulk,
     formState: { errors: bulkErrors },
   } = useForm<BulkForm>({
     resolver: zodResolver(bulkSchema),
     defaultValues: { userIds: "", subject: "", body: "", channel: "EMAIL" },
   })
-  const bulkChannel = watchBulk("channel")
+  const bulkChannel = useWatch({ control: controlBulk, name: "channel" })
 
   const onSingleSubmit = async (data: SingleForm) => {
     try {

@@ -109,7 +109,7 @@ export const auditApi = {
    */
   exportLogs: async (
     params: AuditQueryParams & { format: "csv" | "excel" | "pdf" },
-    options?: RequestOptions
+    _options?: RequestOptions
   ): Promise<Blob> => {
     const queryParams: Record<string, unknown> = {}
 

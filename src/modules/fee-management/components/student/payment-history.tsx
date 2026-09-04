@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { Loader2, Printer, Receipt } from "lucide-react"
+import { Printer, Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CurrencyDisplay } from "../shared/currency-display"

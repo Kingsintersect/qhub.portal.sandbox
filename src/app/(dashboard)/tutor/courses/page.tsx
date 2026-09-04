@@ -74,7 +74,7 @@ export default function CourseAssignmentPage() {
     (a, c) => a + (c.registeredStudents ?? 0),
     0
   )
-  const totalCredits = courses.reduce((a, c) => a + c.creditUnits, 0)
+  const totalCredits = courses.reduce((a, c) => a + (c.creditUnits ?? 0), 0)
   const scheduledCount = courses.filter((c) => c.schedule.length > 0).length
 
   return (
