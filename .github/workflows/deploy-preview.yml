@@ -39,6 +39,10 @@ env:
   DOMAIN: qhub.preview.sandbox.qverselearning.org       # public domain name
   LE_EMAIL: support@qverselearning.com        # SSL contact email (cPanel AutoSSL / Let's Encrypt)
 
+  # Backend proxy — the Laravel API, deployed at this host by qhub_backend_api's
+  # deploy.yml. Trailing slash required. Empty means no /api/v1/ proxy at all.
+  BACKEND_URL: 'https://qhub.backend.api.qverselearning.org/api/v1/'
+
   # Webserver that fronts this domain: nginx or apache.
   # On cPanel servers Nginx sits on port 80 in front of Apache — set nginx here
   # so Nginx proxies directly to Next.js, bypassing Apache entirely.
@@ -189,7 +193,7 @@ jobs:
                '${{ env.APP_PORT }}' \
                '${{ env.DOMAIN }}' \
                '${{ env.LE_EMAIL }}' \
-               '' \
+               '${{ env.BACKEND_URL }}' \
                '${{ env.WEBSERVER }}' \
                '/tmp/${{ env.APP_NAME }}.env.incoming'" <<< "${{ secrets.LOCAL_VARIABLES }}"
 
