@@ -16,13 +16,29 @@ export interface ScheduleSlotDraft {
   classType: ClassType
 }
 
+export interface CourseProgramme {
+  name: string
+  code: string
+  isRequired: boolean
+}
+
 export interface AssignedCourse {
   id: number // CourseOffering id
   courseCode: string
   courseTitle: string
-  creditUnits: number
-  semesterName: string
-  academicYear: string
+  // Credit units, term names, level, department/faculty, programmes and the
+  // category breadcrumb are all filled in from the enriched
+  // `GET /courses/offerings` response (see
+  // sandbox/course/missing_course_offering_enrichment.readme.md); `null` / `[]`
+  // until that ships.
+  creditUnits: number | null
+  semesterName: string | null
+  academicYear: string | null
+  levelName: string | null
+  departmentName: string | null
+  facultyName: string | null
+  programmes: CourseProgramme[]
+  categoryPath: string[]
   registeredStudents: number | null
   schedule: TimetableSlot[]
 }

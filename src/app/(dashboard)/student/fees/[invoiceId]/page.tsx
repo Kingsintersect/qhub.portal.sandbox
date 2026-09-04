@@ -3,7 +3,7 @@
 import { use } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowLeft, Loader2, ShieldOff } from "lucide-react"
+import { ArrowLeft, ShieldOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"

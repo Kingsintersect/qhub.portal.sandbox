@@ -135,7 +135,8 @@ function mapEnrollment(
     studentMatric: raw.student?.matricNumber ?? student?.matric_number ?? "—",
     courseCode: raw.offering?.course?.code ?? offering?.course_code ?? "—",
     courseTitle: raw.offering?.course?.title ?? offering?.course_title ?? "—",
-    creditUnits: raw.offering?.course?.creditUnits ?? 0,
+    creditUnits:
+      raw.offering?.course?.creditUnits ?? offering?.credit_units ?? 0,
     lecturerName: lecturerUser ? fullName(lecturerUser) : null,
   }
 }

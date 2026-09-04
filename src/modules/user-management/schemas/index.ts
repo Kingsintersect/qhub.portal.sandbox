@@ -18,3 +18,33 @@ export const createUserSchema = z.object({
 })
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>
+
+// ── Bulk Import Tutors ──
+// See sandbox/user/tutor_onboarding_README.md §1 for the CSV contract this
+// validates against before the multipart request goes out.
+const ACCEPTED_BULK_IMPORT_TYPES = [
+  "text/csv",
+  "text/plain",
+  "application/vnd.ms-excel", // some browsers report .csv this way
+]
+const MAX_BULK_IMPORT_SIZE_BYTES = 10 * 1024 * 1024 // 10MB, matches the backend limit
+
+export const bulkImportTutorsSchema = z.object({
+  file: z
+    .instanceof(File, { message: "Select a CSV file to upload" })
+    .refine(
+      (f) => f.size > 0 && f.size <= MAX_BULK_IMPORT_SIZE_BYTES,
+      "File must be under 10MB"
+    )
+    .refine(
+      (f) =>
+        ACCEPTED_BULK_IMPORT_TYPES.includes(f.type) ||
+        f.name.toLowerCase().endsWith(".csv") ||
+        f.name.toLowerCase().endsWith(".txt"),
+      "Only .csv or .txt files are accepted"
+    ),
+  send_welcome_email: z.boolean(),
+  login_url: z.string().url("Enter a valid URL").optional().or(z.literal("")),
+})
+
+export type BulkImportTutorsFormValues = z.infer<typeof bulkImportTutorsSchema>

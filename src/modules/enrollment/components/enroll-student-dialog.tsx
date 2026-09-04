@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import type { SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery } from "@tanstack/react-query"
@@ -47,16 +47,17 @@ export function EnrollStudentDialog({
   const {
     handleSubmit,
     setValue,
-    watch,
+    control,
     reset,
     formState: { errors },
   } = useForm<CreateEnrollmentDto>({
     resolver: zodResolver(CreateEnrollmentSchema),
   })
 
-  const studentId = watch("studentId")
-  const offeringId = watch("offeringId")
-  const semesterId = watch("semesterId")
+  const [studentId, offeringId, semesterId] = useWatch({
+    control,
+    name: ["studentId", "offeringId", "semesterId"],
+  })
 
   const onSubmit: SubmitHandler<CreateEnrollmentDto> = (dto) => {
     createMutation.mutate(dto, {

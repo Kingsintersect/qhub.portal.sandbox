@@ -139,7 +139,8 @@ function mapSlot(
     classType: raw.classType,
     courseCode: raw.offering?.course?.code ?? offering?.course_code ?? "—",
     courseTitle: raw.offering?.course?.title ?? offering?.course_title ?? "—",
-    creditUnits: raw.offering?.course?.creditUnits ?? 0,
+    creditUnits:
+      raw.offering?.course?.creditUnits ?? offering?.credit_units ?? 0,
     tutorId: raw.lecturerId,
     tutorName: tutorName || "—",
     offeringId: raw.offeringId,

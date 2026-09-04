@@ -3,6 +3,8 @@
 // (derived from backend Prisma schema)
 // ──────────────────────────────────────────────
 
+import type { CourseOfferingEnrichment } from "@/lib/academic/course-offering-enrichment"
+
 export type Gender = "MALE" | "FEMALE"
 export type EntryMode = "UTME" | "DIRECT_ENTRY" | "TRANSFER"
 export type ModeOfStudy = "FULL_TIME" | "PART_TIME" | "SANDWICH" | "DISTANCE"
@@ -223,14 +225,27 @@ export interface Course {
   is_active: boolean
 }
 
-export interface CourseOffering {
+// The category-tree node and programme-link shapes live in the shared enrichment
+// module (same shapes used by `@/types/school`); re-exported here for callers
+// that import them from this module.
+export type {
+  CourseCategoryNode,
+  CourseProgramLink,
+} from "@/lib/academic/course-offering-enrichment"
+
+// Enriched `GET /courses/offerings` item — base fields plus the shared
+// enrichment block (credit units, term names, level, department/faculty,
+// programmes, category path). See
+// sandbox/course/missing_course_offering_enrichment.readme.md for the backend
+// contract; everything in the enrichment block is `null` / `[]` until it ships.
+export interface CourseOffering extends CourseOfferingEnrichment {
   id: number
   course_id: number
   course_code: string
   course_title: string
-  credit_units: number
-  semester_name: string
-  session_name: string
+  academic_session_id: number
+  semester_id: number
+  max_capacity: number | null
   status: CourseOfferingStatus
 }
 
@@ -261,6 +276,44 @@ export interface EligibleRole {
   name: string
   slug: string
   description: string | null
+}
+
+// ── Bulk Import (Tutor Onboarding) ──────────
+// See sandbox/user/tutor_onboarding_README.md §1 for the full contract.
+// `sendWelcomeEmail`/`loginUrl`/`templateId` are an additive extension to the
+// already-live `POST /users/bulk-import` endpoint — built against that spec
+// now, same convention as `getMyLecturer`/`listCourseOfferings` elsewhere in
+// this module. If the backend doesn't recognize them yet, they're extra
+// multipart fields it can simply ignore; `generatedPassword` keeps coming
+// back in the response until the backend honors `sendWelcomeEmail`.
+
+export interface BulkImportTutorsPayload {
+  file: File
+  send_welcome_email?: boolean
+  login_url?: string
+  template_id?: number
+}
+
+export type BulkImportRowAction = "created" | "updated" | "skipped" | "failed"
+
+export interface BulkImportRow {
+  row: number
+  email: string
+  role: string
+  success: boolean
+  action: BulkImportRowAction
+  user_id: number | null
+  error?: string
+  generated_password?: string
+  email_sent?: boolean
+  email_error?: string
+}
+
+export interface BulkImportResult {
+  total: number
+  succeeded: number
+  failed: number
+  results: BulkImportRow[]
 }
 
 export interface UserQueryFilters {

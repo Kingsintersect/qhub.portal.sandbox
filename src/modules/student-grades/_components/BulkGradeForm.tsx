@@ -182,7 +182,15 @@ export function BulkGradeForm() {
               </option>
               {offerings.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.course_code} — {o.course_title} (Semester #{o.semester_id})
+                  {o.course_code} — {o.course_title}
+                  {" · "}
+                  {[
+                    o.credit_units != null ? `${o.credit_units} CU` : null,
+                    o.semester_name ?? `Semester #${o.semester_id}`,
+                    o.session_name,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
                 </option>
               ))}
             </select>

@@ -20,12 +20,21 @@ import type {
   AssignCoursePayload,
   UnassignCoursePayload,
   EligibleRole,
+  BulkImportTutorsPayload,
+  BulkImportResult,
+  BulkImportRow,
 } from "@/types/users"
 import type {
   ApiListResponse,
   ApiSingleResponse,
   ApiPaginatedResponse,
 } from "@/types/school"
+import {
+  fetchAcademicTermNames,
+  mapCourseOfferingEnrichment,
+  type AcademicTermNames,
+  type WireEnrichedCourseFields,
+} from "@/lib/academic/course-offering-enrichment"
 
 // Real backend contract per bruno/user/*.bru and sandbox/user/user_README.md (source of
 // truth — see CLAUDE.md §13). The backend uses camelCase field names throughout
@@ -126,32 +135,67 @@ interface WireStaff extends WireStaffProfile {
   jobTitle: string
 }
 
-// Contract this frontend requires from `GET /courses/offerings` (base shape) and its
-// proposed `lecturerId` filter extension — see MISSING_BACKEND_APIS.md §"Course Offering
-// — lecturerId filter" for the full spec handed to the backend team.
+// `GET /courses/offerings` shape. Base fields (`id`, `courseId`,
+// `academicSessionId`, `semesterId`, `maxCapacity`, `status`, `course.{code,
+// title}`) are what ships today; `session`/`semester`, `enrolledCount`, and the
+// enriched `course` fields (`WireEnrichedCourseFields`) come from the
+// enrichment in sandbox/course/missing_course_offering_enrichment.readme.md and
+// are mapped defensively via `mapCourseOfferingEnrichment`. `role`/`assignedAt`
+// appear only on the `?lecturerId=` filtered response.
 interface WireCourseOffering {
   id: number
   courseId: number
-  course: { code: string; title: string; creditUnits: number }
+  course: { code: string; title: string } & WireEnrichedCourseFields
   academicSessionId: number
-  session: { name: string }
   semesterId: number
-  semester: { name: string }
+  session?: { id: number; name: string }
+  semester?: { id: number; name: string }
   maxCapacity: number | null
+  enrolledCount?: number
   status: CourseOffering["status"]
   role?: TutorCourseAssignment["role"]
   assignedAt?: string
 }
 
-const mapCourseOffering = (o: WireCourseOffering): CourseOffering => ({
+interface WireBulkImportRow {
+  row: number
+  email: string
+  role: string
+  success: boolean
+  action: BulkImportRow["action"]
+  userId: number | null
+  error?: string
+  generatedPassword?: string
+  emailSent?: boolean
+  emailError?: string
+}
+
+const mapBulkImportRow = (r: WireBulkImportRow): BulkImportRow => ({
+  row: r.row,
+  email: r.email,
+  role: r.role,
+  success: r.success,
+  action: r.action,
+  user_id: r.userId,
+  error: r.error,
+  generated_password: r.generatedPassword,
+  email_sent: r.emailSent,
+  email_error: r.emailError,
+})
+
+const mapCourseOffering = (
+  o: WireCourseOffering,
+  terms?: AcademicTermNames
+): CourseOffering => ({
   id: o.id,
   course_id: o.courseId,
-  course_code: o.course.code,
-  course_title: o.course.title,
-  credit_units: o.course.creditUnits,
-  semester_name: o.semester.name,
-  session_name: o.session.name,
+  course_code: o.course?.code ?? "—",
+  course_title: o.course?.title ?? "Untitled course",
+  academic_session_id: o.academicSessionId,
+  semester_id: o.semesterId,
+  max_capacity: o.maxCapacity ?? null,
   status: o.status,
+  ...mapCourseOfferingEnrichment(o, terms),
 })
 
 // ── mappers: wire (camelCase) → frontend (snake_case) ──
@@ -508,37 +552,43 @@ export const usersApi = {
 
   /* ── Course Offerings / Tutor Course Assignment ──
    * Assign/remove are real, existing endpoints (bruno/course "Offering Lecturer -
-   * Assign/Remove"). Listing "which offerings is this tutor assigned to" is not — it's
-   * a proposed `lecturerId` filter on the existing `GET /courses/offerings` endpoint,
-   * specified in full in MISSING_BACKEND_APIS.md. Built against that spec now so the UI
-   * is ready the moment the filter ships; until then these calls will 200 with an
-   * unfiltered list (harmless — the panel just won't show only-this-tutor's courses) or
-   * 4xx depending on how the backend currently handles an unrecognized query param. */
+   * Assign/Remove"). Listing "which offerings is this tutor assigned to" is the
+   * `lecturerId` filter on `GET /courses/offerings` (MISSING_BACKEND_APIS.md
+   * §"Course Offering — lecturerId filter"). Session/semester display names are
+   * resolved from `GET /academic-calendar` in a parallel request — the offering
+   * endpoint itself only returns the term ids. */
   async listCourseOfferings(): Promise<ApiListResponse<CourseOffering>> {
-    const res = await apiClient.get<ApiListResponse<WireCourseOffering>>(
-      "/courses/offerings",
-      AUTH
-    )
-    return { data: res.data.map(mapCourseOffering), total: res.total }
+    const [res, terms] = await Promise.all([
+      apiClient.get<ApiListResponse<WireCourseOffering>>(
+        "/courses/offerings",
+        AUTH
+      ),
+      fetchAcademicTermNames(),
+    ])
+    const list = res.data ?? []
+    return {
+      data: list.map((o) => mapCourseOffering(o, terms)),
+      total: res.total ?? list.length,
+    }
   },
 
   async getTutorCourses(
     tutorId: number
   ): Promise<ApiListResponse<TutorCourseAssignment>> {
-    const res = await apiClient.get<ApiListResponse<WireCourseOffering>>(
-      "/courses/offerings",
-      {
+    const [res, terms] = await Promise.all([
+      apiClient.get<ApiListResponse<WireCourseOffering>>("/courses/offerings", {
         ...AUTH,
         params: { lecturerId: tutorId },
-      }
-    )
-    const assignments = res.data.map((o) => ({
+      }),
+      fetchAcademicTermNames(),
+    ])
+    const assignments = (res.data ?? []).map((o) => ({
       id: o.id,
       offering_id: o.id,
       tutor_id: tutorId,
       role: o.role ?? "primary",
       created_at: o.assignedAt ?? new Date().toISOString(),
-      offering: mapCourseOffering(o),
+      offering: mapCourseOffering(o, terms),
     }))
     return { data: assignments, total: assignments.length }
   },
@@ -554,10 +604,13 @@ export const usersApi = {
       },
       AUTH
     )
-    const offering = await apiClient.get<{ data: WireCourseOffering }>(
-      `/courses/offerings/${payload.offering_id}`,
-      AUTH
-    )
+    const [offering, terms] = await Promise.all([
+      apiClient.get<{ data: WireCourseOffering }>(
+        `/courses/offerings/${payload.offering_id}`,
+        AUTH
+      ),
+      fetchAcademicTermNames(),
+    ])
     return {
       data: {
         id: payload.offering_id,
@@ -565,7 +618,7 @@ export const usersApi = {
         tutor_id: payload.tutor_id,
         role: payload.role ?? "primary",
         created_at: new Date().toISOString(),
-        offering: mapCourseOffering(offering.data),
+        offering: mapCourseOffering(offering.data, terms),
       },
       message: "Course assigned",
     }
@@ -644,23 +697,39 @@ export const usersApi = {
   },
 
   /* ── Bulk Import (super_admin/admin/hod) ──
-   * Real endpoint, no UI built for it yet — see MISSING_BACKEND_APIS.md /
-   * API_INTEGRATION_AUDIT.md ("worth flagging... as a sizeable available-but-unused
-   * feature"). Wired here so the contract is ready when that UI is built. */
-  async bulkImport(file: File): Promise<{
-    data: {
-      total: number
-      succeeded: number
-      failed: number
-      results: Record<string, unknown>[]
+   * Real endpoint per tutor_onboarding_README.md §1 —
+   * `sendWelcomeEmail`/`loginUrl`/`templateId` are supported by the backend.
+   * `contentType: "multipart"` lets apiClient serialize this plain object to
+   * FormData (File passed through, boolean → "1"/"0", empty fields dropped). */
+  async bulkImportTutors(
+    payload: BulkImportTutorsPayload
+  ): Promise<ApiSingleResponse<BulkImportResult>> {
+    const raw = await apiClient.post<{
+      data: {
+        total: number
+        succeeded: number
+        failed: number
+        results: WireBulkImportRow[]
+      }
+    }>(
+      "/users/bulk-import",
+      {
+        file: payload.file,
+        sendWelcomeEmail: payload.send_welcome_email,
+        loginUrl: payload.login_url || undefined,
+        templateId: payload.template_id,
+      },
+      { ...AUTH, contentType: "multipart" }
+    )
+
+    return {
+      data: {
+        total: raw.data.total,
+        succeeded: raw.data.succeeded,
+        failed: raw.data.failed,
+        results: raw.data.results.map(mapBulkImportRow),
+      },
     }
-  }> {
-    const form = new FormData()
-    form.append("file", file)
-    return apiClient.post("/users/bulk-import", form, {
-      ...AUTH,
-      headers: { "Content-Type": "multipart/form-data" },
-    })
   },
 }
 
@@ -694,6 +763,7 @@ export const usersKeys = {
     detail: (id: number) => [...usersKeys.staff.all, "detail", id] as const,
   },
   eligibleRoles: () => [...usersKeys.all, "eligible-roles"] as const,
+  bulkImportTutors: () => [...usersKeys.tutors.all, "bulk-import"] as const,
 }
 
 // ── Query options ───────────────────────────
@@ -808,6 +878,14 @@ export const usersMutationOptions = {
     createApiMutationOptions<ApiSingleResponse<null>, UnassignCoursePayload>({
       mutationKey: [...usersKeys.tutors.all, "unassign-course"],
       mutationFn: (payload) => usersApi.unassignCourse(payload),
+    }),
+  bulkImportTutors: () =>
+    createApiMutationOptions<
+      ApiSingleResponse<BulkImportResult>,
+      BulkImportTutorsPayload
+    >({
+      mutationKey: usersKeys.bulkImportTutors(),
+      mutationFn: (payload) => usersApi.bulkImportTutors(payload),
     }),
   createStaff: () =>
     createApiMutationOptions<ApiSingleResponse<Staff>, CreateStaffPayload>({

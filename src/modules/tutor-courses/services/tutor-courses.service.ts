@@ -32,10 +32,19 @@ export const tutorCoursesService = {
           creditUnits: offering.credit_units,
           semesterName: offering.semester_name,
           academicYear: offering.session_name,
-          // usersApi.ts's own CourseOffering mapper doesn't carry an
-          // enrolled-count field through yet (see MISSING_BACKEND_APIS.md
-          // §2.10) — shown as "—" rather than fabricated.
-          registeredStudents: null,
+          levelName: offering.level_name,
+          departmentName: offering.owning_department_name,
+          facultyName: offering.owning_faculty_name,
+          programmes: offering.programs.map((p) => ({
+            name: p.name,
+            code: p.code,
+            isRequired: p.is_required,
+          })),
+          categoryPath: offering.category_path.map((c) => c.name),
+          // All of the above are `null` / `[]` until the enriched
+          // GET /courses/offerings response ships (see AssignedCourse and
+          // sandbox/course/missing_course_offering_enrichment.readme.md).
+          registeredStudents: offering.enrolled_count,
           schedule,
         }
       })

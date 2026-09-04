@@ -29,127 +29,107 @@ interface SubmitApplicationApiResponse {
 }
 
 /**
- * Builds the real multipart/form-data body per bruno/admission's
- * "Applications - Submit.bru" and posts to POST /admissions/applications.
- * Field casing intentionally mixed: camelCase for identity/program fields
+ * Posts the application (with its passport photo and result documents) to
+ * POST /admissions/applications as `multipart/form-data`, per bruno/admission's
+ * "Applications - Submit.bru".
+ *
+ * The body is assembled as a plain object and `apiClient` encodes it
+ * (`contentType: "multipart"`): `File`s pass through, `boolean`s become
+ * `"1"` / `"0"` (Laravel's `boolean` rule rejects `"true"` / `"false"`), and
+ * empty/undefined fields are dropped. Conditional groups (disability, sponsor,
+ * exam sitting) are spread in only when their gate is set.
+ *
+ * Field casing is intentionally mixed: camelCase for identity/program fields
  * (firstName, sessionId, programId, entryMode, startTerm, studyMode,
- * agreeToTerms), snake_case for everything documented in admission_README.md's
- * original CreateApplicationDto — this matches the real backend exactly, not
- * a frontend convention choice.
+ * agreeToTerms), snake_case for everything in admission_README.md's original
+ * CreateApplicationDto — this matches the real backend exactly, not a frontend
+ * convention choice.
  */
 export async function submitApplication(
   values: FormDefaultValues,
   profile: CurrentUserProfile,
   sessionId: number
 ): Promise<SubmitApplicationResponse> {
-  const form = new FormData()
+  const payload: Record<string, unknown> = {
+    // Identity — from the logged-in user's own profile, not re-collected.
+    firstName: profile.firstName,
+    middleName: profile.middleName,
+    lastName: profile.lastName,
+    email: profile.email,
+    phoneNumber: profile.phoneNumber,
 
-  const appendIf = (
-    key: string,
-    value: string | number | boolean | undefined | null
-  ) => {
-    if (value === undefined || value === null || value === "") return
-    // Laravel's `boolean` validation rule only accepts true/false/1/0/"1"/"0"
-    // (strict in_array check) — NOT the strings "true"/"false" that
-    // String(value) would produce, so every has_disability/has_sponsor/
-    // is_next_of_kin_primary_contact/awaiting_result submission was failing
-    // backend validation with "must be true or false" until this mapped
-    // booleans to "1"/"0" specifically.
-    const serialized =
-      typeof value === "boolean" ? (value ? "1" : "0") : String(value)
-    form.append(key, serialized)
+    // Program & session
+    entryMode: values.entryMode,
+    sessionId,
+    programId: values.programId,
+
+    // Step 1: Personal Information
+    nationality: values.nationality,
+    stateOfOrigin: values.state_of_origin,
+    lga: values.lga,
+    religion: values.religion,
+    dob: values.dob,
+    gender: values.gender === "Male" ? "MALE" : "FEMALE",
+    hometown: values.hometown,
+    hometown_address: values.hometown_address,
+    contact_address: values.contact_address,
+    has_disability: values.has_disability,
+    ...(values.has_disability && { disability: values.disability }),
+
+    // Step 2: Sponsor Information
+    has_sponsor: values.has_sponsor,
+    ...(values.has_sponsor && {
+      sponsor_name: values.sponsor_name,
+      sponsor_relationship: values.sponsor_relationship,
+      sponsor_email: values.sponsor_email,
+      sponsor_contact_address: values.sponsor_contact_address,
+      sponsor_phone_number: values.sponsor_phone_number,
+    }),
+
+    // Step 3: Next of Kin
+    next_of_kin_name: values.next_of_kin_name,
+    next_of_kin_relationship: values.next_of_kin_relationship,
+    next_of_kin_phone_number: values.next_of_kin_phone_number,
+    next_of_kin_address: values.next_of_kin_address,
+    next_of_kin_email: values.next_of_kin_email,
+    is_next_of_kin_primary_contact: values.is_next_of_kin_primary_contact,
+    next_of_kin_alternate_phone_number:
+      values.next_of_kin_alternate_phone_number,
+    next_of_kin_occupation: values.next_of_kin_occupation,
+    next_of_kin_workplace: values.next_of_kin_workplace,
+
+    // Step 5 & 6: Qualification fields + exam sitting
+    awaiting_result: values.awaiting_result,
+    ...(!values.awaiting_result && {
+      combined_result: values.combined_result,
+      first_sitting_type: values.first_sitting_type,
+      first_sitting_year: values.first_sitting_year,
+      first_sitting_exam_number: values.first_sitting_exam_number,
+      ...(values.combined_result === "combined_result" && {
+        second_sitting_type: values.second_sitting_type,
+        second_sitting_year: values.second_sitting_year,
+        second_sitting_exam_number: values.second_sitting_exam_number,
+      }),
+    }),
+
+    // Step 8: Program Selection
+    startTerm: values.startTerm,
+    studyMode: values.studyMode,
+    agreeToTerms: values.agreeToTerms,
+
+    // Files (Step 4 & 7) — File[] is expanded to other_documents[0], [1], ...
+    passport: values.passport,
+    first_school_leaving: values.first_school_leaving,
+    o_level: values.o_level,
+    other_documents: values.other_documents,
+    first_sitting_result: values.first_sitting_result,
+    second_sitting_result: values.second_sitting_result,
   }
-
-  // Identity — from the logged-in user's own profile, not re-collected.
-  appendIf("firstName", profile.firstName ?? "")
-  appendIf("middleName", profile.middleName ?? "")
-  appendIf("lastName", profile.lastName ?? "")
-  appendIf("email", profile.email)
-  appendIf("phoneNumber", profile.phoneNumber ?? "")
-
-  // Program & session
-  appendIf("entryMode", values.entryMode)
-  appendIf("sessionId", sessionId)
-  appendIf("programId", values.programId)
-
-  // Step 1: Personal Information
-  appendIf("nationality", values.nationality)
-  appendIf("stateOfOrigin", values.state_of_origin)
-  appendIf("lga", values.lga)
-  appendIf("religion", values.religion)
-  appendIf("dob", values.dob)
-  appendIf("gender", values.gender === "Male" ? "MALE" : "FEMALE")
-  appendIf("hometown", values.hometown)
-  appendIf("hometown_address", values.hometown_address)
-  appendIf("contact_address", values.contact_address)
-  appendIf("has_disability", values.has_disability)
-  if (values.has_disability) appendIf("disability", values.disability)
-
-  // Step 2: Sponsor Information
-  appendIf("has_sponsor", values.has_sponsor)
-  if (values.has_sponsor) {
-    appendIf("sponsor_name", values.sponsor_name)
-    appendIf("sponsor_relationship", values.sponsor_relationship)
-    appendIf("sponsor_email", values.sponsor_email)
-    appendIf("sponsor_contact_address", values.sponsor_contact_address)
-    appendIf("sponsor_phone_number", values.sponsor_phone_number)
-  }
-
-  // Step 3: Next of Kin
-  appendIf("next_of_kin_name", values.next_of_kin_name)
-  appendIf("next_of_kin_relationship", values.next_of_kin_relationship)
-  appendIf("next_of_kin_phone_number", values.next_of_kin_phone_number)
-  appendIf("next_of_kin_address", values.next_of_kin_address)
-  appendIf("next_of_kin_email", values.next_of_kin_email)
-  appendIf(
-    "is_next_of_kin_primary_contact",
-    values.is_next_of_kin_primary_contact
-  )
-  appendIf(
-    "next_of_kin_alternate_phone_number",
-    values.next_of_kin_alternate_phone_number
-  )
-  appendIf("next_of_kin_occupation", values.next_of_kin_occupation)
-  appendIf("next_of_kin_workplace", values.next_of_kin_workplace)
-
-  // Step 5 & 6: Qualification fields + exam sitting
-  appendIf("awaiting_result", values.awaiting_result)
-  if (!values.awaiting_result) {
-    appendIf("combined_result", values.combined_result)
-    appendIf("first_sitting_type", values.first_sitting_type)
-    appendIf("first_sitting_year", values.first_sitting_year)
-    appendIf("first_sitting_exam_number", values.first_sitting_exam_number)
-    if (values.combined_result === "combined_result") {
-      appendIf("second_sitting_type", values.second_sitting_type)
-      appendIf("second_sitting_year", values.second_sitting_year)
-      appendIf("second_sitting_exam_number", values.second_sitting_exam_number)
-    }
-  }
-
-  // Step 8: Program Selection
-  appendIf("startTerm", values.startTerm)
-  appendIf("studyMode", values.studyMode)
-  appendIf("agreeToTerms", values.agreeToTerms)
-
-  // Files (Step 4 & 7)
-  if (values.passport) form.append("passport", values.passport)
-  if (values.first_school_leaving)
-    form.append("first_school_leaving", values.first_school_leaving)
-  if (values.o_level) form.append("o_level", values.o_level)
-  if (values.other_documents) {
-    values.other_documents.forEach((file) =>
-      form.append("other_documents[]", file)
-    )
-  }
-  if (values.first_sitting_result)
-    form.append("first_sitting_result", values.first_sitting_result)
-  if (values.second_sitting_result)
-    form.append("second_sitting_result", values.second_sitting_result)
 
   const response = await apiClient.post<SubmitApplicationApiResponse>(
     "/admissions/applications",
-    form,
-    AUTH
+    payload,
+    { ...AUTH, contentType: "multipart" }
   )
   return response.data
 }

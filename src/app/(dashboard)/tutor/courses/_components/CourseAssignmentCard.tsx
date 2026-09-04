@@ -100,6 +100,17 @@ export function CourseAssignmentCard({
               <h3 className="text-sm leading-snug font-bold text-foreground">
                 {course.courseTitle}
               </h3>
+              {(course.categoryPath.length > 0 ||
+                course.departmentName ||
+                course.facultyName) && (
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {course.categoryPath.length > 0
+                    ? course.categoryPath.join(" › ")
+                    : [course.facultyName, course.departmentName]
+                        .filter(Boolean)
+                        .join(" › ")}
+                </p>
+              )}
             </div>
           </div>
 
@@ -127,26 +138,60 @@ export function CourseAssignmentCard({
 
         {/* Stats row */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Award className="h-3.5 w-3.5" />
-            <span>
-              {course.creditUnits} credit unit
-              {course.creditUnits !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="h-3.5 w-px bg-border" />
+          {course.creditUnits != null && (
+            <>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Award className="h-3.5 w-3.5" />
+                <span>
+                  {course.creditUnits} credit unit
+                  {course.creditUnits !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="h-3.5 w-px bg-border" />
+            </>
+          )}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
             <span>{course.registeredStudents ?? "—"} students registered</span>
           </div>
-          <div className="h-3.5 w-px bg-border" />
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarClock className="h-3.5 w-3.5" />
-            <span>
-              {course.semesterName} · {course.academicYear}
-            </span>
-          </div>
+          {(course.semesterName || course.academicYear || course.levelName) && (
+            <>
+              <div className="h-3.5 w-px bg-border" />
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span>
+                  {[course.levelName, course.semesterName, course.academicYear]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Programmes this course belongs to */}
+        {course.programmes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {course.programmes.map((p) => (
+              <span
+                key={p.code}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                title={p.name}
+              >
+                {p.code}
+                <span
+                  className={
+                    p.isRequired
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-muted-foreground/70"
+                  }
+                >
+                  {p.isRequired ? "required" : "elective"}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Schedule display */}
         <div className="pt-0.5">

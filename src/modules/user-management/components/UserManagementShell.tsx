@@ -40,37 +40,24 @@ export function StudentsManagementShell() {
   // students:manage (both real, already granted to admin/dean) are the
   // correct checks for this table, mirroring TutorManagementShell's
   // view-to-see/manage-to-edit split below.
-  const canDelete = can({ resource: "students", action: "manage" })
   const canCreate = can({ resource: "students", action: "manage" })
   const canExport = can({ resource: "departments", action: "manage" })
 
   return (
     <div className="space-y-8">
       <PermissionGate require={{ resource: "students", action: "view" }}>
-        <StudentsPage
-          canDelete={canDelete}
-          canCreate={canCreate}
-          canExport={canExport}
-        />
+        <StudentsPage canCreate={canCreate} canExport={canExport} />
       </PermissionGate>
     </div>
   )
 }
 
 export function StaffManagementShell() {
-  const { can } = usePermissions()
-
-  // "users:manage" never existed as a real permission — staff:manage
-  // (real, already granted to admin/dean) is the correct check.
-  const canDelete = can({ resource: "staff", action: "manage" })
-  // const canCreate = can({ resource: 'users', action: 'manage' })
-  // const canExport = can({ resource: 'departments', action: 'manage' })
-
   return (
     <div className="space-y-8">
       {/* Staff table — departments:manage (SUPER_ADMIN only, permission id 10) */}
       <PermissionGate require={{ resource: "departments", action: "manage" }}>
-        <StaffPage canDelete={canDelete} />
+        <StaffPage />
       </PermissionGate>
     </div>
   )
@@ -79,16 +66,13 @@ export function StaffManagementShell() {
 export function TutorManagementShell() {
   const { can } = usePermissions()
 
-  // Derive capability flags once — pass down as plain booleans
-  const canDelete = can({ resource: "tutors", action: "manage" })
   const canCreate = can({ resource: "tutors", action: "manage" })
-  // const canExport = can({ resource: 'departments', action: 'manage' })
 
   return (
     <div className="space-y-8">
       {/* Tutors table — same gate */}
       <PermissionGate require={{ resource: "tutors", action: "view" }}>
-        <TutorsPage canDelete={canDelete} canCreate={canCreate} />
+        <TutorsPage canCreate={canCreate} />
       </PermissionGate>
     </div>
   )

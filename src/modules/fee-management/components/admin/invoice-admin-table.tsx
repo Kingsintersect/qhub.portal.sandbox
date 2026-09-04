@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { InvoiceStatusBadge } from "../shared/invoice-status-badge"
 import { FeeCategoryBadge } from "../shared/fee-category-badge"
 import { CurrencyDisplay } from "../shared/currency-display"
@@ -96,7 +95,7 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
     }
   }
 
-  function SortIcon({ col }: { col: SortKey }) {
+  const sortIcon = (col: SortKey) => {
     if (sortKey !== col) return null
     return sortDir === "asc" ? (
       <ChevronUp size={12} className="ml-0.5 inline" />
@@ -227,28 +226,28 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
                   onClick={() => toggleSort("amount")}
                 >
                   Amount
-                  <SortIcon col="amount" />
+                  {sortIcon("amount")}
                 </th>
                 <th
                   className="cursor-pointer px-4 py-3 text-right font-medium text-muted-foreground select-none"
                   onClick={() => toggleSort("amountPaid")}
                 >
                   Paid
-                  <SortIcon col="amountPaid" />
+                  {sortIcon("amountPaid")}
                 </th>
                 <th
                   className="cursor-pointer px-4 py-3 text-left font-medium text-muted-foreground select-none"
                   onClick={() => toggleSort("dueDate")}
                 >
                   Due
-                  <SortIcon col="dueDate" />
+                  {sortIcon("dueDate")}
                 </th>
                 <th
                   className="cursor-pointer px-4 py-3 text-center font-medium text-muted-foreground select-none"
                   onClick={() => toggleSort("status")}
                 >
                   Status
-                  <SortIcon col="status" />
+                  {sortIcon("status")}
                 </th>
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                   Actions
