@@ -1,5 +1,6 @@
 import { UserRole } from "@/config/nav.config"
 import apiClient from "@/lib/clients/apiClient"
+import { clearAllDedupeCaches } from "@/lib/utils/dedupe-async"
 
 const REFRESH_TOKEN_KEY = "refresh_token"
 let refreshInFlight: Promise<string | null> | null = null
@@ -147,6 +148,9 @@ export const storeAuthTokens = (payload: BackendAuthTokens): void => {
 
 export const clearStoredAuthTokens = (): void => {
   apiClient.clearAccessToken()
+  // Drop cross-request lookup caches so the next user in this tab can't see
+  // the previous user's cached data (offering/student/tutor name tables).
+  clearAllDedupeCaches()
 
   if (typeof window === "undefined") return
 
@@ -213,6 +217,54 @@ const fetchMyPermissions = async (accessToken: string): Promise<string[]> => {
     return me.permissions ?? []
   } catch {
     return []
+  }
+}
+
+export type RefreshedSessionRoles = {
+  role: UserRole
+  availableRoles: UserRole[]
+  roles: UserRole[]
+  permissions: string[]
+}
+
+// Real API: GET /auth/me — Bruno: auth/Me.bru. Called after a backend action
+// that can change what roles/permissions this account holds *without* a
+// fresh login — e.g. tuition payment verification promotes an APPLICANT to
+// STUDENT and enrolls them in courses server-side. The NextAuth session is
+// otherwise frozen at whatever roles/permissions it held at sign-in, so
+// nothing picks that change up on its own: a role-gated route like /student
+// would keep rejecting the now-promoted user until they logged out and back
+// in. Callers push the result into the session via next-auth's `update()`
+// (see verify-payments/page.tsx's VerifyTuition) so AuthSessionBridge's
+// existing session -> zustand sync picks it up the normal way.
+//
+// Preserves the currently active role if the backend still grants it (so a
+// multi-role user doesn't get silently switched); otherwise falls back to
+// whichever role now comes first, mirroring loginWithBackend's own
+// primary-role selection.
+export const fetchRefreshedSessionRoles = async (
+  currentActiveRole: UserRole | null
+): Promise<RefreshedSessionRoles | null> => {
+  try {
+    const me = await apiClient.get<{
+      roles?: { name?: string | null }[]
+      permissions?: string[]
+    }>("/auth/me", { access_token: true })
+
+    const roles = normalizeRoleList((me.roles ?? []).map((r) => r.name))
+    if (!roles.length) return null
+
+    return {
+      role:
+        currentActiveRole && roles.includes(currentActiveRole)
+          ? currentActiveRole
+          : roles[0],
+      availableRoles: roles,
+      roles,
+      permissions: me.permissions ?? [],
+    }
+  } catch {
+    return null
   }
 }
 

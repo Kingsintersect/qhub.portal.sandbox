@@ -2,17 +2,27 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Briefcase, Plus, Eye, Pencil, Loader2 } from "lucide-react"
+import {
+  Briefcase,
+  Plus,
+  Eye,
+  Pencil,
+  Loader2,
+  UserX,
+  UserCheck,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
 import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   useStaffList,
   useCreateStaff,
   useUpdateStaff,
   useStaffEligibleRoles,
+  useSetUserActive,
 } from "../hooks/useUsersData"
 import { usePermissions } from "@/lib/permissions/usePermissions"
 import type {
@@ -86,9 +96,11 @@ export default function StaffPage() {
   const { data, isLoading } = useStaffList()
   const createStaff = useCreateStaff()
   const updateStaff = useUpdateStaff()
+  const setActive = useSetUserActive()
   const [selected, setSelected] = useState<Staff | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Staff | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Staff | null>(null)
 
   return (
     <div className="mx-auto space-y-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -134,7 +146,7 @@ export default function StaffPage() {
               key: "actions",
               header: "",
               align: "center",
-              width: "90px",
+              width: "130px",
               render: (row) => (
                 <div className="flex gap-1">
                   <Button
@@ -145,16 +157,39 @@ export default function StaffPage() {
                   >
                     <Eye size={14} />
                   </Button>
-                  {/* Edit — departments:manage (SUPER_ADMIN) only */}
+                  {/* Edit + Deactivate — departments:manage (SUPER_ADMIN) only */}
                   {canCreate && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditing(row as unknown as Staff)}
-                      title="Edit"
-                    >
-                      <Pencil size={14} />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(row as unknown as Staff)}
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={
+                          row.user.is_active
+                            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
+                        }
+                        onClick={() => setStatusTarget(row as unknown as Staff)}
+                        title={
+                          row.user.is_active
+                            ? "Deactivate account"
+                            : "Reactivate account"
+                        }
+                      >
+                        {row.user.is_active ? (
+                          <UserX size={14} />
+                        ) : (
+                          <UserCheck size={14} />
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
               ),
@@ -226,6 +261,34 @@ export default function StaffPage() {
           />
         )}
       </Modal>
+
+      {/* Deactivate / reactivate confirm */}
+      <ConfirmDialog
+        open={!!statusTarget}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        variant={statusTarget?.user.is_active ? "destructive" : "default"}
+        title={
+          statusTarget?.user.is_active
+            ? "Deactivate this account?"
+            : "Reactivate this account?"
+        }
+        description={
+          statusTarget?.user.is_active
+            ? `${statusTarget.user.first_name} ${statusTarget.user.last_name} will lose access to the portal. Their staff record is kept and the account can be reactivated at any time.`
+            : `${statusTarget?.user.first_name} ${statusTarget?.user.last_name} will regain access to the portal.`
+        }
+        confirmLabel={
+          statusTarget?.user.is_active ? "Deactivate" : "Reactivate"
+        }
+        onConfirm={async () => {
+          if (!statusTarget) return
+          await setActive.mutateAsync({
+            id: statusTarget.user_id,
+            isActive: !statusTarget.user.is_active,
+          })
+          setStatusTarget(null)
+        }}
+      />
     </div>
   )
 }

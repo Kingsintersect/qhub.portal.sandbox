@@ -313,19 +313,24 @@ export const usersApi = {
   },
 
   async getUserById(id: number): Promise<ApiSingleResponse<User>> {
-    const raw = await apiClient.get<WireUser>(`/users/${id}`, AUTH)
-    return { data: mapUser(raw) }
+    const res = await apiClient.get<{ data: WireUser }>(`/users/${id}`, AUTH)
+    return { data: mapUser(res.data) }
   },
 
-  // No dedicated "toggle" endpoint — read current state then flip it via PATCH.
-  async toggleUserActive(id: number): Promise<ApiSingleResponse<User>> {
-    const current = await apiClient.get<WireUser>(`/users/${id}`, AUTH)
-    const updated = await apiClient.patch<WireUser>(
+  // Deactivate / reactivate a user account (portal-access flag). `DELETE
+  // /users/:id` is a soft-delete of the same kind; a `PATCH isActive` is the
+  // reversible equivalent the admin tables use. Direct set, not a toggle — the
+  // caller passes the target state from the row it already has.
+  async setUserActive(
+    id: number,
+    isActive: boolean
+  ): Promise<ApiSingleResponse<User>> {
+    const res = await apiClient.patch<{ data: WireUser }>(
       `/users/${id}`,
-      { isActive: !current.isActive },
+      { isActive },
       AUTH
     )
-    return { data: mapUser(updated) }
+    return { data: mapUser(res.data) }
   },
 
   /* ── Students ── */
@@ -358,8 +363,11 @@ export const usersApi = {
   },
 
   async getStudentById(id: number): Promise<ApiSingleResponse<Student>> {
-    const raw = await apiClient.get<WireStudent>(`/users/students/${id}`, AUTH)
-    return { data: mapStudent(raw) }
+    const res = await apiClient.get<{ data: WireStudent }>(
+      `/users/students/${id}`,
+      AUTH
+    )
+    return { data: mapStudent(res.data) }
   },
 
   // MISSING_BACKEND_APIS.md §1.1, now shipped by the backend team —
@@ -367,15 +375,23 @@ export const usersApi = {
   // returns User fields, and `/users/students/:id` needs the id already
   // known). Powers `useMyStudentId` and every "my own record" screen.
   async getMyStudent(): Promise<ApiSingleResponse<Student>> {
-    const raw = await apiClient.get<WireStudent>("/users/students/me", AUTH)
-    return { data: mapStudent(raw) }
+    // The live API wraps single-resource user-module responses in
+    // `{ data: {...} }` — every mapper here expects the bare resource, so
+    // unwrap before mapping. (A previously "resolved but null" bug: the 200
+    // response came back fine, `mapStudent` just read `id` one level too
+    // shallow off the envelope and produced `id: undefined`.)
+    const res = await apiClient.get<{ data: WireStudent }>(
+      "/users/students/me",
+      AUTH
+    )
+    return { data: mapStudent(res.data) }
   },
 
   async updateStudent(
     id: number,
     payload: UpdateStudentPayload
   ): Promise<ApiSingleResponse<Student>> {
-    const raw = await apiClient.patch<WireStudent>(
+    const res = await apiClient.patch<{ data: WireStudent }>(
       `/users/students/${id}`,
       {
         currentLevelId: payload.current_level_id,
@@ -386,7 +402,7 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapStudent(raw), message: "Student updated" }
+    return { data: mapStudent(res.data), message: "Student updated" }
   },
 
   /* ── Tutors (Lecturers) ── */
@@ -413,25 +429,28 @@ export const usersApi = {
   },
 
   async getTutorById(id: number): Promise<ApiSingleResponse<Tutor>> {
-    const raw = await apiClient.get<WireLecturer>(
+    const res = await apiClient.get<{ data: WireLecturer }>(
       `/users/lecturers/${id}`,
       AUTH
     )
-    return { data: mapTutor(raw) }
+    return { data: mapTutor(res.data) }
   },
 
   // MISSING_BACKEND_APIS.md §1.1b, now shipped by the backend team — mirrors
   // getMyStudent(): resolves the current JWT's own Lecturer.id, needed to
   // look up "my assigned courses" via getTutorCourses.
   async getMyLecturer(): Promise<ApiSingleResponse<Tutor>> {
-    const raw = await apiClient.get<WireLecturer>("/users/lecturers/me", AUTH)
-    return { data: mapTutor(raw) }
+    const res = await apiClient.get<{ data: WireLecturer }>(
+      "/users/lecturers/me",
+      AUTH
+    )
+    return { data: mapTutor(res.data) }
   },
 
   async createTutor(
     payload: CreateTutorPayload
   ): Promise<ApiSingleResponse<Tutor>> {
-    const raw = await apiClient.post<WireLecturer>(
+    const res = await apiClient.post<{ data: WireLecturer }>(
       "/users/lecturers",
       {
         userId: payload.user_id,
@@ -455,14 +474,14 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapTutor(raw), message: "Tutor created" }
+    return { data: mapTutor(res.data), message: "Tutor created" }
   },
 
   async updateTutor(
     id: number,
     payload: UpdateTutorPayload
   ): Promise<ApiSingleResponse<Tutor>> {
-    const raw = await apiClient.patch<WireLecturer>(
+    const res = await apiClient.patch<{ data: WireLecturer }>(
       `/users/lecturers/${id}`,
       {
         designation: payload.designation,
@@ -475,7 +494,7 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapTutor(raw), message: "Tutor updated" }
+    return { data: mapTutor(res.data), message: "Tutor updated" }
   },
 
   /* ── Staff ── */
@@ -496,8 +515,11 @@ export const usersApi = {
   },
 
   async getStaffById(id: number): Promise<ApiSingleResponse<Staff>> {
-    const raw = await apiClient.get<WireStaff>(`/users/staff/${id}`, AUTH)
-    return { data: mapStaff(raw) }
+    const res = await apiClient.get<{ data: WireStaff }>(
+      `/users/staff/${id}`,
+      AUTH
+    )
+    return { data: mapStaff(res.data) }
   },
 
   // `roleId` is sent defensively — user_README.md's CreateStaffDto doesn't list it (the
@@ -508,7 +530,7 @@ export const usersApi = {
   async createStaff(
     payload: CreateStaffPayload
   ): Promise<ApiSingleResponse<Staff>> {
-    const raw = await apiClient.post<WireStaff>(
+    const res = await apiClient.post<{ data: WireStaff }>(
       "/users/staff",
       {
         userId: payload.user_id,
@@ -530,14 +552,14 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapStaff(raw), message: "Staff created" }
+    return { data: mapStaff(res.data), message: "Staff created" }
   },
 
   async updateStaff(
     id: number,
     payload: UpdateStaffPayload
   ): Promise<ApiSingleResponse<Staff>> {
-    const raw = await apiClient.patch<WireStaff>(
+    const res = await apiClient.patch<{ data: WireStaff }>(
       `/users/staff/${id}`,
       {
         designation: payload.designation,
@@ -547,7 +569,7 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapStaff(raw), message: "Staff updated" }
+    return { data: mapStaff(res.data), message: "Staff updated" }
   },
 
   /* ── Course Offerings / Tutor Course Assignment ──
@@ -840,10 +862,13 @@ export const usersQueryOptions = {
 // ── Mutation options ────────────────────────
 
 export const usersMutationOptions = {
-  toggleActive: () =>
-    createApiMutationOptions<ApiSingleResponse<User>, number>({
-      mutationKey: [...usersKeys.all, "toggle-active"],
-      mutationFn: (id) => usersApi.toggleUserActive(id),
+  setActive: () =>
+    createApiMutationOptions<
+      ApiSingleResponse<User>,
+      { id: number; isActive: boolean }
+    >({
+      mutationKey: [...usersKeys.all, "set-active"],
+      mutationFn: ({ id, isActive }) => usersApi.setUserActive(id, isActive),
     }),
   updateStudent: () =>
     createApiMutationOptions<

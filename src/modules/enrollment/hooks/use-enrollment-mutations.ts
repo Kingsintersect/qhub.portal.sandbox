@@ -22,6 +22,16 @@ export function useBulkEnroll() {
   })
 }
 
+// Student multi-course registration — loops POST /enrollments under the hood
+// (bulk endpoint is Admin-only). Resolves with per-offering enrolled/errors.
+export function useSelfEnrollMany() {
+  const qc = useQueryClient()
+  return useMutation({
+    ...enrollmentMutationOptions.selfEnrollMany(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: enrollmentKeys.all }),
+  })
+}
+
 export function useDropEnrollment() {
   const qc = useQueryClient()
   return useMutation({

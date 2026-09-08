@@ -52,15 +52,18 @@ export function useUser(id: number) {
   })
 }
 
-export function useToggleUserActive() {
+export function useSetUserActive() {
   const qc = useQueryClient()
   return useMutation({
-    ...usersMutationOptions.toggleActive(),
-    onSuccess: async () => {
+    ...usersMutationOptions.setActive(),
+    onSuccess: async (_res, { isActive }) => {
+      // usersKeys.all is a prefix of the students/tutors/staff list keys, so
+      // this refreshes every user table.
       await qc.invalidateQueries({ queryKey: usersKeys.all })
-      toast.success("User status updated")
+      toast.success(isActive ? "Account reactivated" : "Account deactivated")
     },
-    onError: () => toast.error("Failed to update user status"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to update account status")),
   })
 }
 

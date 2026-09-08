@@ -81,6 +81,15 @@ export const authOptions: NextAuthOptions = {
       if (trigger === "update" && session) {
         if (session.accessToken) token.accessToken = session.accessToken
         if (session.refreshToken) token.refreshToken = session.refreshToken
+        // Pushed from client after a backend action changed this account's
+        // roles/permissions without a fresh login (see
+        // fetchRefreshedSessionRoles in backendAuth.ts) — e.g. tuition
+        // payment promoting an APPLICANT to STUDENT.
+        if (session.role) token.role = session.role
+        if (session.availableRoles)
+          token.availableRoles = session.availableRoles
+        if (session.roles) token.roles = session.roles
+        if (session.permissions) token.permissions = session.permissions
       }
 
       return token
