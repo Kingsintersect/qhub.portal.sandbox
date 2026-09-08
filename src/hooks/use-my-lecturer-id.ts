@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { usersApi, usersKeys } from "@/services/usersApi"
-import { useAppStore } from "@/store/appStore"
+import { useAppStore, useAppHydrated } from "@/store"
 import { UserRole } from "@/config/nav.config"
 
 // MISSING_BACKEND_APIS.md §1.1b, now shipped by the backend team — mirrors
@@ -12,19 +12,23 @@ import { UserRole } from "@/config/nav.config"
 export function useMyLecturerId(): {
   lecturerId: number | null
   isLoading: boolean
+  isError: boolean
+  refetch: () => void
 } {
+  const hydrated = useAppHydrated()
   const role = useAppStore((s) => s.user?.role)
 
   const query = useQuery({
     queryKey: usersKeys.tutors.me(),
     queryFn: () => usersApi.getMyLecturer(),
-    enabled: role === UserRole.TUTOR,
-    retry: false,
+    enabled: hydrated && role === UserRole.TUTOR,
     staleTime: 1000 * 60 * 10,
   })
 
   return {
     lecturerId: query.data?.data.id ?? null,
-    isLoading: role === UserRole.TUTOR && query.isLoading,
+    isLoading: hydrated && role === UserRole.TUTOR && query.isLoading,
+    isError: query.isError,
+    refetch: () => void query.refetch(),
   }
 }

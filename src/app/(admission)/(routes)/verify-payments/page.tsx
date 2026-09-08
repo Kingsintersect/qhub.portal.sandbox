@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
+import { useSession } from "next-auth/react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { PaymentVerificationView } from "../../components"
@@ -11,6 +12,7 @@ import {
   useVerifyAcceptanceFeePayment,
   useVerifyTuitionPayment,
 } from "../../hooks/useAdmissionQueries"
+import { fetchRefreshedSessionRoles } from "@/lib/auth/backendAuth"
 import {
   APPLICATION_FEE_AMOUNT,
   ACCEPTANCE_FEE_AMOUNT,
@@ -98,6 +100,27 @@ function VerifyAcceptance({ reference }: { reference: string }) {
 
 function VerifyTuition({ reference }: { reference: string }) {
   const { data, isLoading, error } = useVerifyTuitionPayment(reference)
+  const { data: session, update } = useSession()
+  const refreshedSession = useRef(false)
+
+  // Tuition payment is the one verification step that can promote the
+  // account (APPLICANT -> STUDENT) and enroll it in courses on the backend —
+  // the session the browser is holding has no way to know that on its own.
+  // Refresh it here, while the success screen's countdown is still showing,
+  // so /student is actually reachable by the time the applicant continues
+  // instead of bouncing them back out for a manual re-login.
+  useEffect(() => {
+    if (!data?.success || refreshedSession.current) return
+    refreshedSession.current = true
+
+    void (async () => {
+      const fresh = await fetchRefreshedSessionRoles(
+        session?.user?.role ?? null
+      )
+      if (fresh) await update(fresh)
+    })()
+  }, [data?.success, session?.user?.role, update])
+
   return (
     <PaymentVerificationView
       title="Verifying Tuition Payment"

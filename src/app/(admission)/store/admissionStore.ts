@@ -15,6 +15,14 @@ import type { AdmissionStepDefinition } from "@/types/admissionConfig"
 interface AdmissionState {
   student: AdmissionStudent | null
   fees: FeeSchedule | null
+  // NOT the source of truth for rendering — `student` and `processSteps`
+  // arrive from two independent queries, and whichever one's setter (below)
+  // runs first computes this from the OTHER value's state at that instant,
+  // which may still be its empty/null default. `process-admission/page.tsx`
+  // does not read this field; it derives the step itself via `useMemo` from
+  // both queries' live data, which is race-free by construction. Kept here
+  // (and still kept up to date) only in case something outside that page
+  // ever needs a best-effort synchronous snapshot.
   currentStep: AdmissionStep
   /** The admin's PROCESS step registry rows, filtered to enabled/required and sorted by `order`. */
   processSteps: AdmissionStepDefinition[]
@@ -53,7 +61,7 @@ const STEP_COMPLETION: Partial<
  * (a genuinely custom key with no matching UI yet) is treated as
  * automatically satisfied so applicants never get stuck on it.
  */
-function deriveStep(
+export function deriveStep(
   student: AdmissionStudent | null,
   orderedSteps: AdmissionStepDefinition[]
 ): AdmissionStep {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useMemo } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertTriangle } from "lucide-react"
@@ -29,7 +29,8 @@ import { AdmissionStep } from "../../types/admission"
 
 const KNOWN_STEP_KEYS: readonly string[] = Object.values(AdmissionStep)
 import { GraduationCap, RotateCcw, Loader2 } from "lucide-react"
-import { useAdmissionStore } from "../../store/admissionStore"
+import { sortByOrder } from "@/lib/admissionConfig"
+import { deriveStep } from "../../store/admissionStore"
 
 export default function ProcessAdmissionPage() {
   const queryClient = useQueryClient()
@@ -44,8 +45,6 @@ export default function ProcessAdmissionPage() {
     isLoading: configLoading,
     isError: configError,
   } = useQuery(admissionStepsQueryOptions.config())
-  const currentStep = useAdmissionStore((s) => s.currentStep)
-  const setStepConfig = useAdmissionStore((s) => s.setStepConfig)
   const {
     resetAll,
     simulateProgramChosen,
@@ -58,18 +57,28 @@ export default function ProcessAdmissionPage() {
     simulateTuitionPaid,
   } = useDevSimulate()
 
-  /* Apply the admin-configured step order/toggles as soon as they load */
-  useEffect(() => {
-    if (admissionConfig) {
-      setStepConfig(admissionConfig.processSteps)
-    }
-  }, [admissionConfig, setStepConfig])
-
-  /* Re-compute step whenever student data updates */
-  const computeStep = useAdmissionStore((s) => s.computeStep)
-  useEffect(() => {
-    if (student) computeStep()
-  }, [student, computeStep])
+  // Derived directly from both queries' live data on every render — not
+  // stored in Zustand and set imperatively from two independent effects.
+  // That older approach raced: whichever of `student`/`admissionConfig`
+  // resolved first computed the step from the *other* value's still-empty
+  // default, and nothing was guaranteed to recompute once both were in,
+  // so a freshly-logged-in applicant could get stuck on the wrong step
+  // until a full page reload happened to settle the race differently.
+  // A plain `useMemo` has no such window: it always reflects the current
+  // `student` + `processSteps`, whichever order they arrived in.
+  const orderedSteps = useMemo(
+    () =>
+      sortByOrder(
+        (admissionConfig?.processSteps ?? []).filter(
+          (s) => s.enabled || s.required
+        )
+      ),
+    [admissionConfig]
+  )
+  const currentStep = useMemo(
+    () => deriveStep(student ?? null, orderedSteps),
+    [student, orderedSteps]
+  )
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: admissionKeys.student() })

@@ -1,13 +1,19 @@
 "use client"
 
-import { AlertTriangle, BookOpen, GraduationCap } from "lucide-react"
+import { AlertTriangle, BookOpen, GraduationCap, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import EmptyState from "@/components/custom/EmptyState"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
 import { useEnrollmentsByStudent } from "@/modules/enrollment/hooks/use-enrollments"
 import { MyCourseLaunchCard } from "@/modules/enrollment/components/my-course-launch-card"
 
 export default function StudentCoursesPage() {
-  const { studentId, isLoading: resolvingStudentId } = useMyStudentId()
+  const {
+    studentId,
+    isLoading: resolvingStudentId,
+    isError: studentIdErrored,
+    refetch: retryStudentId,
+  } = useMyStudentId()
   const { data, isLoading, isError } = useEnrollmentsByStudent(studentId, {
     status: "ENROLLED",
   })
@@ -30,9 +36,23 @@ export default function StudentCoursesPage() {
       </section>
 
       {studentId === null && !resolvingStudentId && (
-        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-xs text-muted-foreground">
-          Your student record couldn&apos;t be resolved yet, so your courses
-          can&apos;t load — check back once that&apos;s available.
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-xs text-muted-foreground">
+          <span>
+            {studentIdErrored
+              ? "Couldn't resolve your student record — this is usually a passing hiccup."
+              : "Your student record couldn't be resolved yet, so your courses can't load — check back once that's available."}
+          </span>
+          {studentIdErrored && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => retryStudentId()}
+            >
+              <RefreshCw size={12} />
+              Try again
+            </Button>
+          )}
         </div>
       )}
 

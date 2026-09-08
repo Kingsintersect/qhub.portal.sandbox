@@ -2,15 +2,28 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { GraduationCap, Eye, Pencil, Loader2, Download } from "lucide-react"
+import {
+  GraduationCap,
+  Eye,
+  Pencil,
+  Loader2,
+  Download,
+  UserX,
+  UserCheck,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
 import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { usePermissions } from "@/lib/permissions/usePermissions"
 import { useLevels } from "@/hooks/useCourseStructure"
-import { useStudents, useUpdateStudent } from "../hooks/useUsersData"
+import {
+  useStudents,
+  useUpdateStudent,
+  useSetUserActive,
+} from "../hooks/useUsersData"
 import type {
   Student,
   StudentStatus,
@@ -119,8 +132,10 @@ export default function StudentsPage({
 
   const { data, isLoading } = useStudents()
   const updateStudent = useUpdateStudent()
+  const setActive = useSetUserActive()
   const [selected, setSelected] = useState<Student | null>(null)
   const [editing, setEditing] = useState<Student | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Student | null>(null)
 
   return (
     <div className="mx-auto space-y-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -169,7 +184,7 @@ export default function StudentsPage({
               key: "actions",
               header: "",
               align: "center",
-              width: "90px",
+              width: "130px",
               render: (row) => (
                 <div className="flex gap-1">
                   <Button
@@ -180,16 +195,41 @@ export default function StudentsPage({
                   >
                     <Eye size={14} />
                   </Button>
-                  {/* Edit — users:manage only */}
+                  {/* Edit + Deactivate — students:manage only */}
                   {canCreate && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditing(row as unknown as Student)}
-                      title="Edit"
-                    >
-                      <Pencil size={14} />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(row as unknown as Student)}
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={
+                          row.user.is_active
+                            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
+                        }
+                        onClick={() =>
+                          setStatusTarget(row as unknown as Student)
+                        }
+                        title={
+                          row.user.is_active
+                            ? "Deactivate account"
+                            : "Reactivate account"
+                        }
+                      >
+                        {row.user.is_active ? (
+                          <UserX size={14} />
+                        ) : (
+                          <UserCheck size={14} />
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
               ),
@@ -244,6 +284,34 @@ export default function StudentsPage({
           />
         )}
       </Modal>
+
+      {/* Deactivate / reactivate confirm */}
+      <ConfirmDialog
+        open={!!statusTarget}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        variant={statusTarget?.user.is_active ? "destructive" : "default"}
+        title={
+          statusTarget?.user.is_active
+            ? "Deactivate this account?"
+            : "Reactivate this account?"
+        }
+        description={
+          statusTarget?.user.is_active
+            ? `${statusTarget.user.first_name} ${statusTarget.user.last_name} will lose access to the portal. Their student record and academic status (${statusTarget.status}) are unchanged, and the account can be reactivated at any time.`
+            : `${statusTarget?.user.first_name} ${statusTarget?.user.last_name} will regain access to the portal.`
+        }
+        confirmLabel={
+          statusTarget?.user.is_active ? "Deactivate" : "Reactivate"
+        }
+        onConfirm={async () => {
+          if (!statusTarget) return
+          await setActive.mutateAsync({
+            id: statusTarget.user_id,
+            isActive: !statusTarget.user.is_active,
+          })
+          setStatusTarget(null)
+        }}
+      />
     </div>
   )
 }
