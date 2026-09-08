@@ -11,6 +11,8 @@ import {
   BookMarked,
   X,
   UploadCloud,
+  UserX,
+  UserCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
@@ -18,6 +20,7 @@ import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
 import Combobox from "@/components/custom/Combobox"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { BulkImportTutorsModal } from "./BulkImportTutorsModal"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { usePermissions } from "@/lib/permissions/usePermissions"
@@ -33,6 +36,7 @@ import {
   useCourseOfferings,
   useAssignCourse,
   useUnassignCourse,
+  useSetUserActive,
 } from "../hooks/useUsersData"
 import type {
   Tutor,
@@ -114,19 +118,21 @@ export default function TutorsPage({
   const { data, isLoading } = useTutors()
   const createTutor = useCreateTutor()
   const updateTutor = useUpdateTutor()
+  const setActive = useSetUserActive()
 
   const [selected, setSelected] = useState<Tutor | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [editing, setEditing] = useState<Tutor | null>(null)
   const [coursesFor, setCoursesFor] = useState<Tutor | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Tutor | null>(null)
 
   // Actions column is built here because it needs the permission flags
   const actionsColumn: Column<Tutor & Record<string, unknown>> = {
     key: "actions",
     header: "",
     align: "center",
-    width: "130px",
+    width: "160px",
     render: (row) => (
       <div className="flex gap-1">
         {/* View — anyone who can see this page */}
@@ -148,6 +154,25 @@ export default function TutorsPage({
             title="Edit"
           >
             <Pencil size={14} />
+          </Button>
+        )}
+
+        {/* Deactivate / reactivate account — tutors:manage only */}
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={
+              row.user.is_active
+                ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
+            }
+            onClick={() => setStatusTarget(row as unknown as Tutor)}
+            title={
+              row.user.is_active ? "Deactivate account" : "Reactivate account"
+            }
+          >
+            {row.user.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
           </Button>
         )}
 
@@ -314,6 +339,34 @@ export default function TutorsPage({
           {coursesFor && <TutorCoursesPanel tutor={coursesFor} />}
         </Modal>
       )}
+
+      {/* Deactivate / reactivate confirm */}
+      <ConfirmDialog
+        open={!!statusTarget}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        variant={statusTarget?.user.is_active ? "destructive" : "default"}
+        title={
+          statusTarget?.user.is_active
+            ? "Deactivate this account?"
+            : "Reactivate this account?"
+        }
+        description={
+          statusTarget?.user.is_active
+            ? `${statusTarget.user.first_name} ${statusTarget.user.last_name} will lose access to the portal. Their tutor record and course assignments are kept, and the account can be reactivated at any time.`
+            : `${statusTarget?.user.first_name} ${statusTarget?.user.last_name} will regain access to the portal.`
+        }
+        confirmLabel={
+          statusTarget?.user.is_active ? "Deactivate" : "Reactivate"
+        }
+        onConfirm={async () => {
+          if (!statusTarget) return
+          await setActive.mutateAsync({
+            id: statusTarget.user_id,
+            isActive: !statusTarget.user.is_active,
+          })
+          setStatusTarget(null)
+        }}
+      />
     </div>
   )
 }

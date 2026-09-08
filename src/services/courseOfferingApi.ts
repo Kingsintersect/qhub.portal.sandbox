@@ -15,6 +15,7 @@ import type {
   CreateSchedulePayload,
   UpdateSchedulePayload,
 } from "@/types/school"
+import { dedupeAsync } from "@/lib/utils/dedupe-async"
 import {
   fetchAcademicTermNames,
   mapCourseOfferingEnrichment,
@@ -102,19 +103,34 @@ export interface OfferingListFilters {
 
 // ── Offerings ────────────────────────────────
 
+async function listOfferings(
+  filters?: OfferingListFilters
+): Promise<{ data: CourseOffering[] }> {
+  const [res, terms] = await Promise.all([
+    apiClient.get<{ data: WireOffering[] }>("/courses/offerings", {
+      ...AUTH,
+      params: filters as Record<string, unknown> | undefined,
+    }),
+    fetchAcademicTermNames(),
+  ])
+  return { data: (res.data ?? []).map((o) => mapOffering(o, terms)) }
+}
+
+// Unfiltered offering list used purely as a name-lookup table by the
+// enrollment/timetable/calendar mappers. Several composite queries need it
+// per page load and it's a plain fetch React Query can't dedupe, so it's
+// wrapped: a burst shares one request + a 30s result. Filtered/UI reads go
+// through `offeringsApi.list()` (via React Query) as before.
+//
+// Kept as a module-level binding rather than an `offeringsApi` property whose
+// initializer calls `offeringsApi.list()` — that self-reference gave the whole
+// object an implicit `any` (TS7022), which silently collapsed every
+// `offeringsApi.list()` consumer's result type to `{}`.
+const listSharedOfferings = dedupeAsync(() => listOfferings(), 30_000)
+
 export const offeringsApi = {
-  async list(
-    filters?: OfferingListFilters
-  ): Promise<{ data: CourseOffering[] }> {
-    const [res, terms] = await Promise.all([
-      apiClient.get<{ data: WireOffering[] }>("/courses/offerings", {
-        ...AUTH,
-        params: filters as Record<string, unknown> | undefined,
-      }),
-      fetchAcademicTermNames(),
-    ])
-    return { data: (res.data ?? []).map((o) => mapOffering(o, terms)) }
-  },
+  list: listOfferings,
+  listShared: listSharedOfferings,
 
   async getById(id: number): Promise<{ data: CourseOfferingDetail }> {
     const [res, terms] = await Promise.all([

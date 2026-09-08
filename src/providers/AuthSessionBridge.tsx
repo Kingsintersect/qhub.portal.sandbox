@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { UserRole } from "@/config/nav.config"
 import { useAppStore } from "@/store"
@@ -19,7 +19,18 @@ export default function AuthSessionBridge({
   children: React.ReactNode
 }) {
   const { data: session, status, update } = useSession()
-  const { isAuthenticated, logout, setUser } = useAppStore()
+  // Selectors, not a bare `useAppStore()` — otherwise this component
+  // re-renders on every store change (including its own `setUser` below).
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+  const logout = useAppStore((s) => s.logout)
+  const setUser = useAppStore((s) => s.setUser)
+
+  // `setUser` always builds a fresh user object and notifies every store
+  // subscriber (RoleGuard, Sidebar, dashboard widgets, …), which re-runs
+  // `refetchOnMount` queries. next-auth can hand back a new `session` object
+  // on ticks where nothing actually changed, so without this guard the effect
+  // would call `setUser` on every one of those, thrashing the whole tree.
+  const appliedSessionSig = useRef<string | null>(null)
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role) {
@@ -46,27 +57,39 @@ export default function AuthSessionBridge({
         storeRefreshToken(session.user.refreshToken)
       }
 
-      setUser({
-        id: session.user.id || `session-${session.user.email ?? "user"}`,
-        name:
-          session.user.name ||
-          [session.user.firstName, session.user.lastName]
-            .filter(Boolean)
-            .join(" ")
-            .trim() ||
-          "Portal User",
-        email: session.user.email ?? "",
+      const sig = JSON.stringify({
+        id: session.user.id,
         role,
         availableRoles,
-        permissions: resolvePermissionsByKeys(session.user.permissions),
-        avatar: session.user.avatar ?? undefined,
-        firstName: session.user.firstName ?? undefined,
-        lastName: session.user.lastName ?? undefined,
+        permissions: session.user.permissions ?? [],
+        name: session.user.name,
+        avatar: session.user.avatar ?? null,
       })
+      if (sig !== appliedSessionSig.current) {
+        appliedSessionSig.current = sig
+        setUser({
+          id: session.user.id || `session-${session.user.email ?? "user"}`,
+          name:
+            session.user.name ||
+            [session.user.firstName, session.user.lastName]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            "Portal User",
+          email: session.user.email ?? "",
+          role,
+          availableRoles,
+          permissions: resolvePermissionsByKeys(session.user.permissions),
+          avatar: session.user.avatar ?? undefined,
+          firstName: session.user.firstName ?? undefined,
+          lastName: session.user.lastName ?? undefined,
+        })
+      }
       return
     }
 
     if (status === "unauthenticated" && isAuthenticated) {
+      appliedSessionSig.current = null
       clearStoredAuthTokens()
       logout()
     }

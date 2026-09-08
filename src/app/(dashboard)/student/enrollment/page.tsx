@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { UserCheck } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
-import { MyCoursesList } from "@/modules/enrollment/components/my-courses-list"
+import { CourseRegistration } from "@/modules/enrollment/components/course-registration"
 
 export default function StudentEnrollmentPage() {
   return (
@@ -28,7 +28,7 @@ export default function StudentEnrollmentPage() {
           </div>
         </motion.div>
 
-        <MyCoursesList />
+        <CourseRegistration />
       </div>
     </PermissionGate>
   )

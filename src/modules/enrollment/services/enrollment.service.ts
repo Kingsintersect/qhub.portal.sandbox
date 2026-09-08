@@ -17,6 +17,8 @@ import apiClient, {
   createApiMutationOptions,
   createApiQueryOptions,
 } from "@/lib/clients/apiClient"
+import { dedupeAsync } from "@/lib/utils/dedupe-async"
+import { canAny } from "@/lib/permissions/can"
 import { offeringsApi } from "@/services/courseOfferingApi"
 import { usersApi } from "@/services/usersApi"
 import { timetableService } from "@/modules/timetable/services/timetable.service"
@@ -83,21 +85,40 @@ interface RawAttendance {
   }
 }
 
-// One lookup pass per list-returning call — reused by every mapper, keeping
-// this to two extra (cheap, cached elsewhere) requests rather than one per row.
-async function buildLookups(): Promise<{
-  offeringsById: Map<number, CourseOffering>
-  studentsById: Map<number, Student>
-}> {
-  const [offeringsRes, studentsRes] = await Promise.all([
-    offeringsApi.list(),
-    usersApi.listStudents({ limit: 100 }),
-  ])
-  return {
-    offeringsById: new Map(offeringsRes.data.map((o) => [o.id, o])),
-    studentsById: new Map(studentsRes.data.map((s) => [s.id, s])),
+// Shared offering/student name lookups, reused by every mapper below so a
+// list of N enrollments costs 2 extra requests, not 2N.
+//
+// - `dedupeAsync`: several composite queries (by-student, attendance summary,
+//   …) each need these on every run, and they're plain `apiClient` calls that
+//   React Query can't dedupe — so a burst of them on one page load shares a
+//   single fetch + a short-lived result instead of hammering the API.
+// - the student list is only fetched for users who can actually view it
+//   (`students.view`/`manage`); for a student looking at their *own*
+//   enrollments it would just 403. `mapEnrollment` falls back to the
+//   enrollment response's own nested `student`/`offering` fields either way.
+const buildLookups = dedupeAsync(
+  async (): Promise<{
+    offeringsById: Map<number, CourseOffering>
+    studentsById: Map<number, Student>
+  }> => {
+    const canListStudents = canAny([
+      ["students", "view"],
+      ["students", "manage"],
+    ])
+    const [offeringsRes, studentsRes] = await Promise.all([
+      offeringsApi.listShared().catch(() => ({ data: [] as CourseOffering[] })),
+      canListStudents
+        ? usersApi
+            .listStudents({ limit: 100 })
+            .catch(() => ({ data: [] as Student[], total: 0 }))
+        : Promise.resolve({ data: [] as Student[], total: 0 }),
+    ])
+    return {
+      offeringsById: new Map(offeringsRes.data.map((o) => [o.id, o])),
+      studentsById: new Map(studentsRes.data.map((s) => [s.id, s])),
+    }
   }
-}
+)
 
 function fullName(
   user?: {
@@ -231,6 +252,45 @@ export const enrollmentApi = {
 
   async bulkCreate(dto: BulkEnrollDto): Promise<BulkEnrollResult> {
     return apiClient.post<BulkEnrollResult>(`${BASE}/bulk`, dto, AUTH)
+  },
+
+  // Student-facing multi-course registration. `POST /enrollments/bulk` is
+  // Admin-only (enrollment_README.md), so a student picking several offerings
+  // fans out to the self-allowed `POST /enrollments`, one per offering, and
+  // reports per-offering outcomes in the same shape `bulkCreate` returns.
+  // Each offering carries its own `semesterId`. Independent requests: one
+  // rejection (duplicate, full, window closed) doesn't sink the others.
+  async selfEnrollMany(
+    studentId: number,
+    items: { offeringId: number; semesterId: number }[]
+  ): Promise<BulkEnrollResult> {
+    const settled = await Promise.allSettled(
+      items.map((it) =>
+        enrollmentApi.create({
+          studentId,
+          offeringId: it.offeringId,
+          semesterId: it.semesterId,
+        })
+      )
+    )
+    const enrolled: BulkEnrollResult["enrolled"] = []
+    const errors: BulkEnrollResult["errors"] = []
+    settled.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        enrolled.push({
+          id: r.value.id,
+          offeringId: items[i].offeringId,
+          status: r.value.status,
+        })
+      } else {
+        const reason = r.reason as { message?: string } | undefined
+        errors.push({
+          offeringId: items[i].offeringId,
+          message: reason?.message ?? "Enrollment failed.",
+        })
+      }
+    })
+    return { enrolled, errors }
   },
 
   // Server decides DROPPED (within registration window, no penalty) vs
@@ -449,6 +509,15 @@ export const enrollmentMutationOptions = {
     createApiMutationOptions<BulkEnrollResult, BulkEnrollDto>({
       mutationKey: [...enrollmentKeys.all, "bulk-create"],
       mutationFn: (dto) => enrollmentApi.bulkCreate(dto),
+    }),
+  selfEnrollMany: () =>
+    createApiMutationOptions<
+      BulkEnrollResult,
+      { studentId: number; items: { offeringId: number; semesterId: number }[] }
+    >({
+      mutationKey: [...enrollmentKeys.all, "self-enroll-many"],
+      mutationFn: ({ studentId, items }) =>
+        enrollmentApi.selfEnrollMany(studentId, items),
     }),
   drop: () =>
     createApiMutationOptions<

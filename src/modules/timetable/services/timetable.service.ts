@@ -33,6 +33,8 @@ import apiClient, {
   createApiMutationOptions,
   createApiQueryOptions,
 } from "@/lib/clients/apiClient"
+import { dedupeAsync } from "@/lib/utils/dedupe-async"
+import { canAny } from "@/lib/permissions/can"
 import { offeringsApi } from "@/services/courseOfferingApi"
 import { usersApi } from "@/services/usersApi"
 import type { CourseOffering } from "@/types/school"
@@ -102,21 +104,38 @@ interface RawScheduleRelations {
   lecturer?: { user?: { firstName?: string | null; lastName?: string | null } }
 }
 
-// One lookup pass per list-returning call, reused by every mapper below —
-// keeps this to two extra requests total (not one per row).
-async function buildLookups(): Promise<{
-  offeringsById: Map<number, CourseOffering>
-  tutorsById: Map<number, Tutor>
-}> {
-  const [offeringsRes, tutorsRes] = await Promise.all([
-    offeringsApi.list(),
-    usersApi.listTutors(),
-  ])
-  return {
-    offeringsById: new Map(offeringsRes.data.map((o) => [o.id, o])),
-    tutorsById: new Map(tutorsRes.data.map((t) => [t.id, t])),
+// Shared offering/tutor name lookups, reused by every mapper below — a list
+// of N slots costs 2 extra requests, not 2N.
+//
+// - `dedupeAsync` collapses the burst of identical calls the student
+//   dashboard makes (my-timetable + tutor-timetable + calendar all build
+//   these) into one fetch + a short-lived result — plain `apiClient` calls
+//   React Query can't dedupe on its own.
+// - the tutor list is only fetched for users who can actually view it
+//   (`tutors.view`/`manage`); for a student viewing their own timetable it
+//   would just 403. `mapSlot` prefers the schedule response's own nested
+//   `lecturer.user` / `offering.course` fields either way.
+const buildLookups = dedupeAsync(
+  async (): Promise<{
+    offeringsById: Map<number, CourseOffering>
+    tutorsById: Map<number, Tutor>
+  }> => {
+    const canListTutors = canAny([
+      ["tutors", "view"],
+      ["tutors", "manage"],
+    ])
+    const [offeringsRes, tutorsRes] = await Promise.all([
+      offeringsApi.listShared().catch(() => ({ data: [] as CourseOffering[] })),
+      canListTutors
+        ? usersApi.listTutors().catch(() => ({ data: [] as Tutor[], total: 0 }))
+        : Promise.resolve({ data: [] as Tutor[], total: 0 }),
+    ])
+    return {
+      offeringsById: new Map(offeringsRes.data.map((o) => [o.id, o])),
+      tutorsById: new Map(tutorsRes.data.map((t) => [t.id, t])),
+    }
   }
-}
+)
 
 function mapSlot(
   raw: RawScheduleRelations,
@@ -381,7 +400,7 @@ export const calendarService = {
         ...AUTH,
         params: { days: params.days, page: params.page, limit: params.limit },
       }),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     const data = res.data.map((e) => mapCalendarEvent(e, offeringsById))
@@ -402,7 +421,7 @@ export const calendarService = {
         "/calendar/events/my/upcoming",
         AUTH
       ),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     return res.data.map((e) => mapCalendarEvent(e, offeringsById))
@@ -414,7 +433,7 @@ export const calendarService = {
         ...AUTH,
         params: { days },
       }),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     return res.data.map((e) => mapCalendarEvent(e, offeringsById))
@@ -437,7 +456,7 @@ export const calendarService = {
           limit: filters.limit ?? 20,
         },
       }),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     const data = res.data.map((e) => mapCalendarEvent(e, offeringsById))
@@ -455,7 +474,7 @@ export const calendarService = {
   async getEventById(id: number): Promise<CalendarEvent> {
     const [res, offerings] = await Promise.all([
       apiClient.get<{ data: RawCalendarEvent }>(`/calendar/events/${id}`, AUTH),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     return mapCalendarEvent(res.data, offeringsById)
@@ -468,7 +487,7 @@ export const calendarService = {
         undefined,
         AUTH
       ),
-      offeringsApi.list(),
+      offeringsApi.listShared(),
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     return mapCalendarEvent(res.data, offeringsById)

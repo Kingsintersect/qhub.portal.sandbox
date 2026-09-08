@@ -1,4 +1,5 @@
 import apiClient from "@/lib/clients/apiClient"
+import { dedupeAsync } from "@/lib/utils/dedupe-async"
 
 // Shared mapping for the enriched `GET /courses/offerings` response — used by
 // both `@/services/usersApi` (tutor course-assignment) and
@@ -105,25 +106,38 @@ export interface AcademicTermNames {
 // Resolved from `GET /academic-calendar` (active session + its semesters) to
 // turn an offering's bare session/semester ids into display names. Non-fatal —
 // on failure, offerings still render with ids/status, just without names.
-export async function fetchAcademicTermNames(): Promise<AcademicTermNames> {
-  try {
-    const res = await apiClient.get<{
-      data: {
-        session: { id: number; name: string } | null
-        semesters: { id: number; name: string }[]
+//
+// `dedupeAsync`: this is called from every offering mapper in both
+// `courseOfferingApi` and `usersApi`, so a page listing offerings from a
+// couple of angles would otherwise hit `/academic-calendar` several times per
+// load. The active session/semesters barely change, so a 60s shared result
+// is safe.
+export const fetchAcademicTermNames = dedupeAsync(
+  async (): Promise<AcademicTermNames> => {
+    try {
+      const res = await apiClient.get<{
+        data: {
+          session: { id: number; name: string } | null
+          semesters: { id: number; name: string }[]
+        }
+      }>("/academic-calendar", AUTH)
+      return {
+        sessionId: res.data.session?.id ?? null,
+        sessionName: res.data.session?.name ?? null,
+        semesterNamesById: new Map(
+          (res.data.semesters ?? []).map((s) => [s.id, s.name])
+        ),
       }
-    }>("/academic-calendar", AUTH)
-    return {
-      sessionId: res.data.session?.id ?? null,
-      sessionName: res.data.session?.name ?? null,
-      semesterNamesById: new Map(
-        (res.data.semesters ?? []).map((s) => [s.id, s.name])
-      ),
+    } catch {
+      return {
+        sessionId: null,
+        sessionName: null,
+        semesterNamesById: new Map(),
+      }
     }
-  } catch {
-    return { sessionId: null, sessionName: null, semesterNamesById: new Map() }
-  }
-}
+  },
+  60_000
+)
 
 export function mapCourseOfferingEnrichment(
   o: WireOfferingEnrichmentInput,
