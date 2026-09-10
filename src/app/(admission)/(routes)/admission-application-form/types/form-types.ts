@@ -316,8 +316,36 @@ export function getStepForField(field: string): FormStep | undefined {
   return FIELD_TO_STEP.get(field)
 }
 
+/**
+ * Backend payload keys that don't match the form's own field name — see
+ * `submitApplication` in application-submit.service.ts, which renames a few
+ * fields on the way out. Everything not listed here is sent under its form
+ * field name unchanged.
+ */
+const BACKEND_FIELD_ALIASES: Record<string, string> = {
+  stateOfOrigin: "state_of_origin",
+}
+
+/**
+ * Resolves a backend validation-error key (from a Laravel `errors` map,
+ * possibly indexed like `other_documents.0`) to the form field it maps to,
+ * so a server-side rejection can be labelled and linked to its step.
+ */
+export function backendFieldToFormField(key: string): string {
+  const base = key.split(".")[0]
+  return BACKEND_FIELD_ALIASES[base] ?? base
+}
+
 /** Human-readable labels for the submit error summary — falls back to a prettified field name for anything missing here. */
 export const FIELD_LABELS: Record<string, string> = {
+  // Identity/session fields — sent from the logged-in profile & active
+  // session, not collected on any step, but the backend can still reject them.
+  firstName: "First Name",
+  middleName: "Middle Name",
+  lastName: "Last Name",
+  email: "Email Address",
+  phoneNumber: "Phone Number",
+  sessionId: "Academic Session",
   nationality: "Nationality",
   state_of_origin: "State of Origin",
   lga: "Local Government Area",

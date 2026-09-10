@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { motion } from "framer-motion"
 import {
   CalendarDays,
@@ -17,8 +19,12 @@ import { TimetableList } from "@/modules/timetable/components/TimetableList"
 import { ScheduleFormDialog } from "@/modules/timetable/components/ScheduleFormDialog"
 import {
   useAllSchedules,
+  useSchedulesByLecturer,
+  useSchedulesBySemester,
   useDeleteSchedule,
 } from "@/modules/timetable/hooks/useTimetable"
+import { academicCalendarQueryOptions } from "@/modules/timetable/services/timetable.service"
+import { usersQueryOptions } from "@/services/usersApi"
 import { useTimetableUIStore } from "@/modules/timetable/store/useTimetableUIStore"
 import type { TimetableSlot } from "@/modules/timetable/types/timetable.types"
 
@@ -32,9 +38,28 @@ export default function AdminTimetablePage() {
     openEditDialog,
     closeDialog,
   } = useTimetableUIStore()
-  const { data, isLoading } = useAllSchedules()
+
+  const [lecturerId, setLecturerId] = useState<number | null>(null)
+  const [semesterId, setSemesterId] = useState<number | null>(null)
+
+  const { data: calendar } = useQuery(academicCalendarQueryOptions.current())
+  const { data: tutorsRes } = useQuery(usersQueryOptions.tutors.list())
+  const semesters = calendar?.semesters ?? []
+  const tutors = tutorsRes?.data ?? []
+
+  // One filter at a time drives the data source: a dedicated lecturer/semester
+  // endpoint when scoped, the full paginated list otherwise.
+  const allQuery = useAllSchedules()
+  const lecturerQuery = useSchedulesByLecturer(lecturerId)
+  const semesterQuery = useSchedulesBySemester(lecturerId ? null : semesterId)
+
+  const { slots, isLoading } = lecturerId
+    ? { slots: lecturerQuery.data ?? [], isLoading: lecturerQuery.isLoading }
+    : semesterId
+      ? { slots: semesterQuery.data ?? [], isLoading: semesterQuery.isLoading }
+      : { slots: allQuery.data?.data ?? [], isLoading: allQuery.isLoading }
+
   const deleteMutation = useDeleteSchedule()
-  const slots = data?.data ?? []
 
   function handleDelete(slot: TimetableSlot) {
     if (confirm(`Delete ${slot.courseCode} on ${slot.dayOfWeek}?`)) {
@@ -134,6 +159,55 @@ export default function AdminTimetablePage() {
             </PermissionGate>
           </div>
         </motion.div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={lecturerId ?? ""}
+            onChange={(e) => {
+              setLecturerId(e.target.value ? Number(e.target.value) : null)
+              setSemesterId(null)
+            }}
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs outline-none focus-visible:border-ring"
+          >
+            <option value="">All lecturers</option>
+            {tutors.map((t) => (
+              <option key={t.id} value={t.id}>
+                {[t.user.first_name, t.user.last_name]
+                  .filter(Boolean)
+                  .join(" ") || t.staff_number}
+              </option>
+            ))}
+          </select>
+          <select
+            value={semesterId ?? ""}
+            disabled={!!lecturerId}
+            onChange={(e) =>
+              setSemesterId(e.target.value ? Number(e.target.value) : null)
+            }
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs outline-none focus-visible:border-ring disabled:opacity-50"
+          >
+            <option value="">All semesters</option>
+            {semesters.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.isActive ? " (active)" : ""}
+              </option>
+            ))}
+          </select>
+          {(lecturerId || semesterId) && (
+            <button
+              type="button"
+              onClick={() => {
+                setLecturerId(null)
+                setSemesterId(null)
+              }}
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
         {viewMode === "grid" ? (
           <TimetableGrid

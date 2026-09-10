@@ -1,11 +1,12 @@
 "use client"
 
-import { useRef } from "react"
-import { Printer, Receipt } from "lucide-react"
+import { useRef, useState } from "react"
+import { Info, Loader2, Printer, Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import Modal from "@/components/custom/Modal"
 import { CurrencyDisplay } from "../shared/currency-display"
-import { useInvoicePaymentHistory } from "../../hooks/use-payment"
+import { useInvoicePaymentHistory, usePayment } from "../../hooks/use-payment"
 
 // Method display labels
 const METHOD_LABEL: Record<string, string> = {
@@ -29,6 +30,7 @@ export function PaymentHistory({
   const { data, isLoading } = useInvoicePaymentHistory(invoiceId)
   const printRef = useRef<HTMLDivElement>(null)
   const payments = data?.data ?? []
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   function printReceipt(paymentId: number) {
     const payment = payments.find((p) => p.id === paymentId)
@@ -130,21 +132,117 @@ export function PaymentHistory({
               {payment.status.charAt(0) + payment.status.slice(1).toLowerCase()}
             </span>
 
-            {payment.status === "COMPLETED" && (
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 gap-1 text-xs"
-                onClick={() => printReceipt(payment.id)}
-                title="Print receipt"
+                onClick={() => setDetailId(payment.id)}
+                title="Payment details"
               >
-                <Printer size={11} />
-                Receipt
+                <Info size={11} />
+                Details
               </Button>
-            )}
+              {payment.status === "COMPLETED" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => printReceipt(payment.id)}
+                  title="Print receipt"
+                >
+                  <Printer size={11} />
+                  Receipt
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       ))}
+
+      <PaymentDetailModal
+        paymentId={detailId}
+        onClose={() => setDetailId(null)}
+      />
     </div>
+  )
+}
+
+const METHOD_LABEL_FALLBACK = (m: string) => METHOD_LABEL[m] ?? m
+
+function PaymentDetailModal({
+  paymentId,
+  onClose,
+}: {
+  paymentId: number | null
+  onClose: () => void
+}) {
+  const { data, isLoading } = usePayment(paymentId)
+  const p = data?.data
+
+  const rows: { label: string; value: string | null | undefined }[] = p
+    ? [
+        { label: "Reference", value: p.referenceNumber },
+        { label: "Gateway reference", value: p.gatewayReference },
+        { label: "Method", value: METHOD_LABEL_FALLBACK(p.method) },
+        { label: "Status", value: p.status },
+        {
+          label: "Paid",
+          value: p.paidAt
+            ? new Date(p.paidAt).toLocaleString("en-NG", { dateStyle: "long" })
+            : null,
+        },
+        {
+          label: "Verified",
+          value: p.verifiedAt
+            ? new Date(p.verifiedAt).toLocaleString("en-NG", {
+                dateStyle: "long",
+              })
+            : null,
+        },
+        { label: "Fee type", value: p.feeTypeName },
+        { label: "Invoice", value: p.invoiceNumber },
+      ]
+    : []
+
+  return (
+    <Modal
+      open={paymentId !== null}
+      onClose={onClose}
+      title="Payment details"
+      subtitle={p ? undefined : isLoading ? "Loading…" : undefined}
+      size="md"
+    >
+      {isLoading && !p ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <Loader2 size={18} className="animate-spin" />
+        </div>
+      ) : !p ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Couldn&apos;t load this payment.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-2xl font-bold text-foreground">
+            <CurrencyDisplay amount={p.amount} />
+          </p>
+          <div className="divide-y divide-border/60">
+            {rows
+              .filter((r) => r.value)
+              .map((r) => (
+                <div
+                  key={r.label}
+                  className="flex justify-between gap-4 py-2 text-sm"
+                >
+                  <span className="text-muted-foreground">{r.label}</span>
+                  <span className="text-right font-medium text-foreground">
+                    {r.value}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }

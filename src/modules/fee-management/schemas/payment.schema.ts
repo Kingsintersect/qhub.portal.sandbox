@@ -37,3 +37,22 @@ export const PaymentHistoryItemSchema = z.object({
 export const PaymentHistoryResponseSchema = z.object({
   data: z.array(PaymentHistoryItemSchema),
 })
+
+// GET /fees/payments/:id — Admin or Owner. The `.bru` has no example body,
+// so this is the history-item shape plus the extra fields a single-record
+// view would plausibly carry, all optional / nullable so the parse never
+// fails on a leaner response.
+export const PaymentDetailSchema = PaymentHistoryItemSchema.extend({
+  invoiceId: z.number().optional(),
+  invoiceNumber: z.string().nullish(),
+  feeTypeName: z.string().nullish(),
+  gatewayReference: z.string().nullish(),
+  verifiedAt: z.string().nullish(),
+  createdAt: z.string().nullish(),
+  studentName: z.string().nullish(),
+  studentMatric: z.string().nullish(),
+})
+
+export const PaymentDetailResponseSchema = z.object({
+  data: PaymentDetailSchema,
+})

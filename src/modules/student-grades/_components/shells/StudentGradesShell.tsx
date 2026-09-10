@@ -8,6 +8,7 @@ import GradesSummaryPage from "./StudentGrade"
 import GradingSchemesPage from "./GradingSchemes"
 import StudentResultsPage from "../StudentResultsPage"
 import { BulkGradeForm } from "../BulkGradeForm"
+import { TutorCourseGradeBook } from "../TutorCourseGradeBook"
 
 // ========== GRADE SUMMARY SHELL (Student View) ==========
 // Shows: Grade distribution, top performers, grade scale
@@ -102,7 +103,9 @@ export function StudentResultShell() {
 }
 
 // ========== TUTOR GRADE BOOK SHELL ==========
-// Shows: Paginated grades table with filters — tutor reviews grades for their courses
+// Shows: course-scoped grade book — pick one of your offerings, see every
+// student's grade for that course + semester in one call
+// (GET /results/grades/course/:c/semester/:s).
 // Requires: results:manage (permission 3)
 export function TutorGradeBookShell() {
   const { can } = usePermissions()
@@ -121,12 +124,7 @@ export function TutorGradeBookShell() {
         </div>
       }
     >
-      <GradesResultsPage
-        canViewAll={false}
-        canManage={canManage}
-        canExport={canExport}
-        canAnalyze={false}
-      />
+      <TutorCourseGradeBook canManage={canManage} canExport={canExport} />
     </PermissionGate>
   )
 }

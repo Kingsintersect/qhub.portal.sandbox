@@ -1,8 +1,18 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { useQuery, keepPreviousData } from "@tanstack/react-query"
-import type { GradeFilters, GradesGroupBy } from "../types/grades.types"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query"
+import { toast } from "sonner"
+import type {
+  GradeFilters,
+  GradesGroupBy,
+  GradeScaleInput,
+} from "../types/grades.types"
 import { gradesService } from "../services/grades.service"
 import { gradesKeys } from "./query-keys"
 
@@ -140,6 +150,54 @@ export function useStudentTranscript(studentId: number | null) {
   }
 }
 
+// Downloads the semester result / transcript PDF and triggers a browser save.
+// `GET /students/me/results/:semesterId/download` 404s if there's no published
+// result for that semester (or until the backend ships it) — surfaced as a
+// friendly toast, not an error boundary.
+export function useDownloadSemesterResult() {
+  return useMutation({
+    mutationFn: async (arg: { semesterId: number; label: string }) => {
+      const blob = await gradesService.downloadSemesterResult(arg.semesterId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `result-${arg.label.replace(/\s+/g, "-").toLowerCase()}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    },
+    onError: (err) => {
+      const status = (err as { status?: number } | null)?.status
+      toast.error(
+        status === 404
+          ? "No downloadable result for this semester yet."
+          : err instanceof Error
+            ? err.message
+            : "Couldn't download the result sheet."
+      )
+    },
+  })
+}
+
+// Standing CGPA figure only — one request (`/results/cgpa/student/:id`),
+// no accompanying grade list. Use where only the number is shown (dashboard
+// stat, profile header) rather than useStudentTranscript.
+export function useStudentCgpa(studentId: number | null) {
+  const query = useQuery({
+    queryKey: gradesKeys.cgpa(studentId),
+    queryFn: () => gradesService.getStudentCgpa(studentId as number),
+    enabled: studentId !== null && studentId > 0,
+    staleTime: 1000 * 60 * 5,
+  })
+
+  return {
+    currentCGPA: query.data?.currentCGPA ?? null,
+    history: query.data?.history ?? [],
+    loading: query.isLoading,
+  }
+}
+
 // ─── Term Results Hook (SECONDARY_SCHOOL / SIMPLE_AVERAGE) ────────────────────
 // `enabled` is passed by the caller — only fetch once the student's
 // Program.programCategory is known to be SECONDARY_SCHOOL, see
@@ -168,5 +226,85 @@ export function useGradeScales() {
     data: query.data ?? [],
     scales: query.data ?? [],
     loading: query.isLoading,
+  }
+}
+
+// ─── Grade Scale CRUD (Admin) ────────────────────────────────────────────────
+
+export function useCreateGradeScale() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: GradeScaleInput) => gradesService.createGradeScale(dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: gradesKeys.gradeScales() })
+      toast.success("Grade band added")
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't add the band"),
+  })
+}
+
+export function useUpdateGradeScale() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (arg: { id: number; dto: Partial<GradeScaleInput> }) =>
+      gradesService.updateGradeScale(arg.id, arg.dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: gradesKeys.gradeScales() })
+      toast.success("Grade band updated")
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't update the band"),
+  })
+}
+
+export function useDeleteGradeScale() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => gradesService.deleteGradeScale(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: gradesKeys.gradeScales() })
+      toast.success("Grade band removed")
+    },
+    onError: (e) =>
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : "Couldn't remove the band — it may still be in use by existing grades."
+      ),
+  })
+}
+
+// ─── One grade by id (refresh a single row against server state) ─────────────
+
+export function useGrade(id: number | null) {
+  return useQuery({
+    queryKey: gradesKeys.detail(id),
+    queryFn: () => gradesService.getGradeById(id as number),
+    enabled: !!id && id > 0,
+    staleTime: 30 * 1000,
+  })
+}
+
+// ─── Grades for one course + semester (Lecturer / Admin) ─────────────────────
+
+export function useGradesByCourseAndSemester(
+  courseId: number | null,
+  semesterId: number | null
+) {
+  const query = useQuery({
+    queryKey: gradesKeys.byCourseAndSemester(courseId ?? 0, semesterId ?? 0),
+    queryFn: () =>
+      gradesService.getGradesByCourseAndSemester(
+        courseId as number,
+        semesterId as number
+      ),
+    enabled: !!courseId && !!semesterId,
+    staleTime: 60 * 1000,
+  })
+  return {
+    grades: query.data ?? [],
+    loading: query.isLoading,
+    isError: query.isError,
   }
 }

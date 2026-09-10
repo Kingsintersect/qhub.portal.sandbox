@@ -11,6 +11,7 @@ import type {
   UserSyncResponse,
   UsersBulkPushPayload,
   PullUsersResult,
+  UnmatchedMoodleUser,
   AssessmentResponse,
   AssessmentFilter,
   PaginatedAssessments,
@@ -88,6 +89,140 @@ async function buildUnitLookup(): Promise<
       { name: u.name, typeCode: u.typeCode, parentId: u.parentId },
     ])
   )
+}
+
+// ── Assessment wire shapes + normalizers ──────────────────────────────────────
+// Verified against the live backend 2026-09-10 — see the "Assessments" section
+// of `moodleSyncService` below for why every call goes to `/assessments/*`.
+
+// List / my / upcoming / course/:id — flat course object.
+interface RawAssessmentListItem {
+  id: number
+  assessmentType: AssessmentResponse["assessmentType"]
+  name: string
+  description?: string | null
+  dueDate?: string | null
+  maxGrade?: number | null
+  isVisible?: boolean
+  course?: { code?: string; title?: string; semesterName?: string | null }
+}
+
+// GET /assessments/:id — deep course object + sync metadata.
+interface RawAssessmentDetail {
+  id: number
+  assessmentType: AssessmentResponse["assessmentType"]
+  name: string
+  description?: string | null
+  dueDate?: string | null
+  maxGrade?: number | null
+  isVisible?: boolean
+  moodleSyncCourseId?: number | null
+  moodleAssessmentId?: number | null
+  lastSyncAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  course?: {
+    id?: number
+    moodleCourseId?: number
+    moodleShortName?: string
+    moodleFullName?: string
+    courseOffering?: {
+      course?: { code?: string; title?: string }
+      semester?: { name?: string }
+      academicSession?: { name?: string }
+    }
+  }
+}
+
+function mapAssessmentListItem(raw: RawAssessmentListItem): AssessmentResponse {
+  return {
+    id: raw.id,
+    assessmentType: raw.assessmentType,
+    name: raw.name,
+    description: raw.description ?? null,
+    dueDate: raw.dueDate ?? null,
+    maxGrade: raw.maxGrade ?? null,
+    isVisible: raw.isVisible ?? true,
+    courseCode: raw.course?.code ?? "—",
+    courseTitle: raw.course?.title ?? "Untitled course",
+    semesterName: raw.course?.semesterName ?? null,
+    academicSessionName: null,
+    moodleSyncCourseId: null,
+    moodleAssessmentId: null,
+    moodleShortName: null,
+    moodleFullName: null,
+    lastSyncAt: null,
+    createdAt: null,
+    updatedAt: null,
+  }
+}
+
+function mapAssessmentDetail(raw: RawAssessmentDetail): AssessmentResponse {
+  const offering = raw.course?.courseOffering
+  return {
+    id: raw.id,
+    assessmentType: raw.assessmentType,
+    name: raw.name,
+    description: raw.description ?? null,
+    dueDate: raw.dueDate ?? null,
+    maxGrade: raw.maxGrade ?? null,
+    isVisible: raw.isVisible ?? true,
+    courseCode: offering?.course?.code ?? "—",
+    courseTitle: offering?.course?.title ?? "Untitled course",
+    semesterName: offering?.semester?.name ?? null,
+    academicSessionName: offering?.academicSession?.name ?? null,
+    moodleSyncCourseId: raw.course?.id ?? raw.moodleSyncCourseId ?? null,
+    moodleAssessmentId: raw.moodleAssessmentId ?? null,
+    moodleShortName: raw.course?.moodleShortName ?? null,
+    moodleFullName: raw.course?.moodleFullName ?? null,
+    lastSyncAt: raw.lastSyncAt ?? null,
+    createdAt: raw.createdAt ?? null,
+    updatedAt: raw.updatedAt ?? null,
+  }
+}
+
+// `/assessments/sync/status` docs give `{ summary, courses }`; the older
+// `/moodle-sync/...` route gave `{ data: { totalAssessments, totalSyncedCourses,
+// coursesByStatus, lastSyncAt } }` with no per-course rows. Accept either.
+function normalizeAssessmentSyncStatus(
+  res: Record<string, unknown>
+): AssessmentSyncStatusResult {
+  const body = (
+    "data" in res && res.data && typeof res.data === "object" ? res.data : res
+  ) as Record<string, unknown>
+
+  const summaryRaw = (body.summary ?? body) as Record<string, unknown>
+  const byStatusRaw = (summaryRaw.byStatus ??
+    body.coursesByStatus ??
+    {}) as Record<string, number>
+  const coursesRaw = Array.isArray(body.courses)
+    ? (body.courses as Record<string, unknown>[])
+    : []
+
+  return {
+    summary: {
+      totalCourses: Number(
+        summaryRaw.totalCourses ?? body.totalSyncedCourses ?? coursesRaw.length
+      ),
+      totalAssessments: Number(
+        summaryRaw.totalAssessments ?? body.totalAssessments ?? 0
+      ),
+      byStatus: {
+        SYNCED: Number(byStatusRaw.SYNCED ?? 0),
+        PENDING: Number(byStatusRaw.PENDING ?? 0),
+        FAILED: Number(byStatusRaw.FAILED ?? 0),
+        STALE: Number(byStatusRaw.STALE ?? 0),
+      },
+    },
+    courses: coursesRaw.map((c) => ({
+      courseOfferingId: Number(c.courseOfferingId ?? 0),
+      courseCode: String(c.courseCode ?? "—"),
+      moodleCourseId: Number(c.moodleCourseId ?? 0),
+      assessmentCount: Number(c.assessmentCount ?? 0),
+      lastSyncAt: (c.lastSyncAt as string | null) ?? null,
+      failedCount: Number(c.failedCount ?? 0),
+    })),
+  }
 }
 
 export const moodleSyncService = {
@@ -223,6 +358,18 @@ export const moodleSyncService = {
       AUTH
     ),
 
+  // GET /moodle-sync/users/unmatched — Admin. Read-only preview of the same
+  // `unmatched[]` array that `POST /users/pull` returns, but without writing
+  // anything. Lets the admin see standing unmatched Moodle accounts without
+  // having to re-run a pull. List GET → `{ data: ... }` envelope.
+  async getUnmatchedUsers(): Promise<UnmatchedMoodleUser[]> {
+    const res = await apiClient.get<{ data: UnmatchedMoodleUser[] }>(
+      `${BASE}/users/unmatched`,
+      AUTH
+    )
+    return res.data
+  },
+
   // ---------- Courses ----------
 
   async listCourses(): Promise<CourseSyncResponse[]> {
@@ -313,86 +460,114 @@ export const moodleSyncService = {
     ),
 
   // ---------- Assessments ----------
-  // Bruno's query/path param is `offeringId` — the frontend keeps `courseId`
-  // as the filter name for consistency with the rest of this module's hooks.
+  // Verified live 2026-09-10 against the running backend: the COMPLETE contract
+  // is `/assessments/*` (assesments_README.md / bruno/assessments), NOT
+  // `/moodle-sync/assessments/*` — that path only has list/course/upcoming/
+  // pull/pull-all/sync-status and 404s on `/my`, `/:id`, `/:id/visibility`,
+  // `DELETE /:id`, `/sync/*`. So every method here calls `/assessments/*`.
   //
-  // listAssessments/listAssessmentsByCourse/listUpcomingAssessments/
-  // pullAssessments/pullAllAssessments were already real. Everything below
-  // the "-- confirmed live --" marker was the set of additions needed to
-  // fully replace this module's old duplicate, fully-mock frontend surface
-  // (which was wired to a separate real `/assessments/*` route namespace) —
-  // per MISSING_BACKEND_APIS.md, now shipped by the backend team.
+  // Two wire shapes over one entity, normalized here:
+  //   • list / my / upcoming / course/:id  →  flat `course:{code,title,semesterName}`, + `meta`
+  //   • GET /assessments/:id (detail)        →  deep `course.courseOffering.{...}` + sync metadata
+  // `mapAssessmentListItem` / `mapAssessmentDetail` collapse both into one
+  // `AssessmentResponse`.
+  //
+  // ONLY `ca-preview` (the Moodle CA → Grade.caScore bridge) is genuinely
+  // unshipped — see sandbox/API_GAPS_2026-09.md §2.
 
-  listAssessments: (filters: { courseId?: number; type?: string } = {}) =>
-    apiClient.get<{ data: AssessmentResponse[] }>(`${BASE}/assessments`, {
-      ...AUTH,
-      params: { offeringId: filters.courseId, type: filters.type },
-    }),
+  listAssessments: async (
+    filters: {
+      courseId?: number
+      type?: string
+    } = {}
+  ): Promise<{ data: AssessmentResponse[] }> => {
+    const res = await apiClient.get<{ data: RawAssessmentListItem[] }>(
+      `/assessments`,
+      { ...AUTH, params: { offeringId: filters.courseId, type: filters.type } }
+    )
+    return { data: (res.data ?? []).map(mapAssessmentListItem) }
+  },
 
-  listAssessmentsByCourse: (courseOfferingId: number) =>
-    apiClient.get<{ data: AssessmentResponse[] }>(
-      `${BASE}/assessments/course/${courseOfferingId}`,
+  listAssessmentsByCourse: async (
+    courseOfferingId: number
+  ): Promise<{ data: AssessmentResponse[] }> => {
+    const res = await apiClient.get<{ data: RawAssessmentListItem[] }>(
+      `/assessments/course/${courseOfferingId}`,
       AUTH
-    ),
+    )
+    return { data: (res.data ?? []).map(mapAssessmentListItem) }
+  },
 
-  listUpcomingAssessments: () =>
-    apiClient.get<{ data: AssessmentResponse[] }>(
-      `${BASE}/assessments/upcoming`,
+  listAssessmentsByCourseUpcoming: async (
+    courseOfferingId: number
+  ): Promise<{ data: AssessmentResponse[] }> => {
+    const res = await apiClient.get<{ data: RawAssessmentListItem[] }>(
+      `/assessments/course/${courseOfferingId}/upcoming`,
       AUTH
-    ),
+    )
+    return { data: (res.data ?? []).map(mapAssessmentListItem) }
+  },
+
+  listUpcomingAssessments: async (): Promise<{
+    data: AssessmentResponse[]
+  }> => {
+    const res = await apiClient.get<{ data: RawAssessmentListItem[] }>(
+      `/assessments/upcoming`,
+      AUTH
+    )
+    return { data: (res.data ?? []).map(mapAssessmentListItem) }
+  },
 
   pullAssessments: (moodleCourseId: number) =>
-    apiClient.post<{ pulled: number }>(
-      `${BASE}/assessments/pull/${moodleCourseId}`,
+    apiClient.post<AssessmentSyncResult>(
+      `/assessments/sync/${moodleCourseId}`,
       undefined,
       AUTH
     ),
 
   pullAllAssessments: () =>
-    apiClient.post<{ pulled: number }>(
-      `${BASE}/assessments/pull-all`,
+    apiClient.post<{ jobId?: string; message?: string }>(
+      `/assessments/sync-all`,
       undefined,
       AUTH
     ),
-
-  // -- confirmed live (MISSING_BACKEND_APIS.md), now shipped by the backend team --
 
   async listAssessmentsPaginated(
     filters: Partial<AssessmentFilter> = {}
   ): Promise<PaginatedAssessments> {
     const res = await apiClient.get<{
-      data: AssessmentResponse[]
+      data: RawAssessmentListItem[]
       meta?: { total: number; page: number; limit: number }
-    }>(`${BASE}/assessments`, {
+    }>(`/assessments`, {
       ...AUTH,
       params: {
         type: filters.type,
         offeringId: filters.courseOfferingId,
+        semesterId: filters.semesterId,
         isVisible: filters.isVisible,
         upcoming: filters.upcoming,
         page: filters.page,
         limit: filters.limit,
       },
     })
-    // `meta`/pagination per MISSING_BACKEND_APIS.md, now shipped — kept the
-    // `res.meta ??` fallback regardless, so callers never crash on
-    // `res.meta.total` even if a given response omits it.
+    const data = (res.data ?? []).map(mapAssessmentListItem)
     return {
-      data: res.data,
+      data,
       meta: res.meta ?? {
-        total: res.data.length,
+        total: data.length,
         page: filters.page ?? 1,
-        limit: filters.limit ?? res.data.length,
+        limit: filters.limit ?? data.length,
       },
     }
   },
 
   async getAssessment(id: number): Promise<AssessmentResponse> {
-    const res = await apiClient.get<{ data: AssessmentResponse }>(
-      `${BASE}/assessments/${id}`,
-      AUTH
-    )
-    return res.data
+    // Detail is returned FLAT (not `{data}`-wrapped) per the live response.
+    const res = await apiClient.get<
+      RawAssessmentDetail | { data: RawAssessmentDetail }
+    >(`/assessments/${id}`, AUTH)
+    const raw = "data" in res ? res.data : res
+    return mapAssessmentDetail(raw)
   },
 
   async getMyAssessments(
@@ -400,19 +575,17 @@ export const moodleSyncService = {
       Pick<AssessmentFilter, "type" | "upcoming" | "page" | "limit">
     > = {}
   ): Promise<PaginatedAssessments> {
-    // /assessments/my per MISSING_BACKEND_APIS.md, now shipped by the
-    // backend team. Kept the same `meta` envelope fallback as
-    // listAssessmentsPaginated in case a given response omits it.
     const res = await apiClient.get<{
-      data: AssessmentResponse[]
+      data: RawAssessmentListItem[]
       meta?: { total: number; page: number; limit: number }
-    }>(`${BASE}/assessments/my`, { ...AUTH, params: filters })
+    }>(`/assessments/my`, { ...AUTH, params: filters })
+    const data = (res.data ?? []).map(mapAssessmentListItem)
     return {
-      data: res.data,
+      data,
       meta: res.meta ?? {
-        total: res.data.length,
+        total: data.length,
         page: filters.page ?? 1,
-        limit: filters.limit ?? res.data.length,
+        limit: filters.limit ?? data.length,
       },
     }
   },
@@ -421,53 +594,53 @@ export const moodleSyncService = {
     id: number,
     payload: UpdateVisibilityPayload
   ): Promise<VisibilityResponse> {
-    return apiClient.patch<VisibilityResponse, UpdateVisibilityPayload>(
-      `${BASE}/assessments/${id}/visibility`,
-      payload,
-      AUTH
-    )
+    const res = await apiClient.patch<
+      VisibilityResponse | { data: VisibilityResponse },
+      UpdateVisibilityPayload
+    >(`/assessments/${id}/visibility`, payload, AUTH)
+    return "data" in res ? res.data : res
   },
 
   async deleteAssessmentMapping(id: number): Promise<{ message: string }> {
-    return apiClient.delete<{ message: string }>(
-      `${BASE}/assessments/${id}`,
-      AUTH
-    )
+    return apiClient.delete<{ message: string }>(`/assessments/${id}`, AUTH)
   },
 
   async getAssessmentSyncStatus(): Promise<AssessmentSyncStatusResult> {
-    return apiClient.get<AssessmentSyncStatusResult>(
-      `${BASE}/assessments/sync-status`,
+    // `/assessments/sync/status` — Admin. Documented shape is
+    // `{ summary: {...}, courses: [...] }`; the older
+    // `/moodle-sync/assessments/sync-status` returned a flatter
+    // `{ data: { totalAssessments, totalSyncedCourses, coursesByStatus } }`.
+    // Normalize both so the table never crashes on a shape change.
+    const res = await apiClient.get<Record<string, unknown>>(
+      `/assessments/sync/status`,
       AUTH
     )
+    return normalizeAssessmentSyncStatus(res)
   },
 
-  // "Retry" is just re-running the real pull for that course — no separate
-  // retry endpoint is needed since pulls are upsert-based (idempotent).
+  // Retry = re-run the pull (upsert-based, idempotent). `/assessments/sync/:id/retry`
+  // exists too, but re-calling sync is equivalent and one less path to depend on.
   retryAssessmentSync(moodleCourseId: number): Promise<AssessmentSyncResult> {
     return apiClient.post<AssessmentSyncResult>(
-      `${BASE}/assessments/pull/${moodleCourseId}`,
+      `/assessments/sync/${moodleCourseId}`,
       undefined,
       AUTH
     )
   },
 
-  // CA pipeline bridge — aggregates a student's Moodle assignment/quiz grades
-  // for one course offering into a proportional CA score (this app's
-  // convention: CA out of 40, Exam out of 60 — see grade-detail-modal.tsx —
-  // `caMax` lets a lecturer override the ceiling per course). Read-only: the
-  // frontend applies the previewed scores via the already-real
-  // POST /results/grades/bulk (gradesService.bulkCreateGrades), not a new
-  // write endpoint here — one path writes Grade.caScore.
+  // Moodle CA → Grade.caScore bridge. NOT YET SHIPPED (404 on both
+  // `/assessments/ca-preview` and `/moodle-sync/assessments/ca-preview` as of
+  // 2026-09-10) — sandbox/API_GAPS_2026-09.md §2 has the spec. The
+  // "Pull CA from Moodle" button surfaces the error until it lands; manual CA
+  // entry works meanwhile.
   async getCaPreview(
     offeringId: number,
     params: { semesterId: number; caMax?: number }
   ): Promise<CaPreviewResponse> {
-    const res = await apiClient.get<{ data: CaPreviewResponse }>(
-      `${BASE}/assessments/ca-preview/${offeringId}`,
-      { ...AUTH, params }
-    )
-    return res.data
+    const res = await apiClient.get<
+      CaPreviewResponse | { data: CaPreviewResponse }
+    >(`/assessments/ca-preview/${offeringId}`, { ...AUTH, params })
+    return "data" in res ? res.data : res
   },
 
   // ---------- Grades (read-only) ----------

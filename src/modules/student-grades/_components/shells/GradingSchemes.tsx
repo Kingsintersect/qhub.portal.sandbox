@@ -10,6 +10,7 @@ import StatusBadge from "@/components/custom/StatusBadge"
 import { useGradingSchemes } from "../../hooks/use-grading-schemes"
 import { GradingSchemeFormDialog } from "../grading-schemes/GradingSchemeFormDialog"
 import { AddScaleDialog } from "../grading-schemes/AddScaleDialog"
+import { GradeBandsSection } from "../grading-schemes/GradeBandsSection"
 import type { GradingScheme, GradingSchemeType } from "../../types/grades.types"
 
 interface GradingSchemesPageProps {
@@ -159,6 +160,10 @@ export default function GradingSchemesPage({
           ))}
         </div>
       )}
+
+      <div className="border-t border-border pt-6">
+        <GradeBandsSection canManage={canManage} />
+      </div>
 
       <GradingSchemeFormDialog
         open={creating}

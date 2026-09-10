@@ -40,6 +40,7 @@ import type {
   EnrollmentRecord,
   EnrollmentStatus,
   MoodleLaunchResult,
+  MyCourseSummary,
   RecordAttendanceDto,
   UpdateAttendanceDto,
 } from "../types"
@@ -323,6 +324,30 @@ export const enrollmentApi = {
     )
   },
 
+  // GET /students/me/courses — Student. The self-scoped course list (no
+  // studentId needed), api-v2.md §"Student Results & Courses". Carries the
+  // per-course `moodleSynced` flag that `/enrollments/student/:id` doesn't.
+  // Rows are minimal ({ offeringId, course:{code,title}, semester,
+  // moodleSynced }) — read defensively; the richer display data still comes
+  // from getByStudent, this just layers the sync flag on top.
+  async getMyCourses(): Promise<MyCourseSummary[]> {
+    const res = await apiClient.get<{
+      data: {
+        offeringId: number
+        course?: { code?: string | null; title?: string | null } | null
+        semester?: string | null
+        moodleSynced?: boolean | null
+      }[]
+    }>("/students/me/courses", AUTH)
+    return (res.data ?? []).map((r) => ({
+      offeringId: r.offeringId,
+      courseCode: r.course?.code ?? "",
+      courseTitle: r.course?.title ?? "",
+      semester: r.semester ?? null,
+      moodleSynced: r.moodleSynced ?? false,
+    }))
+  },
+
   // ── Attendance ──────────────────────────────────────────────────────────
 
   async recordAttendance(dto: RecordAttendanceDto): Promise<AttendanceRecord> {
@@ -439,6 +464,7 @@ export const enrollmentKeys = {
     [...enrollmentKeys.all, "student", studentId, params] as const,
   byOffering: (offeringId: number) =>
     [...enrollmentKeys.all, "offering", offeringId] as const,
+  myCourses: () => [...enrollmentKeys.all, "my-courses"] as const,
   attendanceBySchedule: (scheduleId: number, date?: string) =>
     [
       ...enrollmentKeys.all,
@@ -478,6 +504,15 @@ export const enrollmentQueryOptions = {
     createApiQueryOptions({
       queryKey: enrollmentKeys.byOffering(offeringId),
       queryFn: () => enrollmentApi.getByOffering(offeringId),
+    }),
+  myCourses: () =>
+    createApiQueryOptions({
+      queryKey: enrollmentKeys.myCourses(),
+      queryFn: () => enrollmentApi.getMyCourses(),
+      // Speculative — 404s until the backend ships it; the page falls back
+      // to the studentId-scoped list, so don't hammer on failure.
+      retry: false,
+      staleTime: 5 * 60 * 1000,
     }),
   attendanceBySchedule: (scheduleId: number, attendanceDate?: string) =>
     createApiQueryOptions({

@@ -43,6 +43,21 @@ export interface EnrollmentRecord {
   courseTitle: string
   creditUnits: number
   lecturerName: string | null
+  // Whether this course is mirrored on Moodle yet. Only populated when the
+  // record has been cross-referenced with `GET /students/me/courses`
+  // (see getMyCourses); `null` = unknown, not "not synced".
+  moodleSynced?: boolean | null
+}
+
+// Lightweight row from `GET /students/me/courses` — api-v2.md §"Student
+// Results & Courses". Course content lives on Moodle; this only says which
+// offerings the student is enrolled in and whether each is Moodle-synced.
+export interface MyCourseSummary {
+  offeringId: number
+  courseCode: string
+  courseTitle: string
+  semester: string | null
+  moodleSynced: boolean
 }
 
 export interface EnrollmentPage {

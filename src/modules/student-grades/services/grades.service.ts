@@ -19,13 +19,15 @@
 //
 // Six analytics methods (getDashboardData, getGradeDistribution,
 // getProgramPerformance, getCgpaTrends, getTopPerformers, getGroupedGrades)
-// now have real .bru contracts in bruno/result — see
+// have real .bru contracts in bruno/result — see
 // sandbox/result/missing_grade_apis.readme.md and MISSING_BACKEND_APIS.md §2.7
-// for status. getDashboardData returns the FLAT GradeSummaryStats shape per
-// the confirmed contract (not the nested GradeDashboardData shape this code
-// used to assume, which would have crashed on the real response).
-// hasOutstandingFees is still not shipped on any Grade response (§2.7) — see
-// mapGrade below.
+// for status. None of those .bru files carry an example body, and this
+// module's envelope is inconsistent, so each of the six now routes its
+// response through `unwrap()` — it returns the same value whether the backend
+// answers flat or `{data:...}`, with a safe zero/empty fallback if the body
+// is null. This is `sandbox/API_INTEGRATION_AUDIT.md` A1 resolved without
+// needing a live admin capture. hasOutstandingFees is still not shipped on
+// any Grade response (§2.7) — see mapGrade below.
 //
 // getCoursesByProgram, and the ACADEMIC_YEARS/SEMESTERS/PROGRAMS/COURSES
 // reference constants below, are OUT OF SCOPE for this pass — they belong to
@@ -40,6 +42,7 @@ import apiClient from "@/lib/clients/apiClient"
 import type {
   Grade,
   GradeScale,
+  GradeScaleInput,
   GradeFilters,
   GradesGroupBy,
   GradesPaginationState,
@@ -69,6 +72,23 @@ import type {
 
 const BASE = "/results"
 const AUTH = { access_token: true } as const
+
+// The result-module analytics endpoints have no example body in bruno, and
+// this module's own header notes the envelope is inconsistent across the
+// module (some `{data:...}`, some flat). Rather than guess per-endpoint,
+// accept both: return `body.data` when the response is wrapped, otherwise the
+// body itself. `fallback` is used when the body is null/undefined.
+function unwrap<T>(body: T | { data: T } | null | undefined, fallback: T): T {
+  if (body == null) return fallback
+  if (
+    typeof body === "object" &&
+    "data" in body &&
+    (body as { data: T }).data !== undefined
+  ) {
+    return (body as { data: T }).data
+  }
+  return body as T
+}
 
 // ─── Reference Data (mock — see file header) ───────────────────────────────────
 
@@ -402,6 +422,60 @@ class GradesService {
     return res.data
   }
 
+  // POST/PATCH/DELETE /results/grade-scales — Admin only. `grade` unique,
+  // max 2 chars; minScore/maxScore 0-100 with maxScore >= minScore;
+  // gradePoint >= 0; description nullable, max 50. DELETE is RESTRICT-blocked
+  // once any Grade references the band.
+  async createGradeScale(dto: GradeScaleInput): Promise<GradeScale> {
+    const res = await apiClient.post<{ data: GradeScale }>(
+      `${BASE}/grade-scales`,
+      dto,
+      AUTH
+    )
+    return res.data
+  }
+
+  async updateGradeScale(
+    id: number,
+    dto: Partial<GradeScaleInput>
+  ): Promise<GradeScale> {
+    const res = await apiClient.patch<{ data: GradeScale }>(
+      `${BASE}/grade-scales/${id}`,
+      dto,
+      AUTH
+    )
+    return res.data
+  }
+
+  async deleteGradeScale(id: number): Promise<void> {
+    await apiClient.delete<void>(`${BASE}/grade-scales/${id}`, AUTH)
+  }
+
+  // GET /results/grades/course/:courseId/semester/:semesterId — Lecturer,
+  // Admin. Every grade for one course in one semester, in one call (no
+  // pagination) — for the tutor grade book's per-course view.
+  async getGradesByCourseAndSemester(
+    courseId: number,
+    semesterId: number
+  ): Promise<Grade[]> {
+    const res = await apiClient.get<{ data: RawGradeRelations[] }>(
+      `${BASE}/grades/course/${courseId}/semester/${semesterId}`,
+      AUTH
+    )
+    return res.data.map(mapGrade)
+  }
+
+  // GET /results/grades/:id — one grade with its relations expanded. The list
+  // rows already carry most of this; used to refresh a single row (e.g. the
+  // detail modal) against the freshest server state. Envelope unconfirmed —
+  // routed through `unwrap` like the analytics endpoints.
+  async getGradeById(id: number): Promise<Grade> {
+    const res = await apiClient.get<
+      RawGradeRelations | { data: RawGradeRelations }
+    >(`${BASE}/grades/${id}`, AUTH)
+    return mapGrade(unwrap<RawGradeRelations>(res, {} as RawGradeRelations))
+  }
+
   // ── Grades (filtered + paginated) — real ────────────────────────────────────
 
   async getGrades(
@@ -448,38 +522,54 @@ class GradesService {
     }
   }
 
+  // ── Student CGPA — real (`GET /results/cgpa/student/:id`) ──────────────────
+  // The standing CGPA figure plus per-semester history, from ONE call. Split
+  // out of getStudentTranscript so surfaces that only need the number (e.g.
+  // the student dashboard's CGPA stat) don't also pull the full grade list.
+  async getStudentCgpa(studentId: number): Promise<{
+    currentCGPA: number
+    history: CgpaHistoryEntry[]
+  }> {
+    const res = await apiClient.get<{
+      data: {
+        id: number
+        semesterId: number
+        semester: { name: string; academicSession: { name: string } }
+        gpa: number
+        cgpa: number
+        totalCreditUnits: number
+      }[]
+      currentCGPA: number
+    }>(`${BASE}/cgpa/student/${studentId}`, AUTH)
+
+    return {
+      currentCGPA: res.currentCGPA,
+      history: res.data.map((h) => ({
+        id: h.id,
+        studentId,
+        semesterId: String(h.semesterId),
+        semesterName: h.semester?.name ?? "—",
+        academicYear: h.semester?.academicSession?.name ?? "—",
+        gpa: h.gpa,
+        cgpa: h.cgpa,
+        totalCreditUnits: h.totalCreditUnits,
+      })),
+    }
+  }
+
   // ── Student Transcript — real (composed from two real endpoints) ───────────
 
   async getStudentTranscript(studentId: number): Promise<StudentTranscript> {
-    const [gradesRes, cgpaRes] = await Promise.all([
+    const [gradesRes, cgpa] = await Promise.all([
       apiClient.get<{ data: RawGradeRelations[] }>(
         `${BASE}/grades/student/${studentId}`,
         AUTH
       ),
-      apiClient.get<{
-        data: {
-          id: number
-          semesterId: number
-          semester: { name: string; academicSession: { name: string } }
-          gpa: number
-          cgpa: number
-          totalCreditUnits: number
-        }[]
-        currentCGPA: number
-      }>(`${BASE}/cgpa/student/${studentId}`, AUTH),
+      this.getStudentCgpa(studentId),
     ])
 
     const grades = gradesRes.data.map(mapGrade)
-    const cgpaHistory: CgpaHistoryEntry[] = cgpaRes.data.map((h) => ({
-      id: h.id,
-      studentId,
-      semesterId: String(h.semesterId),
-      semesterName: h.semester?.name ?? "—",
-      academicYear: h.semester?.academicSession?.name ?? "—",
-      gpa: h.gpa,
-      cgpa: h.cgpa,
-      totalCreditUnits: h.totalCreditUnits,
-    }))
+    const cgpaHistory = cgpa.history
 
     const first = grades[0]
     return {
@@ -490,7 +580,7 @@ class GradesService {
       programName: first?.programName ?? "—",
       programCode: first?.programCode ?? "—",
       level: "",
-      currentCGPA: cgpaRes.currentCGPA,
+      currentCGPA: cgpa.currentCGPA,
       totalCreditUnits: cgpaHistory.reduce((a, h) => a + h.totalCreditUnits, 0),
       grades,
       cgpaHistory,
@@ -626,11 +716,19 @@ class GradesService {
   // ── Analytics — real, see MISSING_BACKEND_APIS.md §2.7 for current status ──
 
   async getDashboardData(): Promise<GradeSummaryStats> {
-    const res = await apiClient.get<{ data: GradeSummaryStats }>(
-      `${BASE}/dashboard`,
-      AUTH
-    )
-    return res.data
+    const res = await apiClient.get<
+      GradeSummaryStats | { data: GradeSummaryStats }
+    >(`${BASE}/dashboard`, AUTH)
+    return unwrap<GradeSummaryStats>(res, {
+      totalGrades: 0,
+      publishedCount: 0,
+      approvedCount: 0,
+      pendingApprovals: 0,
+      draftCount: 0,
+      averageCGPA: 0,
+      highestCGPA: 0,
+      passRate: 0,
+    })
   }
 
   // Response shape unconfirmed (no example body in bruno) — treated as
@@ -649,38 +747,35 @@ class GradesService {
   }
 
   async getGradeDistribution(): Promise<GradeDistributionItem[]> {
-    const res = await apiClient.get<{ data: GradeDistributionItem[] }>(
-      `${BASE}/grades/distribution`,
-      AUTH
-    )
-    return res.data
+    const res = await apiClient.get<
+      GradeDistributionItem[] | { data: GradeDistributionItem[] }
+    >(`${BASE}/grades/distribution`, AUTH)
+    return unwrap<GradeDistributionItem[]>(res, [])
   }
 
   async getProgramPerformance(): Promise<ProgramPerformance[]> {
-    const res = await apiClient.get<{ data: ProgramPerformance[] }>(
-      `${BASE}/programs/performance`,
-      AUTH
-    )
-    return res.data
+    const res = await apiClient.get<
+      ProgramPerformance[] | { data: ProgramPerformance[] }
+    >(`${BASE}/programs/performance`, AUTH)
+    return unwrap<ProgramPerformance[]>(res, [])
   }
 
   async getCgpaTrends(): Promise<CgpaTrendPoint[]> {
-    const res = await apiClient.get<{ data: CgpaTrendPoint[] }>(
-      `${BASE}/cgpa/trends`,
-      AUTH
-    )
-    return res.data
+    const res = await apiClient.get<
+      CgpaTrendPoint[] | { data: CgpaTrendPoint[] }
+    >(`${BASE}/cgpa/trends`, AUTH)
+    return unwrap<CgpaTrendPoint[]>(res, [])
   }
 
   async getTopPerformers(limit = 10): Promise<TopPerformer[]> {
-    const res = await apiClient.get<{ data: TopPerformer[] }>(
+    const res = await apiClient.get<TopPerformer[] | { data: TopPerformer[] }>(
       `${BASE}/students/top-performers`,
       {
         ...AUTH,
         params: { limit },
       }
     )
-    return res.data
+    return unwrap<TopPerformer[]>(res, [])
   }
 
   async getGroupedGrades(
@@ -689,14 +784,13 @@ class GradesService {
   ): Promise<GroupedGradeData[]> {
     const params: Record<string, unknown> = { groupBy }
     if (filters.status !== "all") params.status = filters.status
-    const res = await apiClient.get<{ data: GroupedGradeData[] }>(
-      `${BASE}/grades/grouped`,
-      {
-        ...AUTH,
-        params,
-      }
-    )
-    return res.data
+    const res = await apiClient.get<
+      GroupedGradeData[] | { data: GroupedGradeData[] }
+    >(`${BASE}/grades/grouped`, {
+      ...AUTH,
+      params,
+    })
+    return unwrap<GroupedGradeData[]>(res, [])
   }
 
   // ── Term Result Summary (SECONDARY_SCHOOL / SIMPLE_AVERAGE) ─────────────────
@@ -706,6 +800,20 @@ class GradesService {
   // Program.programCategory is SECONDARY_SCHOOL — every CREDIT_WEIGHTED_GPA
   // program (the default) keeps using the real getStudentTranscript above,
   // unchanged.
+
+  // Real API: GET /students/me/results/:semesterId/download — Student.
+  // Streams a PDF (semester transcript for credit-weighted programs, or a
+  // term result sheet otherwise). 404 if no PUBLISHED result exists for that
+  // semester — the caller surfaces that as "not available yet" rather than a
+  // hard error. Endpoint spec: bruno/student/Download Result.bru.
+  // NOTE (2026-09-10): verified 404 against the live backend — not shipped
+  // yet. The button is built and wired; it degrades gracefully until then.
+  async downloadSemesterResult(semesterId: number): Promise<Blob> {
+    return apiClient.get<Blob>(`/students/me/results/${semesterId}/download`, {
+      ...AUTH,
+      responseType: "blob",
+    })
+  }
 
   async getMyTermResults(): Promise<TermResultEntry[]> {
     const res = await apiClient.get<{

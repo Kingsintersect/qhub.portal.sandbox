@@ -13,6 +13,7 @@ import {
   UploadCloud,
   UserX,
   UserCheck,
+  MailPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
@@ -37,6 +38,7 @@ import {
   useAssignCourse,
   useUnassignCourse,
   useSetUserActive,
+  useResendTutorInvite,
 } from "../hooks/useUsersData"
 import type {
   Tutor,
@@ -119,6 +121,7 @@ export default function TutorsPage({
   const createTutor = useCreateTutor()
   const updateTutor = useUpdateTutor()
   const setActive = useSetUserActive()
+  const resendInvite = useResendTutorInvite()
 
   const [selected, setSelected] = useState<Tutor | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -173,6 +176,27 @@ export default function TutorsPage({
             }
           >
             {row.user.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
+          </Button>
+        )}
+
+        {/* Resend onboarding email — tutors:manage only */}
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={
+              resendInvite.isPending &&
+              resendInvite.variables === (row as unknown as Tutor).id
+            }
+            onClick={() => resendInvite.mutate((row as unknown as Tutor).id)}
+            title="Resend onboarding email (resets password)"
+          >
+            {resendInvite.isPending &&
+            resendInvite.variables === (row as unknown as Tutor).id ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <MailPlus size={14} />
+            )}
           </Button>
         )}
 

@@ -45,6 +45,11 @@ export const markReadResponseSchema = z.object({
   data: notificationItemSchema,
 })
 
+// GET /notifications/:id -> { data: Notification } (own notification only)
+export const notificationDetailResponseSchema = z.object({
+  data: notificationItemSchema,
+})
+
 // PATCH /notifications/read-all -> no count is returned by the backend
 export const markAllReadResponseSchema = z.object({
   data: z.object({ status: z.literal("READ") }),

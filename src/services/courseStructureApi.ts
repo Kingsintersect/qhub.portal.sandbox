@@ -55,6 +55,23 @@ export const facultiesApi = {
   async deactivate(id: number): Promise<void> {
     return apiClient.delete<void>(`${BASE}/faculties/${id}`, AUTH)
   },
+
+  // GET /academic/faculties/eligible-deans — every user holding the `dean`
+  // role; the picker source for Faculty.deanUserId. Response
+  // `{data: {id, firstName, lastName, email}[]}`.
+  async listEligibleDeans(): Promise<{ data: EligibleDean[] }> {
+    return apiClient.get<{ data: EligibleDean[] }>(
+      `${BASE}/faculties/eligible-deans`,
+      AUTH
+    )
+  },
+}
+
+export interface EligibleDean {
+  id: number
+  firstName: string | null
+  lastName: string | null
+  email: string
 }
 
 export const departmentsApi = {
@@ -165,6 +182,8 @@ export const courseStructureKeys = {
     list: () => [...courseStructureKeys.faculties.all, "list"] as const,
     detail: (id: number) =>
       [...courseStructureKeys.faculties.all, "detail", id] as const,
+    eligibleDeans: () =>
+      [...courseStructureKeys.faculties.all, "eligible-deans"] as const,
   },
   departments: {
     all: ["course-structure", "departments"] as const,
@@ -205,6 +224,11 @@ export const courseStructureQueryOptions = {
       createApiQueryOptions({
         queryKey: courseStructureKeys.faculties.detail(id),
         queryFn: () => facultiesApi.getById(id),
+      }),
+    eligibleDeans: () =>
+      createApiQueryOptions({
+        queryKey: courseStructureKeys.faculties.eligibleDeans(),
+        queryFn: () => facultiesApi.listEligibleDeans(),
       }),
   },
   departments: {

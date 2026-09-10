@@ -28,6 +28,22 @@ export function useAuditLogs(params: AuditQueryParams) {
   })
 }
 
+// ─── useAuditLog ──────────────────────────────────────────────────────────────
+
+/**
+ * Fetches the full, JSON-decoded audit record for one entry. Used by the
+ * detail modal to enrich the lighter row already held in the store — the
+ * modal still renders from that row while this loads or if it 404s.
+ */
+export function useAuditLog(id: number | null) {
+  return useQuery({
+    queryKey: auditKeys.log(id ?? 0),
+    queryFn: () => auditApi.getLogById(id as number),
+    enabled: typeof id === "number" && id > 0,
+    staleTime: 60_000,
+  })
+}
+
 // ─── useAuditUserLogs ────────────────────────────────────────────────────────
 
 export function useAuditUserLogs(

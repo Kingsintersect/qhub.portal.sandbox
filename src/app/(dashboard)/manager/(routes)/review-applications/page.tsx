@@ -1,19 +1,46 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import { ClipboardList, Eye, GraduationCap, Users } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  CheckCircle2,
+  ClipboardList,
+  Eye,
+  GraduationCap,
+  Loader2,
+  Users,
+  X,
+  XCircle,
+} from "lucide-react"
+import { toast } from "sonner"
 import DataTable, { type Column } from "@/components/custom/DataTable"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Tabs from "@/components/custom/Tabs"
 import EmptyState from "@/components/custom/EmptyState"
-import { applicationReviewQueryOptions } from "@/services/applicationReviewApi"
+import Modal from "@/components/custom/Modal"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  applicationReviewApi,
+  applicationReviewKeys,
+  applicationReviewQueryOptions,
+} from "@/services/applicationReviewApi"
 import type {
   AdmissionApplication,
   ApplicationReviewStatus,
 } from "@/types/school"
+import { BulkCreateOffersDialog } from "./_components/bulk-create-offers-dialog"
+
+const REVIEWABLE: ApplicationReviewStatus[] = ["pending", "under_review"]
+// Rows that can be batch-actioned: reviewable → approve/deny, approved →
+// create an admission offer.
+const SELECTABLE: ApplicationReviewStatus[] = [
+  "pending",
+  "under_review",
+  "approved",
+]
 
 const statusVariantMap: Record<
   ApplicationReviewStatus,
@@ -42,7 +69,12 @@ const tabs = [
 
 export default function ReviewApplicationsPage() {
   const router = useRouter()
+  const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState("all")
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [denyOpen, setDenyOpen] = useState(false)
+  const [denyReason, setDenyReason] = useState("")
+  const [offersOpen, setOffersOpen] = useState(false)
 
   const {
     data: applications = [],
@@ -54,6 +86,41 @@ export default function ReviewApplicationsPage() {
       statusFilter !== "all" ? { status: statusFilter } : undefined
     )
   )
+
+  const bulkReview = useMutation({
+    mutationFn: (arg: {
+      status: "approved" | "denied"
+      denial_reason?: string
+    }) =>
+      applicationReviewApi.bulkReview({
+        applicationIds: [...selected],
+        status: arg.status,
+        denial_reason: arg.denial_reason,
+      }),
+    onSuccess: (res, arg) => {
+      const ok = res.data.filter((r) => r.success).length
+      const failed = res.data.length - ok
+      toast.success(
+        `${ok} application${ok === 1 ? "" : "s"} ${
+          arg.status === "approved" ? "approved" : "denied"
+        }${failed ? ` · ${failed} skipped` : ""}`
+      )
+      setSelected(new Set())
+      setDenyOpen(false)
+      setDenyReason("")
+      qc.invalidateQueries({ queryKey: applicationReviewKeys.all })
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Bulk review failed"),
+  })
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const counts = {
     all: applications.length,
@@ -69,7 +136,51 @@ export default function ReviewApplicationsPage() {
     badge: counts[t.key as keyof typeof counts],
   }))
 
+  const selectableIds = applications
+    .filter((a) => SELECTABLE.includes(a.status))
+    .map((a) => a.id)
+  const allSelectableSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selected.has(id))
+
+  const selectedApps = applications.filter((a) => selected.has(a.id))
+  const selectedReviewable = selectedApps.filter((a) =>
+    REVIEWABLE.includes(a.status)
+  )
+  const selectedApproved = selectedApps.filter((a) => a.status === "approved")
+  // Only offer a batch action when the whole selection qualifies for it.
+  const canBatchReview =
+    selectedApps.length > 0 && selectedReviewable.length === selectedApps.length
+  const canBatchOffer =
+    selectedApps.length > 0 && selectedApproved.length === selectedApps.length
+
   const columns: Column<AdmissionApplication>[] = [
+    {
+      key: "select",
+      header: (
+        <Checkbox
+          aria-label="Select all applications"
+          checked={allSelectableSelected}
+          disabled={selectableIds.length === 0}
+          onCheckedChange={(v) =>
+            setSelected(v ? new Set(selectableIds) : new Set())
+          }
+        />
+      ),
+      width: "48px",
+      render: (row) =>
+        SELECTABLE.includes(row.status) ? (
+          <span
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center"
+          >
+            <Checkbox
+              aria-label={`Select ${row.personal_info.first_name} ${row.personal_info.last_name}`}
+              checked={selected.has(row.id)}
+              onCheckedChange={() => toggle(row.id)}
+            />
+          </span>
+        ) : null,
+    },
     {
       key: "applicant_name",
       header: "Applicant",
@@ -232,7 +343,10 @@ export default function ReviewApplicationsPage() {
         <Tabs
           tabs={tabsWithBadges}
           defaultTab="all"
-          onChange={(key) => setStatusFilter(key)}
+          onChange={(key) => {
+            setStatusFilter(key)
+            setSelected(new Set())
+          }}
         >
           {() =>
             applications.length === 0 && !isLoading ? (
@@ -282,6 +396,125 @@ export default function ReviewApplicationsPage() {
           }
         </Tabs>
       )}
+
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selected.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+            className="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-2xl"
+          >
+            <span className="text-sm font-medium text-foreground">
+              {selected.size} selected
+            </span>
+            <div className="h-5 w-px bg-border" />
+            {canBatchReview && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => bulkReview.mutate({ status: "approved" })}
+                  disabled={bulkReview.isPending}
+                >
+                  {bulkReview.isPending &&
+                  bulkReview.variables?.status === "approved" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={14} />
+                  )}
+                  Approve ({selected.size})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setDenyOpen(true)}
+                  disabled={bulkReview.isPending}
+                >
+                  <XCircle size={14} />
+                  Deny ({selected.size})
+                </Button>
+              </>
+            )}
+            {canBatchOffer && (
+              <Button size="sm" onClick={() => setOffersOpen(true)}>
+                <GraduationCap size={14} />
+                Create offers ({selected.size})
+              </Button>
+            )}
+            {!canBatchReview && !canBatchOffer && (
+              <span className="text-xs text-muted-foreground">
+                Mixed statuses — select only pending/under-review, or only
+                approved
+              </span>
+            )}
+            <button
+              onClick={() => setSelected(new Set())}
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Clear selection"
+            >
+              <X size={16} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Deny reason modal */}
+      <Modal
+        open={denyOpen}
+        onClose={() => {
+          if (!bulkReview.isPending) setDenyOpen(false)
+        }}
+        title={`Deny ${selected.size} application${selected.size === 1 ? "" : "s"}`}
+        subtitle="This reason is recorded on every selected application."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDenyOpen(false)}
+              disabled={bulkReview.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                bulkReview.mutate({
+                  status: "denied",
+                  denial_reason: denyReason.trim() || undefined,
+                })
+              }
+              disabled={bulkReview.isPending || denyReason.trim().length < 3}
+            >
+              {bulkReview.isPending && (
+                <Loader2 size={14} className="animate-spin" />
+              )}
+              Confirm denial
+            </Button>
+          </>
+        }
+      >
+        <label className="text-xs font-medium text-muted-foreground">
+          Reason for denial
+        </label>
+        <textarea
+          value={denyReason}
+          onChange={(e) => setDenyReason(e.target.value)}
+          rows={4}
+          placeholder="e.g. JAMB score below the cut-off for all selected programs."
+          className="mt-1.5 w-full resize-none rounded-xl border border-border bg-muted p-3 text-sm text-foreground transition-all outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+      </Modal>
+
+      <BulkCreateOffersDialog
+        open={offersOpen}
+        onClose={() => setOffersOpen(false)}
+        applications={selectedApproved}
+        onDone={() => setSelected(new Set())}
+      />
     </div>
   )
 }
