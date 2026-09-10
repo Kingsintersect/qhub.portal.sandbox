@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { passwordSchema } from "@/lib/validations/zod"
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_LABEL } from "@/lib/uploads"
 
 export const createUserSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -27,14 +28,18 @@ const ACCEPTED_BULK_IMPORT_TYPES = [
   "text/plain",
   "application/vnd.ms-excel", // some browsers report .csv this way
 ]
-const MAX_BULK_IMPORT_SIZE_BYTES = 10 * 1024 * 1024 // 10MB, matches the backend limit
+// The backend accepts up to 10MB here, but the portal caps every upload at the
+// shared 2MB limit. A stricter client cap is always safe against a laxer
+// backend, and 2MB still covers ~20k tutor rows of CSV. Swap this back to a
+// local 10 * 1024 * 1024 if bulk imports ever need the backend's full headroom.
+const MAX_BULK_IMPORT_SIZE_BYTES = MAX_FILE_SIZE_BYTES
 
 export const bulkImportTutorsSchema = z.object({
   file: z
     .instanceof(File, { message: "Select a CSV file to upload" })
     .refine(
       (f) => f.size > 0 && f.size <= MAX_BULK_IMPORT_SIZE_BYTES,
-      "File must be under 10MB"
+      `File must be ${MAX_FILE_SIZE_LABEL} or less`
     )
     .refine(
       (f) =>

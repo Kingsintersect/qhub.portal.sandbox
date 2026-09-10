@@ -26,10 +26,12 @@ import {
   Ban,
   TimerOff,
   AlertTriangle,
+  Mail,
 } from "lucide-react"
 import { toast } from "sonner"
 import { signOut } from "next-auth/react"
 import { logoutFromBackend } from "@/lib/auth/backendAuth"
+import { SUPPORT_EMAIL } from "@/config/global.config"
 import type { StepSectionProps } from "../types/admission"
 
 function useCountdown(expiryDate: string | null) {
@@ -381,9 +383,24 @@ export function AdmissionStatusSection({
                 </p>
                 <p className="max-w-sm text-xs text-muted-foreground">
                   Unfortunately, your application was not successful this time.
-                  Please contact the admissions office for more information.
+                  A rejected application is final for this session — please
+                  contact the admissions office for more information.
                 </p>
               </div>
+
+              {/* Deliberately no "apply again" action: a rejection closes the
+                  application for the session. Contacting admissions is the
+                  only route forward. */}
+              <Button variant="outline" size="lg" asChild className="gap-2">
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+                    `Application enquiry — ${student.name} (${student.session})`
+                  )}`}
+                >
+                  <Mail className="size-4" />
+                  Contact Admissions
+                </a>
+              </Button>
             </motion.div>
           )}
 

@@ -3,7 +3,13 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Eye, ExternalLink, FileText, Trash2, Upload, X } from "lucide-react"
+import { toast } from "sonner"
 import { cn, getFileKind } from "@/lib/utils"
+import {
+  ACCEPT_DOCUMENTS,
+  MAX_FILE_SIZE_LABEL,
+  getFileError,
+} from "@/lib/uploads"
 import type { ApplicantDocument } from "@/types/school"
 
 interface DocumentCardProps {
@@ -63,10 +69,17 @@ export function DocumentCard({
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/*,.pdf"
+                  accept={ACCEPT_DOCUMENTS}
                   onChange={(e) => {
                     const file = e.target.files?.[0]
-                    if (file) onReplace?.(document.id, file)
+                    e.target.value = ""
+                    if (!file) return
+                    const fileError = getFileError(file, "document")
+                    if (fileError) {
+                      toast.error(fileError)
+                      return
+                    }
+                    onReplace?.(document.id, file)
                   }}
                 />
               </label>
@@ -198,14 +211,24 @@ export default function DocumentList({
           )}
         >
           <Upload size={16} className="text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Upload Document</span>
+          <span className="text-sm text-muted-foreground">
+            Upload Document{" "}
+            <span className="text-xs">(max {MAX_FILE_SIZE_LABEL})</span>
+          </span>
           <input
             type="file"
             className="hidden"
-            accept="image/*,.pdf"
+            accept={ACCEPT_DOCUMENTS}
             onChange={(e) => {
               const file = e.target.files?.[0]
-              if (file) onAdd?.(file)
+              e.target.value = ""
+              if (!file) return
+              const fileError = getFileError(file, "document")
+              if (fileError) {
+                toast.error(fileError)
+                return
+              }
+              onAdd?.(file)
             }}
           />
         </label>
