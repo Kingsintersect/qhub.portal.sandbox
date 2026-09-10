@@ -34,9 +34,13 @@ function formatRelativeTime(dateStr: string): string {
 
 interface NotificationItemProps {
   notification: NotificationItem
+  onOpen?: (notification: NotificationItem) => void
 }
 
-export function NotificationItemCard({ notification }: NotificationItemProps) {
+export function NotificationItemCard({
+  notification,
+  onOpen,
+}: NotificationItemProps) {
   const isUnread =
     notification.readAt === null && notification.status === "SENT"
   const {
@@ -50,6 +54,7 @@ export function NotificationItemCard({ notification }: NotificationItemProps) {
     if (isUnread) {
       markRead.mutate(notification.id)
     }
+    onOpen?.(notification)
   }
 
   return (

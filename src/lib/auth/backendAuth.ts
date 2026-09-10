@@ -364,6 +364,24 @@ export const requestPasswordReset = async (email: string): Promise<void> => {
   await apiClient.post("/auth/forgot-password", { email })
 }
 
+// Real API: POST /auth/change-password — Bruno: auth/Auth - Change Password.bru.
+// Authenticated (self). For an already-logged-in user changing their own
+// password (incl. completing a forced first-login change after a
+// system-generated password). Verifies `currentPassword`; 422 if it's wrong.
+// Revokes all refresh tokens server-side — the current access token keeps
+// working until its 15-min expiry, so this doesn't sign the user out
+// immediately, but the next refresh needs a fresh login.
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<{ message: string }> => {
+  return apiClient.post<{ message: string }>(
+    "/auth/change-password",
+    { currentPassword, newPassword },
+    { access_token: true }
+  )
+}
+
 // Real API: POST /auth/reset-password — Bruno: auth/Reset Password.bru.
 // Public. Revokes all of the user's refresh tokens server-side on success —
 // they must sign in again afterward.

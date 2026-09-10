@@ -65,6 +65,22 @@ export function useSchedulesByOffering(offeringId: number) {
   })
 }
 
+export function useSchedulesByLecturer(lecturerId: number | null) {
+  return useQuery({
+    ...timetableQueryOptions.schedulesByLecturer(lecturerId ?? 0),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!lecturerId && lecturerId > 0,
+  })
+}
+
+export function useSchedulesBySemester(semesterId: number | null) {
+  return useQuery({
+    ...timetableQueryOptions.schedulesBySemester(semesterId ?? 0),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!semesterId && semesterId > 0,
+  })
+}
+
 export function useVenues() {
   return useQuery({
     ...timetableQueryOptions.venues(),

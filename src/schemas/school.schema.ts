@@ -120,6 +120,21 @@ export type CreateAdmissionOfferFormValues = z.infer<
   typeof createAdmissionOfferSchema
 >
 
+// Bulk offer creation shares one level / type / date / expiry across every
+// selected application; program and session are derived per-application from
+// its own program choice + admission cycle, and admission numbers are
+// auto-generated, so none of those appear here.
+export const bulkCreateAdmissionOffersSchema = z.object({
+  levelId: z.number().int().positive("Select a level"),
+  admissionDate: z.string().min(1, "Admission date is required"),
+  admissionType: z.string().min(1, "Admission type is required").max(20),
+  expiryDate: z.string().optional(),
+})
+
+export type BulkCreateAdmissionOffersFormValues = z.infer<
+  typeof bulkCreateAdmissionOffersSchema
+>
+
 // ── Course Structure ────────────────────────
 
 export const facultySchema = z.object({

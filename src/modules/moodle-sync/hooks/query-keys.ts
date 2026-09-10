@@ -11,6 +11,7 @@ export const moodleSyncKeys = {
   users: (filters?: UserSyncQueryFilters) =>
     [...moodleSyncKeys.all, "users", filters] as const,
   user: (id: number) => [...moodleSyncKeys.all, "users", id] as const,
+  unmatchedUsers: () => [...moodleSyncKeys.all, "users", "unmatched"] as const,
 
   courses: () => [...moodleSyncKeys.all, "courses"] as const,
   course: (id: number) => [...moodleSyncKeys.courses(), id] as const,

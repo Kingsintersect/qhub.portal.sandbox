@@ -87,7 +87,6 @@ export function AssessmentDetailView({
     label: typeLabel,
     badge,
   } = typeConfig[data.assessmentType]
-  const courseOffering = data.course.courseOffering
 
   return (
     <motion.div
@@ -124,7 +123,7 @@ export function AssessmentDetailView({
               {data.name}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {courseOffering.course.code} — {courseOffering.course.title}
+              {data.courseCode} — {data.courseTitle}
             </p>
           </div>
 
@@ -170,21 +169,27 @@ export function AssessmentDetailView({
             )
           }
         />
-        {courseOffering.semester && courseOffering.academicSession && (
+        {data.semesterName && (
           <InfoRow
             label="Semester"
-            value={`${courseOffering.semester.name} — ${courseOffering.academicSession.name}`}
+            value={
+              data.academicSessionName
+                ? `${data.semesterName} — ${data.academicSessionName}`
+                : data.semesterName
+            }
           />
         )}
-        <InfoRow
-          label="Moodle course"
-          value={
-            <span className="flex items-center gap-1.5">
-              {data.course.moodleFullName}
-              <ExternalLink size={12} className="text-muted-foreground" />
-            </span>
-          }
-        />
+        {data.moodleFullName && (
+          <InfoRow
+            label="Moodle course"
+            value={
+              <span className="flex items-center gap-1.5">
+                {data.moodleFullName}
+                <ExternalLink size={12} className="text-muted-foreground" />
+              </span>
+            }
+          />
+        )}
         <InfoRow
           label="Last synced"
           value={

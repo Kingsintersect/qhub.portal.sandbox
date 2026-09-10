@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { toast } from "sonner"
-import { BookOpen, ExternalLink, Loader2, User } from "lucide-react"
+import { BookOpen, Clock, ExternalLink, Loader2, User } from "lucide-react"
 import { useLaunchMoodleCourse } from "../hooks/use-enrollment-mutations"
 import type { EnrollmentRecord } from "../types"
 
@@ -17,8 +17,12 @@ export function MyCourseLaunchCard({
 }: MyCourseLaunchCardProps) {
   const launch = useLaunchMoodleCourse()
 
+  // `moodleSynced === false` is a definite "not mirrored on Moodle yet" —
+  // undefined/null means unknown (flag not available), so keep it launchable.
+  const notOnMoodle = enrollment.moodleSynced === false
+
   const handleOpen = () => {
-    if (launch.isPending) return
+    if (launch.isPending || notOnMoodle) return
     launch.mutate(enrollment.offeringId, {
       onSuccess: (result) => {
         window.location.href = result.redirectUrl
@@ -33,7 +37,8 @@ export function MyCourseLaunchCard({
     <motion.button
       type="button"
       onClick={handleOpen}
-      disabled={launch.isPending}
+      disabled={launch.isPending || notOnMoodle}
+      title={notOnMoodle ? "This course isn't set up on Moodle yet" : undefined}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: index * 0.04 }}
@@ -64,8 +69,19 @@ export function MyCourseLaunchCard({
         )}
       </div>
 
-      <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
-        {launch.isPending ? (
+      <div
+        className={
+          notOnMoodle
+            ? "mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+            : "mt-1 flex items-center gap-1.5 text-xs font-medium text-primary"
+        }
+      >
+        {notOnMoodle ? (
+          <>
+            <Clock size={13} />
+            Not on Moodle yet
+          </>
+        ) : launch.isPending ? (
           <>
             <Loader2 size={13} className="animate-spin" />
             Opening…

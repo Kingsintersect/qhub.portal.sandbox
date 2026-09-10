@@ -95,6 +95,47 @@ export const applicationReviewApi = {
       AUTH
     )
   },
+
+  listDocuments: async (applicationId: string) => {
+    // GET /admissions/applications/:applicationId/documents — Admin, Staff.
+    // Each row includes `downloadUrl` (NEW 2026-08-29).
+    return apiClient.get<ApiSingleResponse<ApplicantDocument[]>>(
+      `/admissions/applications/${applicationId}/documents`,
+      AUTH
+    )
+  },
+
+  downloadDocument: async (applicationId: string, docId: string) => {
+    // GET /admissions/applications/:applicationId/documents/:docId/download —
+    // Admin, Staff, or the applicant themself. Streams the raw file.
+    return apiClient.get<Blob>(
+      `/admissions/applications/${applicationId}/documents/${docId}/download`,
+      { ...AUTH, responseType: "blob" }
+    )
+  },
+
+  // POST /admissions/applications/bulk-review — Admin. Applies one
+  // status + denial_reason to every id; returns a per-item
+  // {id, success, status | error} array.
+  bulkReview: async (payload: {
+    applicationIds: string[]
+    status: "approved" | "denied"
+    denial_reason?: string
+  }) => {
+    return apiClient.post<{
+      data: { id: string; success: boolean; status?: string; error?: string }[]
+    }>("/admissions/applications/bulk-review", payload, AUTH)
+  },
+
+  // GET /admissions/applications/track/:applicationNumber — Public, no token.
+  // Returns only { applicationNumber, status }.
+  track: async (applicationNumber: string) => {
+    return apiClient.get<{
+      data: { applicationNumber: string; status: string }
+    }>(
+      `/admissions/applications/track/${encodeURIComponent(applicationNumber)}`
+    )
+  },
 }
 
 export const applicationReviewKeys = {
@@ -169,5 +210,25 @@ export const applicationReviewMutationOptions = {
       mutationKey: [...applicationReviewKeys.all, "documents", "delete"],
       mutationFn: ({ applicationId, docId }) =>
         applicationReviewApi.deleteDocument(applicationId, docId),
+    }),
+
+  bulkReview: () =>
+    createApiMutationOptions<
+      {
+        data: {
+          id: string
+          success: boolean
+          status?: string
+          error?: string
+        }[]
+      },
+      {
+        applicationIds: string[]
+        status: "approved" | "denied"
+        denial_reason?: string
+      }
+    >({
+      mutationKey: [...applicationReviewKeys.all, "bulk-review"],
+      mutationFn: (payload) => applicationReviewApi.bulkReview(payload),
     }),
 }

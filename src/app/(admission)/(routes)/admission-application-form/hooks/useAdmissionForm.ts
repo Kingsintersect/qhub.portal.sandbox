@@ -17,6 +17,8 @@ import {
 import {
   fetchMyProfile,
   submitApplication,
+  toSubmitError,
+  type SubmitError,
 } from "../services/application-submit.service"
 import {
   personalInfoSchema,
@@ -68,6 +70,12 @@ export interface UseAdmissionFormReturn {
   submitPercent: number
   /** True once the user has clicked "Submit Application" at least once — gates the error summary. */
   submitAttempted: boolean
+  /**
+   * The most recent backend rejection of a submit attempt (validation 422,
+   * 409, 500, network …), or null. Cleared at the start of every new attempt
+   * and on form reset. Rendered above the footer alongside client-side errors.
+   */
+  submitError: SubmitError | null
   goToStep: (step: FormStep) => void
   nextStep: () => Promise<boolean>
   prevStep: () => void
@@ -101,6 +109,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   } = submitProgress
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [submitError, setSubmitError] = useState<SubmitError | null>(null)
   const [direction, setDirection] = useState<1 | -1>(1)
   const hasLoadedRef = useRef(false)
   const skipNextAutoSaveRef = useRef(true)
@@ -456,6 +465,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const submitForm = useCallback(async () => {
     setIsSubmitting(true)
     setSubmitAttempted(true)
+    setSubmitError(null)
     startSubmitProgress()
     try {
       const values = form.getValues()
@@ -510,11 +520,15 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     } catch (error) {
       console.error("Submission failed:", error)
       failSubmitProgress()
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to submit application. Please try again."
-      toast.error(message)
+      const parsed = toSubmitError(error)
+      setSubmitError(parsed)
+      toast.error(
+        parsed.fieldErrors.length > 0
+          ? `Submission rejected — ${parsed.fieldErrors.length} field${
+              parsed.fieldErrors.length === 1 ? "" : "s"
+            } need attention. See the details above the submit button.`
+          : parsed.message
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -544,6 +558,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     setCurrentStep(FormStep.PERSONAL_INFO)
     setCompletedSteps(new Set())
     setSubmitAttempted(false)
+    setSubmitError(null)
     if (formStorageKey) await formStorage.clearFormData(formStorageKey)
     if (stepStorageKey) localStorage.removeItem(stepStorageKey)
     if (stepCompletedStorageKey)
@@ -593,6 +608,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     submitPercent: submitProgress.percent,
     isSubmitted,
     submitAttempted,
+    submitError,
     goToStep,
     nextStep,
     prevStep,

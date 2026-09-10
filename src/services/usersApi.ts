@@ -6,6 +6,8 @@ import type {
   User,
   Student,
   Tutor,
+  TutorOnboardingStep,
+  TutorOnboardingProgress,
   Staff,
   UserStats,
   UserQueryFilters,
@@ -129,6 +131,12 @@ interface WireLecturer extends WireStaffProfile {
   qualifications: string | null
   researchAreas: string | null
   bio: string | null
+  onboardingProgress?: {
+    profileConfirmed?: boolean
+    coursesConfirmed?: boolean
+    firstAnnouncementPosted?: boolean
+  }
+  onboardingComplete?: boolean
 }
 
 interface WireStaff extends WireStaffProfile {
@@ -275,6 +283,19 @@ const mapTutor = (l: WireLecturer): Tutor => ({
   qualifications: l.qualifications,
   research_areas: l.researchAreas,
   bio: l.bio,
+  onboarding_progress: {
+    profileConfirmed: l.onboardingProgress?.profileConfirmed ?? false,
+    coursesConfirmed: l.onboardingProgress?.coursesConfirmed ?? false,
+    firstAnnouncementPosted:
+      l.onboardingProgress?.firstAnnouncementPosted ?? false,
+  },
+  onboarding_complete:
+    l.onboardingComplete ??
+    Boolean(
+      l.onboardingProgress?.profileConfirmed &&
+      l.onboardingProgress?.coursesConfirmed &&
+      l.onboardingProgress?.firstAnnouncementPosted
+    ),
   created_at: l.createdAt,
   updated_at: l.updatedAt,
   user: mapUserRef(l.user),
@@ -370,6 +391,20 @@ export const usersApi = {
     return { data: mapStudent(res.data) }
   },
 
+  // GET /users/students/matric/:matricNumber — Admin, Staff. Direct lookup
+  // by matric number (e.g. "CSC/2025/001"); 404s if no Student has it. The
+  // matric may contain "/", so it's URL-encoded. Powers the admin student
+  // search's "find by matric" shortcut.
+  async getStudentByMatric(
+    matricNumber: string
+  ): Promise<ApiSingleResponse<Student>> {
+    const res = await apiClient.get<{ data: WireStudent }>(
+      `/users/students/matric/${encodeURIComponent(matricNumber)}`,
+      AUTH
+    )
+    return { data: mapStudent(res.data) }
+  },
+
   // MISSING_BACKEND_APIS.md §1.1, now shipped by the backend team —
   // resolves the current JWT's own Student.id directly (`/auth/me` only
   // returns User fields, and `/users/students/:id` needs the id already
@@ -445,6 +480,52 @@ export const usersApi = {
       AUTH
     )
     return { data: mapTutor(res.data) }
+  },
+
+  // PATCH /users/lecturers/me/onboarding — Lecturer (self). Marks one
+  // onboarding step done; idempotent, no un-complete. Returns the full
+  // progress object.
+  async updateMyOnboarding(
+    step: TutorOnboardingStep
+  ): Promise<TutorOnboardingProgress> {
+    const res = await apiClient.patch<{ data: TutorOnboardingProgress }>(
+      "/users/lecturers/me/onboarding",
+      { step },
+      AUTH
+    )
+    return res.data
+  },
+
+  // POST /users/lecturers/:id/resend-invite — Admin, HOD. Regenerates a
+  // random password, flags mustResetPassword, revokes sessions, resends the
+  // welcome email. Never returns the password.
+  async resendTutorInvite(
+    lecturerId: number,
+    opts: { login_url?: string; template_id?: number } = {}
+  ): Promise<{
+    userId: number
+    email: string
+    emailSent: boolean
+    sentAt: string | null
+    emailError?: string
+  }> {
+    const res = await apiClient.post<{
+      data: {
+        userId: number
+        email: string
+        emailSent: boolean
+        sentAt: string | null
+        emailError?: string
+      }
+    }>(
+      `/users/lecturers/${lecturerId}/resend-invite`,
+      {
+        loginUrl: opts.login_url || undefined,
+        templateId: opts.template_id,
+      },
+      AUTH
+    )
+    return res.data
   },
 
   async createTutor(

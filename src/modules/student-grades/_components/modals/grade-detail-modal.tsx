@@ -17,6 +17,7 @@ import Modal from "@/components/custom/Modal"
 import StatusBadge from "@/components/custom/StatusBadge"
 import type { GradeStatus } from "../../types/grades.types"
 import { useGradesStore } from "../../store/gradesStore"
+import { useGrade } from "../../hooks/use-grades-data"
 import {
   useSubmitGrade,
   useApproveGrade,
@@ -99,8 +100,15 @@ export function GradeDetailModal({
   const approveMutation = useApproveGrade()
   const rejectMutation = useRejectGrade()
 
+  // Refresh the row against server state while the modal is open — the list
+  // row is the instant fallback (and what's used if GET /results/grades/:id
+  // 404s).
+  const { data: fetchedGrade } = useGrade(
+    open ? (selectedGrade?.id ?? null) : null
+  )
+
   if (!selectedGrade) return null
-  const grade = selectedGrade
+  const grade = fetchedGrade ?? selectedGrade
 
   const handleSubmit = async () => {
     const result = await submitMutation.mutateAsync(grade.id)

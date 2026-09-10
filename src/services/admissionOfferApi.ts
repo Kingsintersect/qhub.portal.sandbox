@@ -80,6 +80,19 @@ export const admissionOfferApi = {
   // against first).
   create: (payload: CreateAdmissionOfferPayload) =>
     apiClient.post<{ data: AdmissionOffer }>("/admissions", payload, AUTH),
+
+  // POST /admissions/bulk — Admin. One offer per item, applied atomically
+  // per item; a per-item unique-constraint failure comes back as
+  // `success: false` rather than a fatal error.
+  bulkCreate: (admissions: CreateAdmissionOfferPayload[]) =>
+    apiClient.post<{
+      data: {
+        applicationId: number
+        success: boolean
+        admissionId?: number
+        error?: string
+      }[]
+    }>("/admissions/bulk", { admissions }, AUTH),
 }
 
 export const admissionOfferKeys = {
@@ -111,5 +124,21 @@ export const admissionOfferMutationOptions = {
     >({
       mutationKey: [...admissionOfferKeys.all, "create"],
       mutationFn: admissionOfferApi.create,
+    }),
+
+  bulkCreate: () =>
+    createApiMutationOptions<
+      {
+        data: {
+          applicationId: number
+          success: boolean
+          admissionId?: number
+          error?: string
+        }[]
+      },
+      CreateAdmissionOfferPayload[]
+    >({
+      mutationKey: [...admissionOfferKeys.all, "bulk-create"],
+      mutationFn: admissionOfferApi.bulkCreate,
     }),
 }

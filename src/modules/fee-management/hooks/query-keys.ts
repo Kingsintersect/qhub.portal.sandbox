@@ -22,6 +22,8 @@ export const feeKeys = {
   // Payments — added in slice 3
   paymentHistory: (invoiceId: number) =>
     [...feeKeys.all, "payments", "invoice", invoiceId] as const,
+  payment: (paymentId: number) =>
+    [...feeKeys.all, "payments", paymentId] as const,
 
   // Reports — added in slice 4
   collectionsSummary: (filters?: Record<string, unknown>) =>

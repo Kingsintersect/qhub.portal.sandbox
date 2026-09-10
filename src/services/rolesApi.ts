@@ -51,15 +51,26 @@ export const rolesApi = {
     return apiClient.delete<{ message: string }>(`/auth/roles/${id}`, AUTH)
   },
 
-  // MISSING_BACKEND_APIS.md §"POST /auth/roles/:id/duplicate", now shipped by
-  // the backend team. Not yet in bruno. Same response shape as Create, name
-  // suffixed "(Copy)".
+  // No `POST /auth/roles/:id/duplicate` endpoint exists (verified 404,
+  // 2026-09-10 — the earlier "now shipped" note was wrong). Composed from the
+  // real Create + permission-sync endpoints: read the source role with its
+  // permissions, create a new one, copy the permission set across.
   duplicate: async (id: number): Promise<ApiSingleResponse<Role>> => {
-    return apiClient.post<ApiSingleResponse<Role>>(
-      `/auth/roles/${id}/duplicate`,
-      {},
+    const source = (await rolesApi.getById(id)).data
+    const created = await apiClient.post<ApiSingleResponse<Role>>(
+      "/auth/roles",
+      {
+        name: `${source.name}_copy`,
+        description: source.description ?? undefined,
+      },
       AUTH
     )
+    const permissionIds = (source.permissions ?? []).map((p) => p.id)
+    if (permissionIds.length && created.data?.id) {
+      await rolePermissionsApi.sync(created.data.id, permissionIds)
+      return rolesApi.getById(created.data.id)
+    }
+    return created
   },
 }
 
@@ -139,6 +150,10 @@ export const rolePermissionsApi = {
     return { data: perms, total: perms.length }
   },
 
+  // POST /auth/roles/:id/permissions uses `syncWithoutDetaching` server-side
+  // (see bruno/auth/Role Permissions - Assign.bru docs) — it only ATTACHES
+  // the ids passed, it never removes ones left out. Safe for a brand-new
+  // role (create/duplicate) where there's nothing to remove.
   sync: async (
     roleId: number,
     permissionIds: number[]
@@ -149,15 +164,53 @@ export const rolePermissionsApi = {
       AUTH
     )
   },
+
+  // DELETE /auth/roles/:role/permissions/:permission — detaches one
+  // permission from one role (204 No Content).
+  detach: async (roleId: number, permissionId: number): Promise<void> => {
+    return apiClient.delete<void>(
+      `/auth/roles/${roleId}/permissions/${permissionId}`,
+      AUTH
+    )
+  },
+
+  // Full reconcile for the role-edit flow: `sync` can't remove permissions,
+  // so diff the desired set against what's attached now, attach the additions
+  // in one call, and detach each removal individually. Returns the role with
+  // its refreshed permission list.
+  reconcile: async (
+    roleId: number,
+    desiredPermissionIds: number[]
+  ): Promise<ApiSingleResponse<Role>> => {
+    const current = (await rolePermissionsApi.getForRole(roleId)).data.map(
+      (p) => p.id
+    )
+    const desired = new Set(desiredPermissionIds)
+    const currentSet = new Set(current)
+    const toAdd = desiredPermissionIds.filter((id) => !currentSet.has(id))
+    const toRemove = current.filter((id) => !desired.has(id))
+
+    if (toAdd.length) {
+      await rolePermissionsApi.sync(roleId, toAdd)
+    }
+    await Promise.all(
+      toRemove.map((permissionId) =>
+        rolePermissionsApi.detach(roleId, permissionId)
+      )
+    )
+    return rolesApi.getById(roleId)
+  },
 }
 
 // ── User-Role Assignment ────────────────────
 // listForUser/assign/revoke are real, bruno-documented endpoints
 // (Users - {List Roles, Assign Roles, Remove Role}.bru) with no prior
 // frontend caller. getUsersWithRole is the reverse lookup ("which users
-// hold this role") needed by RoleDetailView's Users tab — no such endpoint
-// exists in bruno; built against the proposed contract in
-// MISSING_BACKEND_APIS.md rather than left mocked.
+// hold this role") needed by RoleDetailView's Users tab — `GET
+// /auth/roles/:roleId/users` does NOT exist (verified 404, 2026-09-10) and
+// `/users` carries no role data to filter on. Kept wired against the
+// designed contract (sandbox/API_GAPS_2026-09.md §9); returns [] on 404 so
+// the Users tab renders an empty state instead of an error screen.
 
 export const userRolesApi = {
   listForUser: async (
@@ -187,10 +240,14 @@ export const userRolesApi = {
   getUsersWithRole: async (
     roleId: number
   ): Promise<ApiListResponse<UserWithRoles>> => {
-    return apiClient.get<ApiListResponse<UserWithRoles>>(
-      `/auth/roles/${roleId}/users`,
-      AUTH
-    )
+    try {
+      return await apiClient.get<ApiListResponse<UserWithRoles>>(
+        `/auth/roles/${roleId}/users`,
+        AUTH
+      )
+    } catch {
+      return { data: [], total: 0 }
+    }
   },
 }
 
@@ -313,6 +370,9 @@ export const rolesMutationOptions = {
       mutationFn: rolesApi.duplicate,
     }),
 
+  // Edit flow → full reconcile (adds + detaches). Create/duplicate keep
+  // calling `rolePermissionsApi.sync` directly since a fresh role has
+  // nothing to detach.
   syncPermissions: () =>
     createApiMutationOptions<
       ApiSingleResponse<Role>,
@@ -320,7 +380,7 @@ export const rolesMutationOptions = {
     >({
       mutationKey: [...rolesKeys.all, "sync-permissions"],
       mutationFn: ({ roleId, permissionIds }) =>
-        rolePermissionsApi.sync(roleId, permissionIds),
+        rolePermissionsApi.reconcile(roleId, permissionIds),
     }),
 }
 

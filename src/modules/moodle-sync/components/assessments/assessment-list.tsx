@@ -37,7 +37,11 @@ export function AssessmentList() {
   const handlePullAll = async () => {
     try {
       const result = await pullAll.mutateAsync()
-      toast.success(`Pulled ${result.pulled} assessment(s) from Moodle`)
+      // /assessments/sync-all queues a background job — { jobId, message }
+      toast.success(
+        result.message ??
+          "Assessment sync queued — check back after the next run."
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Pull failed")
     }
@@ -105,7 +109,7 @@ export function AssessmentList() {
                     {item.assessmentType}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {item.course.courseOffering.course.code}
+                    {item.courseCode}
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-medium text-foreground">

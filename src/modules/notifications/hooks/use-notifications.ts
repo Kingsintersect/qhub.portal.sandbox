@@ -17,6 +17,15 @@ export function useNotifications(filters: NotificationFilter = {}) {
   })
 }
 
+export function useNotification(id: number | null) {
+  return useQuery({
+    queryKey: notificationKeys.detail(id ?? 0),
+    queryFn: () => notificationService.getById(id as number),
+    enabled: id !== null && id > 0,
+    staleTime: 1000 * 30,
+  })
+}
+
 export function useUnreadCount() {
   return useQuery({
     queryKey: notificationKeys.unreadCount(),

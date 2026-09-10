@@ -8,6 +8,8 @@ import {
   useCreateSession,
   useActivateSession,
 } from "@/hooks/useAcademicSessions"
+import { useSessionDetail } from "@/modules/timetable/hooks/useAcademicCalendar"
+import Modal from "@/components/custom/Modal"
 import { useAcademicSessionSetupStore } from "@/store/dashboard/academicSessionSetupStore"
 import {
   academicSessionSchema,
@@ -26,7 +28,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { EmptyState } from "./EmptyState"
-import { CalendarDays, Plus, ArrowRight, Power, Loader2 } from "lucide-react"
+import {
+  CalendarDays,
+  Plus,
+  ArrowRight,
+  Power,
+  Loader2,
+  Layers,
+} from "lucide-react"
 
 interface AcademicSessionManagerProps {
   canManage?: boolean
@@ -42,6 +51,7 @@ export function AcademicSessionManager({
   const { setSelectedSession, setCurrentStep } = useAcademicSessionSetupStore()
 
   const [showForm, setShowForm] = useState(false)
+  const [detailSessionId, setDetailSessionId] = useState<number | null>(null)
   const {
     register,
     handleSubmit,
@@ -213,7 +223,7 @@ export function AcademicSessionManager({
                   )}
                 </CardAction>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Button
                     className="flex-1"
@@ -233,11 +243,89 @@ export function AcademicSessionManager({
                     </Button>
                   )}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full gap-1.5 text-xs text-muted-foreground"
+                  onClick={() => setDetailSessionId(session.id)}
+                >
+                  <Layers className="size-3.5" />
+                  View semesters
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <SessionSemestersModal
+        sessionId={detailSessionId}
+        onClose={() => setDetailSessionId(null)}
+      />
     </div>
+  )
+}
+
+function SessionSemestersModal({
+  sessionId,
+  onClose,
+}: {
+  sessionId: number | null
+  onClose: () => void
+}) {
+  const { data: session, isLoading } = useSessionDetail(sessionId)
+
+  return (
+    <Modal
+      open={sessionId !== null}
+      onClose={onClose}
+      title={session ? `${session.name} — Semesters` : "Session"}
+      subtitle={
+        session
+          ? [session.startDate, session.endDate].filter(Boolean).join(" → ") ||
+            undefined
+          : undefined
+      }
+      size="md"
+    >
+      {isLoading && !session ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="size-5 animate-spin text-primary" />
+        </div>
+      ) : !session ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Couldn&apos;t load this session.
+        </p>
+      ) : session.semesters.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No semesters defined for this session yet.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/60">
+          {session.semesters.map((sem) => (
+            <li
+              key={sem.id}
+              className="flex items-center justify-between gap-3 py-2.5"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {sem.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {[sem.startDate, sem.endDate].filter(Boolean).join(" → ") ||
+                    "Dates not set"}
+                </p>
+              </div>
+              {sem.isActive && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <span className="size-1.5 rounded-full bg-primary" />
+                  Active
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   )
 }
