@@ -13,7 +13,11 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
   type AxiosResponse,
+  type AxiosProgressEvent,
 } from "axios"
+
+/** Default HTTP request timeout in milliseconds. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30000
 
 export type TokenPersistence = "memory" | "local" | "session"
 
@@ -37,6 +41,17 @@ export type RequestOptions = {
    * `FormData` instance is sent as multipart regardless of this option.
    */
   contentType?: RequestBodyFormat
+  /**
+   * Called with the whole-number percentage (0-100) of the request body
+   * written to the network, for driving an upload progress bar.
+   *
+   * Only meaningful for requests that carry a body — in practice multipart
+   * uploads. It is skipped when the browser cannot report a total size (a
+   * streamed body), so a caller should treat "no callback yet" as 0% rather
+   * than as an error. Reaching 100% means the last byte was *sent*, not that
+   * the server has finished processing it.
+   */
+  onUploadProgress?: (percent: number) => void
 }
 
 /**
@@ -197,7 +212,7 @@ export class ApiClient {
   constructor(config: ApiClientConfig = {}) {
     this.config = {
       baseURL: config.baseURL ?? API_BASE_URL,
-      timeout: config.timeout ?? 10000,
+      timeout: config.timeout ?? DEFAULT_REQUEST_TIMEOUT_MS,
       defaultHeaders: config.defaultHeaders ?? {},
       enableLogging: config.enableLogging ?? false,
       logger: config.logger,
@@ -554,6 +569,17 @@ export class ApiClient {
       headers,
       responseType: opts.responseType,
       timeout: opts.timeout ?? this.axios.defaults.timeout,
+      // Left undefined when the caller isn't tracking progress so axios keeps
+      // its default (cheaper) request path. `event.total` is absent for
+      // streamed bodies, in which case there is no percentage to report.
+      onUploadProgress: opts.onUploadProgress
+        ? (event: AxiosProgressEvent) => {
+            if (!event.total) return
+            opts.onUploadProgress?.(
+              Math.round((event.loaded * 100) / event.total)
+            )
+          }
+        : undefined,
       _accessToken: opts.access_token,
       _skipAuthRefresh: opts.skipAuthRefresh,
       _requestMeta: {
@@ -617,7 +643,7 @@ export function createApiMutationOptions<TResponse, TVariables = void>(
 // default singleton instance (you can import and use directly)
 const apiClient = new ApiClient({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: DEFAULT_REQUEST_TIMEOUT_MS,
 })
 
 export default apiClient

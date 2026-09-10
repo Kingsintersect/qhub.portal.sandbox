@@ -1,20 +1,9 @@
 import z from "zod"
-
-// Utility constants
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/jpg"] as const
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png"] as const
-
-// Validation functions
-const validateFileSize = (file: File): boolean => file.size <= MAX_FILE_SIZE
-const validateFileType = (file: File): boolean =>
-  ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])
-const validateFileExtension = (file: File): boolean => {
-  const extension = `.${file.name.toLowerCase().split(".").pop()}`
-  return ALLOWED_EXTENSIONS.includes(
-    extension as (typeof ALLOWED_EXTENSIONS)[number]
-  )
-}
+import {
+  FILE_TOO_LARGE_MESSAGE,
+  isFileWithinSizeLimit,
+  isImageFile,
+} from "@/lib/uploads"
 // Main schema
 export const nameSchema = (label: string, optional: boolean = false) => {
   const schema = z
@@ -51,20 +40,16 @@ export const regNumberSchema = (name: string, optional: boolean = false) => {
   return optional ? schema.optional() : schema
 }
 
+// Any image format — matched on the MIME prefix rather than a JPG/PNG
+// allowlist, which rejected real files (HEIC from iPhones, AVIF, and the
+// legacy `image/x-png` older Windows reports in place of `image/png`).
 export const imageFileSchema = z
   .instanceof(File)
   .refine((file) => file.size > 0, "File is required")
+  .refine(isFileWithinSizeLimit, FILE_TOO_LARGE_MESSAGE)
   .refine(
-    validateFileSize,
-    `File size must be less than ${MAX_FILE_SIZE / 1024 / 1024}MB`
-  )
-  .refine(
-    validateFileType,
-    `File type must be one of: ${ALLOWED_FILE_TYPES.join(", ")}`
-  )
-  .refine(
-    validateFileExtension,
-    `File extension must be one of: ${ALLOWED_EXTENSIONS.join(", ")}`
+    isImageFile,
+    "Upload an image file — any format (JPG, PNG, HEIC, WEBP…) is accepted"
   )
 
 export const emailSchema = (label?: string, optional: boolean = false) => {
