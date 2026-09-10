@@ -95,11 +95,17 @@ interface SubmitApplicationApiResponse {
  * agreeToTerms), snake_case for everything in admission_README.md's original
  * CreateApplicationDto — this matches the real backend exactly, not a frontend
  * convention choice.
+ *
+ * `onUploadProgress` receives the percentage of the multipart body written to
+ * the network. It reaches 100% when the last byte is *sent*, which is before
+ * the server has finished processing — callers should switch to an
+ * indeterminate state at that point rather than treating it as completion.
  */
 export async function submitApplication(
   values: FormDefaultValues,
   profile: CurrentUserProfile,
-  sessionId: number
+  sessionId: number,
+  onUploadProgress?: (percent: number) => void
 ): Promise<SubmitApplicationResponse> {
   const payload: Record<string, unknown> = {
     // Identity — from the logged-in user's own profile, not re-collected.
@@ -180,7 +186,7 @@ export async function submitApplication(
   const response = await apiClient.post<SubmitApplicationApiResponse>(
     "/admissions/applications",
     payload,
-    { ...AUTH, contentType: "multipart" }
+    { ...AUTH, contentType: "multipart", onUploadProgress }
   )
   return response.data
 }

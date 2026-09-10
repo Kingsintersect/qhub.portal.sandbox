@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UploadProgress } from "@/components/upload-progress"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { useAdmissionForm } from "./hooks/useAdmissionForm"
 import FormStepIndicator from "./components/FormStepIndicator"
@@ -120,6 +121,8 @@ export default function AdmissionApplicationFormPage() {
     completedSteps,
     isLoading,
     isSubmitting,
+    submitStage,
+    submitPercent,
     isSubmitted,
     submitAttempted,
     submitError,
@@ -342,6 +345,26 @@ export default function AdmissionApplicationFormPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Submission progress — documents can be several MB on a slow
+                  connection, so the transfer is reported rather than hidden
+                  behind a spinner. */}
+              {submitStage !== "idle" && (
+                <div className="px-6 sm:px-8">
+                  <UploadProgress
+                    stage={submitStage}
+                    percent={submitPercent}
+                    message={
+                      submitStage === "done"
+                        ? "Application submitted successfully"
+                        : submitStage === "error"
+                          ? "We couldn't submit your application — please try again"
+                          : undefined
+                    }
+                    className="mb-4"
+                  />
                 </div>
               )}
 

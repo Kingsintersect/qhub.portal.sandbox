@@ -2,13 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useForm, type UseFormReturn } from "react-hook-form"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { formStorage } from "@/lib/storage"
+import { useUploadProgress } from "@/hooks/use-upload-progress"
+import type { UploadStage } from "@/lib/uploads"
 import { useAppStore, useAppHydrated } from "@/store/appStore"
 import { admissionStepsQueryOptions } from "@/services/admissionStepsApi"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
-import { admissionQueryOptions } from "../../../services/admissionService"
+import {
+  admissionKeys,
+  admissionQueryOptions,
+} from "../../../services/admissionService"
 import {
   fetchMyProfile,
   submitApplication,
@@ -59,6 +64,10 @@ export interface UseAdmissionFormReturn {
   isLoading: boolean
   isSubmitting: boolean
   isSubmitted: boolean
+  /** Stage of the in-flight submission, for driving <UploadProgress />. */
+  submitStage: UploadStage
+  /** Percentage of the multipart body uploaded so far, 0-100. */
+  submitPercent: number
   /** True once the user has clicked "Submit Application" at least once — gates the error summary. */
   submitAttempted: boolean
   /**
@@ -86,6 +95,18 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const queryClient = useQueryClient()
+  const submitProgress = useUploadProgress()
+  // Destructured because the hook's returned object changes identity on every
+  // progress tick, while these five callbacks are stable — depending on them
+  // individually keeps submitForm from being rebuilt ~100x during an upload.
+  const {
+    start: startSubmitProgress,
+    handleProgress: handleSubmitProgress,
+    succeed: succeedSubmitProgress,
+    fail: failSubmitProgress,
+    reset: resetSubmitProgress,
+  } = submitProgress
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [submitError, setSubmitError] = useState<SubmitError | null>(null)
@@ -170,9 +191,20 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
 
         const savedData = await formStorage.loadFormData(formStorageKey)
         if (savedData) {
+          // saveProgress() stores `null` in place of `undefined` (IndexedDB
+          // can't hold `undefined` as a value). Drop those keys on the way back
+          // in so DEFAULT_FORM_VALUES supplies the field's real default — an
+          // object spread only skips *missing* keys, so a stored `null` would
+          // otherwise overwrite the default and reach the schemas, where an
+          // optional field fails with "expected array, received null".
+          const restored: Record<string, unknown> = {}
+          for (const [key, value] of Object.entries(savedData)) {
+            if (value !== null) restored[key] = value
+          }
+
           const dataWithDefaults = {
             ...DEFAULT_FORM_VALUES,
-            ...savedData,
+            ...restored,
           } as FormDefaultValues
           form.reset(dataWithDefaults)
           toast.success("Your previous progress has been restored.")
@@ -434,6 +466,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     setIsSubmitting(true)
     setSubmitAttempted(true)
     setSubmitError(null)
+    startSubmitProgress()
     try {
       const values = form.getValues()
       const result = await odlProgramSchema.safeParseAsync(values)
@@ -448,6 +481,9 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
           form.setError(fieldPath, { message: issue.message })
         })
         toast.error("Please review and fix all errors before submitting.")
+        // Nothing was sent, so drop back to idle rather than showing a failed
+        // upload — the error summary above the footer explains what's wrong.
+        resetSubmitProgress()
         return
       }
 
@@ -455,11 +491,26 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
         toast.error(
           "No active academic session found. Please contact admissions."
         )
+        resetSubmitProgress()
         return
       }
 
       const profile = await fetchMyProfile()
-      await submitApplication(values, profile, activeSessionId)
+      await submitApplication(
+        values,
+        profile,
+        activeSessionId,
+        handleSubmitProgress
+      )
+      succeedSubmitProgress()
+
+      // SuccessModal redirects to /process-admission ~10s from now, but the
+      // student query has a 60s staleTime — without this the page would render
+      // from the pre-submit snapshot and look like nothing happened. It also
+      // matters for a re-application after rejection: the stale snapshot still
+      // says `admission_status: "rejected"`, which would drop the applicant
+      // straight back onto the rejection panel they just acted on.
+      await queryClient.invalidateQueries({ queryKey: admissionKeys.student() })
 
       if (formStorageKey) await formStorage.clearFormData(formStorageKey)
       if (stepStorageKey) localStorage.removeItem(stepStorageKey)
@@ -468,6 +519,7 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
       setIsSubmitted(true)
     } catch (error) {
       console.error("Submission failed:", error)
+      failSubmitProgress()
       const parsed = toSubmitError(error)
       setSubmitError(parsed)
       toast.error(
@@ -486,6 +538,12 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     formStorageKey,
     stepStorageKey,
     stepCompletedStorageKey,
+    queryClient,
+    startSubmitProgress,
+    handleSubmitProgress,
+    succeedSubmitProgress,
+    failSubmitProgress,
+    resetSubmitProgress,
   ])
 
   // ─── Reset form ──────────────────────────────────────────────────────────
@@ -546,6 +604,8 @@ export function useAdmissionForm(): UseAdmissionFormReturn {
     completedSteps,
     isLoading,
     isSubmitting,
+    submitStage: submitProgress.stage,
+    submitPercent: submitProgress.percent,
     isSubmitted,
     submitAttempted,
     submitError,

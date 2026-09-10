@@ -14,6 +14,8 @@ import type {
   StudentQueryFilters,
   TutorOnboardingStep,
 } from "@/types/users"
+import type { UserQueryFilters, StudentQueryFilters } from "@/types/users"
+import { useUploadProgress } from "@/hooks/use-upload-progress"
 
 /** Pull the most descriptive message out of an API error — the backend's
  *  own `message`, then any Laravel-style field validation errors, then a
@@ -231,11 +233,19 @@ export function useUnassignCourse() {
   })
 }
 
+/**
+ * Bulk-import tutors from a CSV, exposing live transfer progress alongside the
+ * mutation (the file can be several MB, and the import runs long enough that a
+ * bare spinner reads as a hang).
+ */
 export function useBulkImportTutors() {
   const qc = useQueryClient()
-  return useMutation({
-    ...usersMutationOptions.bulkImportTutors(),
+  const progress = useUploadProgress()
+  const mutation = useMutation({
+    ...usersMutationOptions.bulkImportTutors(progress.handleProgress),
+    onMutate: () => progress.start(),
     onSuccess: async (res) => {
+      progress.succeed()
       await qc.invalidateQueries({ queryKey: usersKeys.tutors.all })
       await qc.invalidateQueries({ queryKey: usersKeys.all })
       const { succeeded, failed, total } = res.data
@@ -249,9 +259,13 @@ export function useBulkImportTutors() {
         )
       }
     },
-    onError: (err) =>
-      toast.error(describeApiError(err, "Bulk import failed to run")),
+    onError: (err) => {
+      progress.fail()
+      toast.error(describeApiError(err, "Bulk import failed to run"))
+    },
   })
+
+  return { ...mutation, progress }
 }
 
 /* ── Staff ── */

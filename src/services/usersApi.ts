@@ -805,7 +805,8 @@ export const usersApi = {
    * `contentType: "multipart"` lets apiClient serialize this plain object to
    * FormData (File passed through, boolean → "1"/"0", empty fields dropped). */
   async bulkImportTutors(
-    payload: BulkImportTutorsPayload
+    payload: BulkImportTutorsPayload,
+    onUploadProgress?: (percent: number) => void
   ): Promise<ApiSingleResponse<BulkImportResult>> {
     const raw = await apiClient.post<{
       data: {
@@ -822,7 +823,7 @@ export const usersApi = {
         loginUrl: payload.login_url || undefined,
         templateId: payload.template_id,
       },
-      { ...AUTH, contentType: "multipart" }
+      { ...AUTH, contentType: "multipart", onUploadProgress }
     )
 
     return {
@@ -985,13 +986,16 @@ export const usersMutationOptions = {
       mutationKey: [...usersKeys.tutors.all, "unassign-course"],
       mutationFn: (payload) => usersApi.unassignCourse(payload),
     }),
-  bulkImportTutors: () =>
+  // The CSV can be several MB, so the caller may pass a progress callback to
+  // drive an upload bar rather than an indefinite spinner.
+  bulkImportTutors: (onUploadProgress?: (percent: number) => void) =>
     createApiMutationOptions<
       ApiSingleResponse<BulkImportResult>,
       BulkImportTutorsPayload
     >({
       mutationKey: usersKeys.bulkImportTutors(),
-      mutationFn: (payload) => usersApi.bulkImportTutors(payload),
+      mutationFn: (payload) =>
+        usersApi.bulkImportTutors(payload, onUploadProgress),
     }),
   createStaff: () =>
     createApiMutationOptions<ApiSingleResponse<Staff>, CreateStaffPayload>({
