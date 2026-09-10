@@ -115,7 +115,7 @@ function SignInFormContent() {
         </div>
       </Link>
 
-      <div className="absolute top-4 right-4 z-20 rounded-xl border border-border bg-card/80 p-1 backdrop-blur sm:top-6 sm:right-6">
+      <div className="absolute top-4 right-4 z-20 mx-auto rounded-xl border border-border bg-card/80 p-1 backdrop-blur sm:top-6 sm:right-6">
         <ThemeToggle />
       </div>
 
@@ -216,7 +216,7 @@ function SignInFormContent() {
           </p>
         </motion.section>
 
-        <motion.section
+        {/* <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.35 }}
@@ -231,7 +231,7 @@ function SignInFormContent() {
             Password resets, token refresh, and role assignment now follow the
             backend workflow.
           </div>
-        </motion.section>
+        </motion.section> */}
       </div>
     </div>
   )

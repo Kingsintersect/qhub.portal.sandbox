@@ -50,11 +50,17 @@ export const documentService = {
     return res.data
   },
 
-  uploadDocument: ({ file, studentId, documentType }: UploadDocumentDto) =>
+  // `onUploadProgress` is a transport concern, not part of the payload, so it
+  // stays a separate argument rather than a field on UploadDocumentDto (which
+  // is z.infer'd from the schema validating what's actually sent).
+  uploadDocument: (
+    { file, studentId, documentType }: UploadDocumentDto,
+    onUploadProgress?: (percent: number) => void
+  ) =>
     apiClient.post<DocumentResponse>(
       BASE,
       { file, studentId, documentType },
-      { ...AUTH, contentType: "multipart" }
+      { ...AUTH, contentType: "multipart", onUploadProgress }
     ),
 
   updateDocument: (id: number, dto: UpdateDocumentDto) =>

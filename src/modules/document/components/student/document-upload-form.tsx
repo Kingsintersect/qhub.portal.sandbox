@@ -12,6 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { UploadProgress } from "@/components/upload-progress"
+import {
+  ACCEPT_DOCUMENTS,
+  MAX_FILE_SIZE_LABEL,
+  formatFileSize,
+  getFileError,
+} from "@/lib/uploads"
 import { useUploadDocument } from "../../hooks/use-document-mutations"
 import { COMMON_DOCUMENT_TYPES } from "../../schemas/document.schema"
 
@@ -29,6 +36,28 @@ export function DocumentUploadForm({
   )
   const [file, setFile] = useState<File | null>(null)
   const upload = useUploadDocument()
+
+  // Reject an oversized file the moment it's picked, so the user never waits
+  // on an upload that was always going to be refused.
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] ?? null
+    e.target.value = ""
+
+    if (!selected) {
+      setFile(null)
+      return
+    }
+
+    const fileError = getFileError(selected, "document")
+    if (fileError) {
+      toast.error(fileError)
+      setFile(null)
+      return
+    }
+
+    upload.progress.reset()
+    setFile(selected)
+  }
 
   const handleSubmit = async () => {
     if (!studentId) {
@@ -72,14 +101,31 @@ export function DocumentUploadForm({
         <input
           id="document-file"
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary"
+          accept={ACCEPT_DOCUMENTS}
+          onChange={handleFileChange}
+          disabled={upload.progress.isActive}
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary disabled:cursor-not-allowed disabled:opacity-50"
         />
         <p className="text-[11px] text-muted-foreground">
-          PDF, JPG, or PNG — max 5MB.
+          Images, PDF, DOC or DOCX — max {MAX_FILE_SIZE_LABEL} per file.
         </p>
+        {file && (
+          <p className="text-[11px] text-muted-foreground">
+            Selected: <span className="font-medium">{file.name}</span> (
+            {formatFileSize(file.size)})
+          </p>
+        )}
       </div>
+
+      <UploadProgress
+        stage={upload.progress.stage}
+        percent={upload.progress.percent}
+        message={
+          upload.progress.stage === "done"
+            ? "Document uploaded — pending verification"
+            : undefined
+        }
+      />
 
       {!studentId && (
         <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -90,10 +136,10 @@ export function DocumentUploadForm({
 
       <Button
         className="w-full"
-        disabled={upload.isPending || !file || !studentId}
+        disabled={upload.progress.isActive || !file || !studentId}
         onClick={handleSubmit}
       >
-        {upload.isPending ? (
+        {upload.progress.isActive ? (
           <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
         ) : (
           <Upload className="size-4" data-icon="inline-start" />

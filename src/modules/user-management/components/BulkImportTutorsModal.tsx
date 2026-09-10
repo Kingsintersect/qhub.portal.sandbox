@@ -18,6 +18,12 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import StatusBadge from "@/components/custom/StatusBadge"
 import { cn } from "@/lib/utils"
+import { UploadProgress } from "@/components/upload-progress"
+import {
+  MAX_FILE_SIZE_LABEL,
+  formatFileSize,
+  getFileSizeError,
+} from "@/lib/uploads"
 import { useBulkImportTutors } from "../hooks/useUsersData"
 import {
   bulkImportTutorsSchema,
@@ -53,6 +59,7 @@ export function BulkImportTutorsModal({
   const {
     handleSubmit,
     setValue,
+    setError,
     control,
     reset,
     formState: { errors },
@@ -68,6 +75,7 @@ export function BulkImportTutorsModal({
     setFileName(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
     bulkImport.reset()
+    bulkImport.progress.reset()
     onClose()
   }
 
@@ -98,9 +106,9 @@ export function BulkImportTutorsModal({
             </Button>
             <Button
               onClick={handleSubmit(onSubmit)}
-              disabled={bulkImport.isPending}
+              disabled={bulkImport.progress.isActive}
             >
-              {bulkImport.isPending && (
+              {bulkImport.progress.isActive && (
                 <Loader2
                   className="size-4 animate-spin"
                   data-icon="inline-start"
@@ -159,7 +167,9 @@ export function BulkImportTutorsModal({
                 <span className="text-sm text-foreground">
                   {fileName ?? "Click to select a .csv or .txt file"}
                 </span>
-                <span className="text-xs text-muted-foreground">Max 10MB</span>
+                <span className="text-xs text-muted-foreground">
+                  Max {MAX_FILE_SIZE_LABEL}
+                </span>
               </button>
               <input
                 ref={fileInputRef}
@@ -168,10 +178,18 @@ export function BulkImportTutorsModal({
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
-                  if (file) {
-                    setValue("file", file, { shouldValidate: true })
-                    setFileName(file.name)
+                  e.target.value = ""
+                  if (!file) return
+                  // Reject at selection time so the admin isn't told only
+                  // after filling in the rest of the dialog and hitting Import.
+                  const sizeError = getFileSizeError(file)
+                  if (sizeError) {
+                    setError("file", { message: sizeError })
+                    setFileName(null)
+                    return
                   }
+                  setValue("file", file, { shouldValidate: true })
+                  setFileName(`${file.name} (${formatFileSize(file.size)})`)
                 }}
               />
               {errors.file && (
@@ -229,6 +247,20 @@ export function BulkImportTutorsModal({
             </div>
           </>
         )}
+
+        <UploadProgress
+          stage={bulkImport.progress.stage}
+          percent={bulkImport.progress.percent}
+          message={
+            bulkImport.progress.stage === "processing"
+              ? "Upload complete — importing tutors…"
+              : bulkImport.progress.stage === "done"
+                ? "Import finished — see the results below"
+                : bulkImport.progress.stage === "error"
+                  ? "The import couldn't be completed"
+                  : undefined
+          }
+        />
 
         {result && <BulkImportResults result={result} />}
       </div>

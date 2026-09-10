@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useUploadProgress } from "@/hooks/use-upload-progress"
 import { documentService } from "../services/document.service"
 import { documentKeys } from "./query-keys"
 import type {
@@ -10,17 +11,32 @@ import type {
   VerifyDocumentDto,
 } from "../types"
 
+/**
+ * Upload a document, exposing live transfer progress alongside the mutation.
+ *
+ * The returned object is the React Query mutation plus a `progress` handle
+ * (`percent`, `stage`, `reset`) that feeds `<UploadProgress />` directly.
+ */
 export function useUploadDocument() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (dto: UploadDocumentDto) => documentService.uploadDocument(dto),
+  const progress = useUploadProgress()
+
+  const mutation = useMutation({
+    mutationFn: (dto: UploadDocumentDto) => {
+      progress.start()
+      return documentService.uploadDocument(dto, progress.handleProgress)
+    },
     onSuccess: (_data, variables) => {
+      progress.succeed()
       qc.invalidateQueries({ queryKey: documentKeys.all })
       qc.invalidateQueries({
         queryKey: documentKeys.byStudent(variables.studentId),
       })
     },
+    onError: () => progress.fail(),
   })
+
+  return { ...mutation, progress }
 }
 
 export function useUpdateDocument() {

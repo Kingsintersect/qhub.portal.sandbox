@@ -9,19 +9,14 @@ import {
   dateOfBirthSchema,
   genderSchema,
 } from "@/lib/validations/zod"
+import {
+  FILE_TOO_LARGE_MESSAGE,
+  isDocumentFile,
+  isFileWithinSizeLimit,
+  isImageFile,
+} from "@/lib/uploads"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-export const ACCEPTED_FILE_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-] as const
-
 export const EXAM_TYPES = ["WAEC", "NECO", "NABTEB", "GCE"] as const
 export const RESULT_TYPES = ["single_result", "combined_result"] as const
 export const STUDY_MODES = ["online", "offline"] as const
@@ -42,19 +37,32 @@ export const RELATIONSHIPS = [
 ] as const
 export const ENTRY_MODES = ["UTME", "DIRECT_ENTRY", "TRANSFER"] as const
 
-// ─── File Schema ─────────────────────────────────────────────────────────────
+// ─── File Schemas ────────────────────────────────────────────────────────────
+// Two shapes, because a passport photograph and a certificate scan aren't the
+// same thing: a photo field takes images only, a document field takes images
+// *or* PDF/DOC/DOCX (a phone photo of a certificate is as valid as a scan).
+//
+// Both match on the MIME prefix / a known extension rather than a fixed
+// allowlist. The old allowlist named seven exact types, which rejected real
+// files users submit — HEIC from an iPhone, AVIF, and legacy `image/x-png`,
+// which older Windows reports instead of `image/png`.
+
+/** Photographs — any image format. */
+export const photoFileSchema = z
+  .instanceof(File)
+  .refine(isFileWithinSizeLimit, { message: FILE_TOO_LARGE_MESSAGE })
+  .refine(isImageFile, {
+    message:
+      "Upload an image file — any format (JPG, PNG, HEIC, WEBP…) is accepted",
+  })
+
+/** Supporting documents — images as well as PDF/DOC/DOCX. */
 export const documentFileSchema = z
   .instanceof(File)
-  .refine((file) => file.size <= MAX_FILE_SIZE, {
-    message: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+  .refine(isFileWithinSizeLimit, { message: FILE_TOO_LARGE_MESSAGE })
+  .refine((file) => isImageFile(file) || isDocumentFile(file), {
+    message: "Upload an image or a PDF, DOC or DOCX file",
   })
-  .refine(
-    (file) => (ACCEPTED_FILE_TYPES as readonly string[]).includes(file.type),
-    {
-      message:
-        "Unsupported file type. Only images and documents (PDF, DOC, DOCX) are allowed",
-    }
-  )
 
 // ─── Step 1: Personal Information ────────────────────────────────────────────
 export const personalInfoSchema = z
@@ -161,11 +169,16 @@ export const nextOfKinSchema = z.object({
 })
 
 // ─── Step 4: Documents ───────────────────────────────────────────────────────
+// `nullish()` rather than `optional()`: a restored draft can hand these fields
+// `null` (see the note in useAdmissionForm's loadSavedData), and `.optional()`
+// accepts only `undefined` — an empty optional upload would otherwise fail with
+// "expected array, received null". Matches qualificationDocumentsSchema and
+// odlProgramSchema, which already allow null here.
 export const documentsSchema = z.object({
-  passport: documentFileSchema.optional(),
-  first_school_leaving: documentFileSchema.optional(),
-  o_level: documentFileSchema.optional(),
-  other_documents: z.array(documentFileSchema).optional(),
+  passport: photoFileSchema.nullish(),
+  first_school_leaving: documentFileSchema.nullish(),
+  o_level: documentFileSchema.nullish(),
+  other_documents: z.array(documentFileSchema).nullish(),
 })
 
 // ─── Step 5: Qualification-specific Fields ──────────────────────────────────────────
@@ -247,7 +260,7 @@ export const odlProgramSchema = z
     next_of_kin_workplace: shortStringSchema("Workplace", true),
 
     // Step 4: Documents
-    passport: documentFileSchema.nullish(),
+    passport: photoFileSchema.nullish(),
     first_school_leaving: documentFileSchema.nullish(),
     o_level: documentFileSchema.nullish(),
     other_documents: z.array(documentFileSchema).nullish(),
