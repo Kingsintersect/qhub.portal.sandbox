@@ -35,3 +35,12 @@ export function useInvoicePaymentHistory(invoiceId: number) {
     enabled: !!invoiceId,
   })
 }
+
+export function usePayment(paymentId: number | null) {
+  return useQuery({
+    queryKey: feeKeys.payment(paymentId ?? 0),
+    queryFn: () => feeManagementService.getPayment(paymentId as number),
+    enabled: paymentId !== null && paymentId > 0,
+    staleTime: 60 * 1000,
+  })
+}

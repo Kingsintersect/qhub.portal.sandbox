@@ -27,6 +27,7 @@ import Modal from "@/components/custom/Modal"
 import { ZoomableImage } from "@/components/custom/ZoomableImage"
 import { getFileKind } from "@/lib/utils"
 import {
+  applicationReviewApi,
   applicationReviewKeys,
   applicationReviewMutationOptions,
   applicationReviewQueryOptions,
@@ -609,9 +610,15 @@ export default function ApplicationDetailPage() {
           </div>
         </SectionCard>
 
-        {/* Documents — view only; DELETE .../documents/:docId is applicant-scoped, not admin */}
+        {/* Documents — view + download; edits are applicant-scoped, not admin */}
         <SectionCard title="Uploaded Documents" icon={FileText}>
-          <DocumentList documents={documents} editable={false} />
+          <DocumentList
+            documents={documents}
+            editable={false}
+            onDownload={(doc) =>
+              applicationReviewApi.downloadDocument(id, doc.id)
+            }
+          />
         </SectionCard>
 
         {/* Approval Confirmation */}

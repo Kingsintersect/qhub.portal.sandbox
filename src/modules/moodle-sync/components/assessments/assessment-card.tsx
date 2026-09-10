@@ -91,7 +91,6 @@ export function AssessmentCard({
     badge,
   } = typeConfig[assessment.assessmentType]
   const { label: dueDateLabel, urgent } = formatDueDate(assessment.dueDate)
-  const course = assessment.course.courseOffering.course
 
   const CardContent = (
     <motion.div
@@ -120,7 +119,7 @@ export function AssessmentCard({
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge label={typeLabel} variant={badge} />
             <span className="text-xs font-medium text-muted-foreground">
-              {course.code}
+              {assessment.courseCode}
             </span>
           </div>
           {showVisibility && visibilityToggle}
@@ -158,7 +157,7 @@ export function AssessmentCard({
 
           {/* Course */}
           <span className="truncate text-muted-foreground/70">
-            {course.title}
+            {assessment.courseTitle}
           </span>
         </div>
       </div>

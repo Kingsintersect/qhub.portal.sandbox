@@ -6,6 +6,7 @@ import { AlertTriangle, Download, Loader2, UserX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { usePullUsers } from "../../hooks/use-sync-mutations"
+import { useUnmatchedMoodleUsers } from "../../hooks/use-sync-users"
 import { UnmatchedUsersModal } from "./unmatched-users-modal"
 import { SkippedUsersModal } from "./skipped-users-modal"
 import type { PullUsersResult } from "../../types"
@@ -20,6 +21,10 @@ export function PullUsersButton() {
   const [showUnmatched, setShowUnmatched] = useState(false)
   const [showSkipped, setShowSkipped] = useState(false)
 
+  // Standing unmatched list — shown when no pull has run this session yet.
+  // A completed pull's own `unmatched` is fresher, so it takes precedence.
+  const standingUnmatched = useUnmatchedMoodleUsers()
+
   const handlePullAll = async () => {
     try {
       const nextResult = await pullUsers.mutateAsync()
@@ -32,7 +37,7 @@ export function PullUsersButton() {
     }
   }
 
-  const unmatched = result?.unmatched ?? []
+  const unmatched = result?.unmatched ?? standingUnmatched.data ?? []
   const skippedCount = result?.skipped ?? 0
 
   return (
@@ -75,7 +80,7 @@ export function PullUsersButton() {
             disabled={unmatched.length === 0}
             title={
               unmatched.length === 0
-                ? "No unmatched users from the last pull"
+                ? "No unmatched Moodle users"
                 : "View Moodle users with no matching portal account"
             }
             onClick={() => setShowUnmatched(true)}

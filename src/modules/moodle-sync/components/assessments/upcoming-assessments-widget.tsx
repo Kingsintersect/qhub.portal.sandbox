@@ -57,7 +57,7 @@ export function UpcomingAssessmentsWidget() {
                   {item.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {item.course.courseOffering.course.code}
+                  {item.courseCode}
                 </p>
               </div>
               <span className="shrink-0 text-xs font-medium text-primary">

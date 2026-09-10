@@ -1,10 +1,22 @@
 "use client"
 
-import { AlertTriangle, BookOpen, GraduationCap, RefreshCw } from "lucide-react"
+import Link from "next/link"
+import {
+  AlertTriangle,
+  BookOpen,
+  GraduationCap,
+  RefreshCw,
+  SquarePen,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import EmptyState from "@/components/custom/EmptyState"
+
+const COURSE_REGISTRATION_HREF = "/student/enrollment"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
-import { useEnrollmentsByStudent } from "@/modules/enrollment/hooks/use-enrollments"
+import {
+  useEnrollmentsByStudent,
+  useMyCourses,
+} from "@/modules/enrollment/hooks/use-enrollments"
 import { MyCourseLaunchCard } from "@/modules/enrollment/components/my-course-launch-card"
 
 export default function StudentCoursesPage() {
@@ -17,22 +29,42 @@ export default function StudentCoursesPage() {
   const { data, isLoading, isError } = useEnrollmentsByStudent(studentId, {
     status: "ENROLLED",
   })
-  const courses = data ?? []
+  // Optional enrichment: layer the per-course `moodleSynced` flag on top when
+  // `GET /students/me/courses` is available. Missing/errored → flag stays
+  // undefined and the card behaves exactly as before.
+  const { data: myCourses } = useMyCourses()
+  const syncedByOffering = new Map(
+    (myCourses ?? []).map((c) => [c.offeringId, c.moodleSynced])
+  )
+  const courses = (data ?? []).map((e) => ({
+    ...e,
+    moodleSynced: syncedByOffering.get(e.offeringId) ?? e.moodleSynced ?? null,
+  }))
   const loading = resolvingStudentId || isLoading
 
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl border border-primary/20 bg-linear-to-br from-primary/15 via-background to-cyan-500/10 p-6">
-        <p className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
-          Learning Hub
-        </p>
-        <h1 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl">
-          My Courses
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Course content lives on Moodle. Pick a course below to continue —
-          you&apos;ll be signed in automatically.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
+              Learning Hub
+            </p>
+            <h1 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl">
+              My Courses
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Course content lives on Moodle. Pick a course below to continue —
+              you&apos;ll be signed in automatically.
+            </p>
+          </div>
+          <Button asChild className="shrink-0 gap-1.5">
+            <Link href={COURSE_REGISTRATION_HREF}>
+              <SquarePen size={15} />
+              Register for courses
+            </Link>
+          </Button>
+        </div>
       </section>
 
       {studentId === null && !resolvingStudentId && (
@@ -77,6 +109,16 @@ export default function StudentCoursesPage() {
           icon={studentId === null ? GraduationCap : BookOpen}
           title="No courses yet"
           description="Your enrolled courses will appear here once your registration for the semester is confirmed."
+          action={
+            studentId !== null ? (
+              <Button asChild className="gap-1.5">
+                <Link href={COURSE_REGISTRATION_HREF}>
+                  <SquarePen size={15} />
+                  Register for courses
+                </Link>
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

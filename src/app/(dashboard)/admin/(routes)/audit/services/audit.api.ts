@@ -3,6 +3,7 @@ import type {
   AuditQueryParams,
   AuditLogsResponse,
   AuditEntityLog,
+  AuditLogDetail,
   AuditStats,
   AuditEntityType,
   AuditEntityLogsResponse,
@@ -47,6 +48,27 @@ export const auditApi = {
       access_token: true,
       ...options,
     })
+  },
+
+  /**
+   * GET /audit/logs/:id
+   * Fetches a single audit log entry with oldValues/newValues JSON-decoded
+   * (the list endpoint may leave them as raw JSON text). Bruno:
+   * audit/Logs - Get By ID.bru. Response shape is undocumented in the
+   * README, so accept both a bare object and a `{ data }` envelope.
+   */
+  getLogById: async (
+    id: number,
+    options?: RequestOptions
+  ): Promise<AuditLogDetail> => {
+    const body = await apiClient.get<AuditLogDetail | { data: AuditLogDetail }>(
+      `/audit/logs/${id}`,
+      {
+        access_token: true,
+        ...options,
+      }
+    )
+    return "data" in body ? body.data : body
   },
 
   /**
@@ -103,62 +125,11 @@ export const auditApi = {
     })
   },
 
-  /**
-   * GET /audit/export
-   * Exports audit logs in various formats
-   */
-  exportLogs: async (
-    params: AuditQueryParams & { format: "csv" | "excel" | "pdf" },
-    _options?: RequestOptions
-  ): Promise<Blob> => {
-    const queryParams: Record<string, unknown> = {}
-
-    // Build query params
-    if (params.page) queryParams.page = String(params.page)
-    if (params.limit) queryParams.limit = String(params.limit)
-    if (params.search) queryParams.search = params.search
-    if (params.action) queryParams.action = params.action
-    if (params.entityType) queryParams.entityType = params.entityType
-    if (params.userId) queryParams.userId = String(params.userId)
-    if (params.startDate) queryParams.startDate = params.startDate
-    if (params.endDate) queryParams.endDate = params.endDate
-    if (params.academicYear) queryParams.academicYear = params.academicYear
-    if (params.semester) queryParams.semester = params.semester
-    if (params.program) queryParams.program = params.program
-    if (params.format) queryParams.format = params.format
-
-    // Use axios directly for blob response
-    const axiosInstance = apiClient.getAxiosInstance()
-    const response = await axiosInstance.get("/audit/export", {
-      params: queryParams,
-      responseType: "blob",
-      headers: {
-        Authorization: `Bearer ${apiClient["pickAuthToken"]()}`,
-      },
-    })
-
-    return response.data
-  },
-
-  /**
-   * POST /audit/log
-   * Creates a custom audit log entry
-   */
-  createLog: async (
-    data: {
-      action: string
-      entityType: string
-      entityId: number
-      oldValues?: Record<string, unknown>
-      newValues?: Record<string, unknown>
-    },
-    options?: RequestOptions
-  ): Promise<{ success: boolean }> => {
-    return apiClient.post<{ success: boolean }>("/audit/log", data, {
-      access_token: true,
-      ...options,
-    })
-  },
+  // Note: `GET /audit/export` and `POST /audit/log` are NOT real endpoints
+  // (verified 404, 2026-09-10). Audit rows are written by the backend itself,
+  // never via REST, and the export menu (`useAuditExport` → `exportAuditLogs`)
+  // builds the file client-side from the already-loaded rows — so no
+  // server-side export call is needed.
 }
 
 // Export types for convenience

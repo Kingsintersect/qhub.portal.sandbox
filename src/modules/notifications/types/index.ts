@@ -5,6 +5,7 @@ import type {
   unreadCountResponseSchema,
   markReadResponseSchema,
   markAllReadResponseSchema,
+  notificationDetailResponseSchema,
   notificationFilterSchema,
   notificationChannelSchema,
   notificationStatusSchema,
@@ -27,6 +28,9 @@ export type NotificationListResponse = z.infer<
 >
 export type UnreadCountResponse = z.infer<typeof unreadCountResponseSchema>
 export type MarkReadResponse = z.infer<typeof markReadResponseSchema>
+export type NotificationDetailResponse = z.infer<
+  typeof notificationDetailResponseSchema
+>
 export type MarkAllReadResponse = z.infer<typeof markAllReadResponseSchema>
 export type NotificationFilter = z.infer<typeof notificationFilterSchema>
 

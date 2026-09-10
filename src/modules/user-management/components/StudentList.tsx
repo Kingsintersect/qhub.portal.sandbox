@@ -10,6 +10,7 @@ import {
   Download,
   UserX,
   UserCheck,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
@@ -21,6 +22,7 @@ import { usePermissions } from "@/lib/permissions/usePermissions"
 import { useLevels } from "@/hooks/useCourseStructure"
 import {
   useStudents,
+  useStudentLookupByMatric,
   useUpdateStudent,
   useSetUserActive,
 } from "../hooks/useUsersData"
@@ -137,6 +139,22 @@ export default function StudentsPage({
   const [editing, setEditing] = useState<Student | null>(null)
   const [statusTarget, setStatusTarget] = useState<Student | null>(null)
 
+  // Exact matric lookup — finds a student even if they're not on the loaded
+  // page, then opens the detail modal on it.
+  const [matricInput, setMatricInput] = useState("")
+  const matricLookup = useStudentLookupByMatric()
+
+  const runMatricLookup = () => {
+    const v = matricInput.trim()
+    if (!v || matricLookup.isPending) return
+    matricLookup.mutate(v, {
+      onSuccess: (res) => {
+        setSelected(res.data)
+        setMatricInput("")
+      },
+    })
+  }
+
   return (
     <div className="mx-auto space-y-8 px-4 py-8 sm:px-6 lg:px-8">
       {/* Header */}
@@ -161,12 +179,41 @@ export default function StudentsPage({
             </div>
           </div>
 
-          {/* Export — departments:manage (SUPER_ADMIN only) */}
-          {canExport && (
-            <Button variant="outline" className="gap-2">
-              <Download size={16} /> Export
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Exact matric lookup */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                runMatricLookup()
+              }}
+              className="relative"
+            >
+              <Search
+                size={14}
+                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                value={matricInput}
+                onChange={(e) => setMatricInput(e.target.value)}
+                placeholder="Find by matric no…"
+                aria-label="Find student by matric number"
+                className="w-48 rounded-xl border border-transparent bg-muted py-2 pr-3 pl-8 text-sm text-foreground transition-all outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              {matricLookup.isPending && (
+                <Loader2
+                  size={14}
+                  className="absolute top-1/2 right-3 -translate-y-1/2 animate-spin text-muted-foreground"
+                />
+              )}
+            </form>
+
+            {/* Export — departments:manage (SUPER_ADMIN only) */}
+            {canExport && (
+              <Button variant="outline" className="gap-2">
+                <Download size={16} /> Export
+              </Button>
+            )}
+          </div>
         </div>
       </motion.div>
 

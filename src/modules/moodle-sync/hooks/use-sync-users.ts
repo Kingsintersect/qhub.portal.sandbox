@@ -106,3 +106,17 @@ export function useSyncUserMapping(id: number) {
     enabled: !!id,
   })
 }
+
+// Standing list of Moodle accounts with no matching portal user — the
+// read-only equivalent of the `unmatched[]` a pull returns, so the admin
+// can review them any time without re-running a pull. 404s gracefully to an
+// empty list until the backend ships the endpoint.
+export function useUnmatchedMoodleUsers(enabled = true) {
+  return useQuery({
+    queryKey: moodleSyncKeys.unmatchedUsers(),
+    queryFn: () => moodleSyncService.getUnmatchedUsers(),
+    enabled,
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+}

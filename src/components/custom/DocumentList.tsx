@@ -2,6 +2,16 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import {
+  Download,
+  Eye,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react"
 import { Eye, ExternalLink, FileText, Trash2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn, getFileKind } from "@/lib/utils"
@@ -17,6 +27,13 @@ interface DocumentCardProps {
   editable?: boolean
   onRemove?: (id: string) => void
   onReplace?: (id: string, file: File) => void
+  /**
+   * When set, downloads go through an authenticated blob fetch rather than a
+   * plain `<a href>` — required because the real document URL is now the
+   * bearer-protected `/admissions/applications/:id/documents/:docId/download`
+   * endpoint, which a raw link can't reach.
+   */
+  onDownload?: (document: ApplicantDocument) => Promise<Blob>
 }
 
 export function DocumentCard({
@@ -24,7 +41,27 @@ export function DocumentCard({
   editable = false,
   onRemove,
   onReplace,
+  onDownload,
 }: DocumentCardProps) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!onDownload) return
+    setDownloading(true)
+    try {
+      const blob = await onDownload(document)
+      const url = URL.createObjectURL(blob)
+      const a = window.document.createElement("a")
+      a.href = url
+      a.download = document.name || `document-${document.id}`
+      window.document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(false)
+    }
+  }
   const [preview, setPreview] = useState(false)
   // Every uploaded document was previously forced through an <img> tag
   // regardless of what it actually was — a PDF or .doc/.docx just showed a
@@ -59,6 +96,20 @@ export function DocumentCard({
           >
             <Eye size={14} />
           </button>
+          {onDownload && (
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+              title="Download"
+            >
+              {downloading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+            </button>
+          )}
           {editable && (
             <>
               <label
@@ -180,6 +231,7 @@ interface DocumentListProps {
   onRemove?: (id: string) => void
   onReplace?: (id: string, file: File) => void
   onAdd?: (file: File) => void
+  onDownload?: (document: ApplicantDocument) => Promise<Blob>
 }
 
 export default function DocumentList({
@@ -188,6 +240,7 @@ export default function DocumentList({
   onRemove,
   onReplace,
   onAdd,
+  onDownload,
 }: DocumentListProps) {
   return (
     <div className="space-y-2">
@@ -199,6 +252,7 @@ export default function DocumentList({
             editable={editable}
             onRemove={onRemove}
             onReplace={onReplace}
+            onDownload={onDownload}
           />
         ))}
       </AnimatePresence>

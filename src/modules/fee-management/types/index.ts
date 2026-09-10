@@ -51,6 +51,10 @@ export type PaymentHistoryItem = z.infer<
 export type PaymentHistoryResponse = z.infer<
   typeof Payment.PaymentHistoryResponseSchema
 >
+export type PaymentDetail = z.infer<typeof Payment.PaymentDetailSchema>
+export type PaymentDetailResponse = z.infer<
+  typeof Payment.PaymentDetailResponseSchema
+>
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 import type * as Reports from "../schemas/reports.schema"

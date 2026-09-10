@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import {
   Bell,
   Lock,
@@ -30,17 +30,15 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  useAppHydrated,
-  useAppStore,
-  useNotificationStore,
-  useThemeStore,
-} from "@/store"
+import { useAppHydrated, useAppStore, useThemeStore } from "@/store"
+import { changePassword } from "@/lib/auth/backendAuth"
+import { useMyStudent, useUpdateMyProfile } from "@/hooks/use-my-student-id"
+import { useUnreadCount } from "@/modules/notifications/hooks/use-notifications"
+import { useMarkAllRead } from "@/modules/notifications/hooks/use-notification-mutations"
 
 const SETTINGS_STORAGE_KEY = "student-settings:v1"
 
 type SettingsState = {
-  phoneNumber: string
   bio: string
   language: "en" | "fr"
   timezone: string
@@ -55,7 +53,6 @@ type SettingsState = {
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
-  phoneNumber: "",
   bio: "",
   language: "en",
   timezone: "Africa/Lagos",
@@ -86,36 +83,52 @@ function readStoredSettings(): SettingsState {
 export default function StudentSettingsPage() {
   const hydrated = useAppHydrated()
   const { user, updateUser } = useAppStore()
-  const { notifications, markAllRead } = useNotificationStore()
+  const { data: unreadData } = useUnreadCount()
+  const markAllRead = useMarkAllRead()
   const { theme, setTheme } = useThemeStore()
 
-  const [displayName, setDisplayName] = useState("")
-  const [email, setEmail] = useState("")
-  const [department, setDepartment] = useState("")
-  const [level, setLevel] = useState("")
+  const { student } = useMyStudent()
+  const updateProfile = useUpdateMyProfile()
+
   const [avatarUrl, setAvatarUrl] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [contactAddress, setContactAddress] = useState("")
   const [settings, setSettings] = useState<SettingsState>(readStoredSettings)
+
+  // Read-only identity fields come straight off the resolved student record
+  // (name / email / matric / programme / department / level are not
+  // student-editable — PATCH /users/students/:id only accepts contact +
+  // guardian + phone).
+  const fullName = student
+    ? [
+        student.user.first_name,
+        student.user.middle_name,
+        student.user.last_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : (user?.name ?? "")
+  const email = student?.user.email ?? user?.email ?? ""
+  const department = student?.department_name ?? user?.department ?? ""
+  const level = student ? `${student.current_level}L` : (user?.level ?? "")
+  const matric = student?.matric_number ?? ""
 
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications]
-  )
+  const unreadCount = unreadData?.data.unreadCount ?? 0
 
-  // Sync the editable profile fields from the store user whenever the user
-  // changes — done during render (React's "adjust state when a prop changes"
-  // pattern) rather than in an effect to avoid a cascading re-render.
-  const [syncedUser, setSyncedUser] = useState<typeof user>(null)
-  if (user && user !== syncedUser) {
-    setSyncedUser(user)
-    setDisplayName(user.name ?? "")
-    setEmail(user.email ?? "")
-    setDepartment(user.department ?? "")
-    setLevel(user.level ?? "")
-    setAvatarUrl(user.avatar ?? "")
+  // Seed the editable fields from the resolved student record once it
+  // arrives — render-time "adjust state when a prop changes" pattern rather
+  // than an effect, to avoid a cascading re-render.
+  const [syncedStudentId, setSyncedStudentId] = useState<number | null>(null)
+  if (student && student.id !== syncedStudentId) {
+    setSyncedStudentId(student.id)
+    setPhoneNumber(student.user.phone_number ?? "")
+    setContactAddress(student.contact_address ?? "")
+    setAvatarUrl(user?.avatar ?? "")
   }
 
   function patchSettings(patch: Partial<SettingsState>) {
@@ -128,26 +141,41 @@ export default function StudentSettingsPage() {
     })
   }
 
-  function handleSaveProfile() {
-    if (!displayName.trim() || !email.trim()) {
-      toast.error("Name and email are required.")
+  async function handleSaveProfile() {
+    // Bio / avatar have no backend field — keep them as this-device
+    // personalization.
+    if (avatarUrl.trim()) {
+      updateUser({ avatar: avatarUrl.trim() })
+    }
+    patchSettings({ bio: settings.bio })
+
+    if (!student) {
+      toast.error("Your student record isn't loaded yet — try again shortly.")
       return
     }
 
-    updateUser({
-      name: displayName.trim(),
-      email: email.trim(),
-      department: department.trim() || undefined,
-      level: level.trim() || undefined,
-      avatar: avatarUrl.trim() || undefined,
-    })
+    const trimmedPhone = phoneNumber.trim()
+    const trimmedAddress = contactAddress.trim()
+    const changed =
+      trimmedPhone !== (student.user.phone_number ?? "") ||
+      trimmedAddress !== (student.contact_address ?? "")
 
-    patchSettings({
-      bio: settings.bio,
-      phoneNumber: settings.phoneNumber,
-    })
+    if (!changed) {
+      toast.success("Profile is already up to date.")
+      return
+    }
 
-    toast.success("Profile settings saved.")
+    try {
+      await updateProfile.mutateAsync({
+        studentId: student.id,
+        payload: {
+          phone_number: trimmedPhone || undefined,
+          contact_address: trimmedAddress || undefined,
+        },
+      })
+    } catch {
+      // useUpdateMyProfile surfaces its own error toast
+    }
   }
 
   function handleSavePreferences() {
@@ -155,7 +183,7 @@ export default function StudentSettingsPage() {
     toast.success("Preferences updated.")
   }
 
-  function handleChangePassword() {
+  async function handleChangePassword() {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("Fill all password fields.")
       return
@@ -171,10 +199,22 @@ export default function StudentSettingsPage() {
       return
     }
 
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
-    toast.success("Password updated successfully.")
+    setChangingPassword(true)
+    try {
+      const res = await changePassword(currentPassword, newPassword)
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      toast.success(res.message || "Password changed successfully.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Couldn't change your password."
+      )
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   if (!hydrated || !user) {
@@ -244,14 +284,11 @@ export default function StudentSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Read-only identity — managed by the registry, not editable here */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="display-name">Full Name</Label>
-                  <Input
-                    id="display-name"
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                  />
+                  <Input id="display-name" value={fullName} disabled readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -259,45 +296,64 @@ export default function StudentSettingsPage() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    disabled
+                    readOnly
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="matric">Matric Number</Label>
+                  <Input id="matric" value={matric || "—"} disabled readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
                   <Input
                     id="department"
-                    value={department}
-                    onChange={(event) => setDepartment(event.target.value)}
+                    value={department || "—"}
+                    disabled
+                    readOnly
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="level">Level</Label>
-                  <Input
-                    id="level"
-                    value={level}
-                    onChange={(event) => setLevel(event.target.value)}
-                  />
+                  <Input id="level" value={level || "—"} disabled readOnly />
                 </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Something wrong with the details above? Contact the registry —
+                they can&apos;t be changed here.
+              </p>
+
+              {/* Editable — PATCH /users/students/:id (self) */}
+              <div className="grid gap-4 border-t border-border pt-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="phone-number">Phone Number</Label>
                   <Input
                     id="phone-number"
-                    value={settings.phoneNumber}
-                    onChange={(event) =>
-                      patchSettings({ phoneNumber: event.target.value })
-                    }
+                    value={phoneNumber}
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    placeholder="08012345678"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="avatar-url">
-                    Avatar URL (from backend if available)
-                  </Label>
+                  <Label htmlFor="contact-address">Contact Address</Label>
                   <Input
-                    id="avatar-url"
-                    value={avatarUrl}
-                    onChange={(event) => setAvatarUrl(event.target.value)}
+                    id="contact-address"
+                    value={contactAddress}
+                    onChange={(event) => setContactAddress(event.target.value)}
+                    placeholder="Where you currently live"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="avatar-url">Avatar URL</Label>
+                <Input
+                  id="avatar-url"
+                  value={avatarUrl}
+                  onChange={(event) => setAvatarUrl(event.target.value)}
+                  placeholder="https://…"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>
@@ -309,9 +365,16 @@ export default function StudentSettingsPage() {
                   }
                   placeholder="Tell us a little about your learning goals."
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Avatar and bio are saved on this device only.
+                </p>
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} className="gap-2">
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={updateProfile.isPending}
+                  className="gap-2"
+                >
                   <Save size={15} />
                   Save Profile
                 </Button>
@@ -376,9 +439,12 @@ export default function StudentSettingsPage() {
                 </p>
                 <Button
                   variant="outline"
+                  disabled={markAllRead.isPending || unreadCount === 0}
                   onClick={() => {
-                    markAllRead()
-                    toast.success("All notifications marked as read.")
+                    markAllRead.mutate(undefined, {
+                      onSuccess: () =>
+                        toast.success("All notifications marked as read."),
+                    })
                   }}
                 >
                   Mark all as read
@@ -532,7 +598,12 @@ export default function StudentSettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleChangePassword}>Update Password</Button>
+                <Button
+                  onClick={() => void handleChangePassword()}
+                  disabled={changingPassword}
+                >
+                  {changingPassword ? "Updating…" : "Update Password"}
+                </Button>
               </div>
 
               <SettingsToggle

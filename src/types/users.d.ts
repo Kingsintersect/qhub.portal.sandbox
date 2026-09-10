@@ -83,6 +83,14 @@ export interface Student {
 
 // ── Tutor ────────────────────────────────
 
+export interface TutorOnboardingProgress {
+  profileConfirmed: boolean
+  coursesConfirmed: boolean
+  firstAnnouncementPosted: boolean
+}
+
+export type TutorOnboardingStep = keyof TutorOnboardingProgress
+
 export interface Tutor {
   id: number
   user_id: number
@@ -97,6 +105,11 @@ export interface Tutor {
   qualifications: string | null
   research_areas: string | null
   bio: string | null
+  // Onboarding checklist — present on `GET /users/lecturers/{me,:id}` since
+  // 2026-09-01 (tutor_onboarding_workflow.md §5). Optional/defaulted here so
+  // older responses don't break.
+  onboarding_progress: TutorOnboardingProgress
+  onboarding_complete: boolean
   created_at: string
   updated_at: string
   user: Pick<

@@ -27,6 +27,14 @@ export function useFaculty(id: number | null) {
   })
 }
 
+/** Users holding the `dean` role — the picker source for Faculty.deanUserId. */
+export function useEligibleDeans() {
+  return useQuery({
+    ...courseStructureQueryOptions.faculties.eligibleDeans(),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
 export function useCreateFaculty() {
   const qc = useQueryClient()
   return useMutation({

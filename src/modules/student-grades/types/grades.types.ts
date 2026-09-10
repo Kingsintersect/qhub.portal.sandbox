@@ -20,6 +20,15 @@ export interface GradeScale {
   gradingSchemeId?: number | null
 }
 
+// POST/PATCH body for `/results/grade-scales`.
+export interface GradeScaleInput {
+  grade: string
+  minScore: number
+  maxScore: number
+  gradePoint: number
+  description?: string
+}
+
 // ─── Grading Schemes ──────────────────────────────────────────────────────────
 // Confirmed live (MISSING_BACKEND_APIS.md §2.16, now shipped) — see
 // sandbox/schema-moodel-sync-refactor/api-v2.md

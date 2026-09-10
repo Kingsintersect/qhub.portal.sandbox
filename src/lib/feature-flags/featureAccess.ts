@@ -27,7 +27,6 @@ const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
   { prefix: "/tutor/settings", feature: "profile_settings" },
   { prefix: "/manager/settings", feature: "profile_settings" },
   { prefix: "/admin/account/settings", feature: "profile_settings" },
-  { prefix: "/student/profile", feature: "profile_settings" },
 
   { prefix: "/admin/timetable", feature: "calendar_timetable_sync" },
   { prefix: "/student/timetable", feature: "calendar_timetable_sync" },
@@ -82,7 +81,7 @@ const ROUTE_FEATURE_RULES: RouteFeatureRule[] = [
 
   { prefix: "/manager/finance", feature: "payment" },
   { prefix: "/admin/finance", feature: "payment" },
-  { prefix: "/student/payments", feature: "payment" },
+  { prefix: "/student/fees", feature: "payment" },
 
   { prefix: "/manager/review-applications", feature: "admission" },
   { prefix: "/manager/academics/admissions", feature: "admission" },

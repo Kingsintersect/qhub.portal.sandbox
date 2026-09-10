@@ -24,10 +24,15 @@ import {
 } from "./components/steps"
 import {
   FormStep,
+  FORM_STEPS,
   getFieldLabel,
   getStepForField,
+  backendFieldToFormField,
   collectFormErrors,
 } from "./types/form-types"
+
+const getStepTitle = (step: FormStep): string =>
+  FORM_STEPS.find((s) => s.id === step)?.title ?? "the relevant step"
 
 const slideVariants = {
   enter: (direction: number) => ({
@@ -120,6 +125,7 @@ export default function AdmissionApplicationFormPage() {
     submitPercent,
     isSubmitted,
     submitAttempted,
+    submitError,
     goToStep,
     nextStep,
     prevStep,
@@ -142,6 +148,23 @@ export default function AdmissionApplicationFormPage() {
         })
       )
     : []
+
+  // Per-field messages from a backend rejection (Laravel 422 `errors` map),
+  // each linked to the step that owns the field where the field is resolvable
+  // and that step is currently active.
+  const serverErrorRows = (submitError?.fieldErrors ?? []).map(
+    ({ field, message }, i) => {
+      const formField = backendFieldToFormField(field)
+      const step = getStepForField(formField)
+      const navigable = step !== undefined && activeSteps.includes(step)
+      return {
+        key: `${field}-${i}`,
+        label: getFieldLabel(formField),
+        message,
+        step: navigable ? step : undefined,
+      }
+    }
+  )
 
   if (isLoading) {
     return (
@@ -231,40 +254,96 @@ export default function AdmissionApplicationFormPage() {
                 </AnimatePresence>
               </CardContent>
 
-              {/* Submit error summary — every outstanding error, visible right above the footer */}
-              {submitErrors.length > 0 && (
+              {/* Submit error summary — client-side validation + backend
+                  rejections, visible right above the footer */}
+              {(submitErrors.length > 0 || submitError) && (
                 <div className="px-6 sm:px-8">
                   <div
                     role="alert"
-                    className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+                    className="mb-4 space-y-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
                   >
-                    <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
-                      <AlertCircle className="size-4 shrink-0" />
-                      {submitErrors.length === 1
-                        ? "Please fix 1 error before submitting:"
-                        : `Please fix ${submitErrors.length} errors before submitting:`}
-                    </p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {submitErrors.map(({ field, message, step, label }) => (
-                        <li key={field} className="text-sm text-destructive">
-                          {step !== undefined ? (
-                            <button
-                              type="button"
-                              onClick={() => goToStep(step)}
-                              className="text-left underline-offset-2 hover:underline"
-                            >
-                              <span className="font-medium">{label}:</span>{" "}
-                              {message}
-                            </button>
-                          ) : (
-                            <>
-                              <span className="font-medium">{label}:</span>{" "}
-                              {message}
-                            </>
+                    {submitErrors.length > 0 && (
+                      <div>
+                        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
+                          <AlertCircle className="size-4 shrink-0" />
+                          {submitErrors.length === 1
+                            ? "Please fix 1 error before submitting:"
+                            : `Please fix ${submitErrors.length} errors before submitting:`}
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5">
+                          {submitErrors.map(
+                            ({ field, message, step, label }) => (
+                              <li
+                                key={field}
+                                className="text-sm text-destructive"
+                              >
+                                {step !== undefined ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => goToStep(step)}
+                                    className="text-left underline-offset-2 hover:underline"
+                                  >
+                                    <span className="font-medium">
+                                      {label}:
+                                    </span>{" "}
+                                    {message}
+                                  </button>
+                                ) : (
+                                  <>
+                                    <span className="font-medium">
+                                      {label}:
+                                    </span>{" "}
+                                    {message}
+                                  </>
+                                )}
+                              </li>
+                            )
                           )}
-                        </li>
-                      ))}
-                    </ul>
+                        </ul>
+                      </div>
+                    )}
+
+                    {submitError && (
+                      <div>
+                        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
+                          <AlertCircle className="size-4 shrink-0" />
+                          {serverErrorRows.length > 0
+                            ? "The server rejected your application — fix the following and resubmit:"
+                            : "Your application could not be submitted:"}
+                        </p>
+                        {serverErrorRows.length > 0 ? (
+                          <ul className="list-disc space-y-1 pl-5">
+                            {serverErrorRows.map(
+                              ({ key, label, message, step }) => (
+                                <li
+                                  key={key}
+                                  className="text-sm text-destructive"
+                                >
+                                  <span className="font-medium">{label}:</span>{" "}
+                                  {message}
+                                  {step !== undefined && (
+                                    <>
+                                      {" — "}
+                                      <button
+                                        type="button"
+                                        onClick={() => goToStep(step)}
+                                        className="font-medium underline underline-offset-2 hover:no-underline"
+                                      >
+                                        Go to {getStepTitle(step)}
+                                      </button>
+                                    </>
+                                  )}
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-destructive">
+                            {submitError.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

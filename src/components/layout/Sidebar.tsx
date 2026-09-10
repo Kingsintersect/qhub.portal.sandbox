@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { logoutFromBackend } from "@/lib/auth/backendAuth"
 import { motion, AnimatePresence } from "framer-motion"
@@ -118,6 +118,7 @@ function NavItem_({
   collapsed: boolean
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   // const isActive = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
   const isActive = item.href
     ? item.matchExactOnly
@@ -212,9 +213,21 @@ function NavItem_({
     )
   }
 
+  // Hover-only prefetch: `prefetch={false}` stops Next from prefetching every
+  // one of the ~20 sidebar routes the moment they hit the viewport (that alone
+  // was dozens of RSC requests per page load); the mouse-enter / focus handlers
+  // then warm just the route the user is actually about to visit, ~100ms
+  // before the click, so navigation still feels instant.
+  const warmRoute = () => {
+    if (item.href) router.prefetch(item.href)
+  }
+
   return (
     <Link
       href={item.href ?? "#"}
+      prefetch={false}
+      onMouseEnter={warmRoute}
+      onFocus={warmRoute}
       title={collapsed ? item.title : undefined}
       style={{ paddingLeft: `${pl}px` }}
       className={cn(

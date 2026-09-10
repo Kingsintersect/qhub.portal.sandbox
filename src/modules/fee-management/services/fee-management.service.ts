@@ -15,6 +15,7 @@ import type {
   InitiatePaymentResponse,
   VerifyPaymentResponse,
   PaymentHistoryResponse,
+  PaymentDetailResponse,
 } from "../types"
 
 // Real backend contract per bruno/fee/*.bru (the sole source of truth for
@@ -177,6 +178,11 @@ export const feeManagementService = {
       `${BASE}/payments/invoice/${invoiceId}`,
       AUTH
     ),
+
+  // GET /fees/payments/:id — Admin or the paying student. Single payment
+  // record with whatever gateway / verification detail the backend attaches.
+  getPayment: (paymentId: number) =>
+    apiClient.get<PaymentDetailResponse>(`${BASE}/payments/${paymentId}`, AUTH),
 
   // ── Reports ─────────────────────────────────────────────────────────────────
 

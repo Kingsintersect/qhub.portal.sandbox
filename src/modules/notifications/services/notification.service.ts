@@ -4,6 +4,7 @@ import type {
   UnreadCountResponse,
   MarkReadResponse,
   MarkAllReadResponse,
+  NotificationDetailResponse,
   NotificationFilter,
   SendNotificationPayload,
   BulkNotificationPayload,
@@ -46,6 +47,11 @@ export const notificationService = {
 
   getUnreadCount: () =>
     apiClient.get<UnreadCountResponse>(`${BASE}/unread-count`, AUTH),
+
+  // GET /notifications/:id — own notification only (403 otherwise). Used by
+  // the reading pane to show the full, un-truncated body + delivery metadata.
+  getById: (id: number) =>
+    apiClient.get<NotificationDetailResponse>(`${BASE}/${id}`, AUTH),
 
   markRead: (id: number) =>
     apiClient.patch<MarkReadResponse>(`${BASE}/${id}/read`, undefined, AUTH),

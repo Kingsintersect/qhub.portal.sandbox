@@ -13,6 +13,7 @@ import Link from "next/link"
 import Modal from "@/components/custom/Modal"
 import { ActionBadge } from "./ActionBadge"
 import { useAuditStore } from "../store/audit.store"
+import { useAuditLog } from "../hooks/useAudit"
 import { formatDateTime } from "@/lib/utils/date.utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -102,6 +103,12 @@ export function AuditDetailModal() {
   const { selectedLog, isDetailModalOpen, setDetailModalOpen, setSelectedLog } =
     useAuditStore()
 
+  // Enrich the lighter row from the list with the full, JSON-decoded record.
+  // Falls back to the row itself while loading or if the endpoint 404s.
+  const { data: fullLog } = useAuditLog(
+    isDetailModalOpen ? (selectedLog?.id ?? null) : null
+  )
+
   function handleClose() {
     setDetailModalOpen(false)
     setSelectedLog(null)
@@ -109,12 +116,14 @@ export function AuditDetailModal() {
 
   if (!selectedLog) return null
 
+  const log = fullLog ?? selectedLog
+
   return (
     <Modal
       open={isDetailModalOpen}
       onClose={handleClose}
       title="Audit Log Details"
-      subtitle={`Entry #${selectedLog.id}`}
+      subtitle={`Entry #${log.id}`}
       size="xl"
     >
       <motion.div
@@ -125,18 +134,16 @@ export function AuditDetailModal() {
         {/* Actor + action header */}
         <div className="flex flex-wrap items-start gap-3 rounded-xl bg-muted/50 p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-            {(selectedLog.user.firstName ?? "?")[0]}
-            {(selectedLog.user.lastName ?? "")[0]}
+            {(log.user.firstName ?? "?")[0]}
+            {(log.user.lastName ?? "")[0]}
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-foreground">
-              {selectedLog.user.firstName} {selectedLog.user.lastName}
+              {log.user.firstName} {log.user.lastName}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {selectedLog.user.email}
-            </p>
+            <p className="text-xs text-muted-foreground">{log.user.email}</p>
           </div>
-          <ActionBadge action={selectedLog.action} />
+          <ActionBadge action={log.action} />
         </div>
 
         {/* Entity + deep links */}
@@ -144,14 +151,12 @@ export function AuditDetailModal() {
           <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Entity:</span>
           <Badge variant="outline" className="text-xs">
-            {selectedLog.entityType}
+            {log.entityType}
           </Badge>
-          <span className="text-xs text-muted-foreground">
-            #{selectedLog.entityId}
-          </span>
+          <span className="text-xs text-muted-foreground">#{log.entityId}</span>
           <div className="ml-auto flex flex-wrap gap-2">
             <Link
-              href={`/admin/audit/entity/${selectedLog.entityType}/${selectedLog.entityId}`}
+              href={`/admin/audit/entity/${log.entityType}/${log.entityId}`}
               onClick={handleClose}
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
@@ -159,7 +164,7 @@ export function AuditDetailModal() {
               <ExternalLink className="h-3 w-3" />
             </Link>
             <Link
-              href={`/admin/audit/user/${selectedLog.userId}`}
+              href={`/admin/audit/user/${log.userId}`}
               onClick={handleClose}
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
@@ -170,10 +175,7 @@ export function AuditDetailModal() {
         </div>
 
         {/* Diff */}
-        <ValuesDiff
-          oldValues={selectedLog.oldValues}
-          newValues={selectedLog.newValues}
-        />
+        <ValuesDiff oldValues={log.oldValues} newValues={log.newValues} />
 
         {/* Meta row */}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -184,7 +186,7 @@ export function AuditDetailModal() {
                 Timestamp
               </p>
               <p className="text-xs font-medium text-foreground">
-                {formatDateTime(selectedLog.createdAt)}
+                {formatDateTime(log.createdAt)}
               </p>
             </div>
           </div>
@@ -196,7 +198,7 @@ export function AuditDetailModal() {
                 IP Address
               </p>
               <p className="font-mono text-xs font-medium text-foreground">
-                {selectedLog.ipAddress ?? "—"}
+                {log.ipAddress ?? "—"}
               </p>
             </div>
           </div>
@@ -208,9 +210,7 @@ export function AuditDetailModal() {
                 User Agent
               </p>
               <p className="truncate text-xs font-medium text-foreground">
-                {selectedLog.userAgent
-                  ? selectedLog.userAgent.slice(0, 28) + "…"
-                  : "—"}
+                {log.userAgent ? log.userAgent.slice(0, 28) + "…" : "—"}
               </p>
             </div>
           </div>

@@ -3,6 +3,57 @@ import type { FormDefaultValues } from "../types/form-types"
 
 const AUTH = { access_token: true } as const
 
+// ─── Submit error model ─────────────────────────────────────────────────────
+
+export interface SubmitFieldError {
+  /** Backend payload key as returned in the `errors` map, e.g. `contact_address`. */
+  field: string
+  message: string
+}
+
+export interface SubmitError {
+  /** Top-level human message — the backend's own `message`, or a fallback. */
+  message: string
+  status?: number
+  /**
+   * One entry per rejected field/message from a Laravel-style 422
+   * `{ errors: { field: [msg, ...] } }` body. Empty for non-validation
+   * failures (network error, 500, 409, …) — the caller shows `message` alone.
+   */
+  fieldErrors: SubmitFieldError[]
+}
+
+/**
+ * Normalises whatever `submitApplication` threw (an `ApiClientError`, a bare
+ * `Error`, anything) into a display model the form can render above its
+ * footer: the top-level message plus a flat list of per-field messages.
+ */
+export function toSubmitError(error: unknown): SubmitError {
+  const e = error as { status?: number; data?: unknown; message?: unknown }
+  const data = e?.data as
+    | { message?: unknown; errors?: Record<string, unknown> }
+    | undefined
+
+  const message =
+    (typeof data?.message === "string" && data.message) ||
+    (typeof e?.message === "string" && e.message) ||
+    "Failed to submit application. Please try again."
+
+  const fieldErrors: SubmitFieldError[] = []
+  if (data?.errors && typeof data.errors === "object") {
+    for (const [field, value] of Object.entries(data.errors)) {
+      const messages = Array.isArray(value) ? value : [value]
+      for (const m of messages) {
+        if (typeof m === "string" && m.trim()) {
+          fieldErrors.push({ field, message: m })
+        }
+      }
+    }
+  }
+
+  return { message, status: e?.status, fieldErrors }
+}
+
 export interface CurrentUserProfile {
   firstName: string | null
   middleName: string | null

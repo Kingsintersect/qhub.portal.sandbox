@@ -10,8 +10,10 @@ import {
   CalendarDays,
 } from "lucide-react"
 import Link from "next/link"
-import { useAppStore, useNotificationStore } from "@/store"
+import { useAppStore } from "@/store"
 import { useStudentDashboardData } from "@/hooks/useStudentDashboard"
+import { useMyStudent } from "@/hooks/use-my-student-id"
+import { useNotifications } from "@/modules/notifications/hooks/use-notifications"
 
 interface DashboardCardProps {
   title: string
@@ -77,10 +79,11 @@ const fmt = (n: number | null, suffix = "") =>
 
 export default function StudentDashboardPage() {
   const { user } = useAppStore()
-  const { notifications } = useNotificationStore()
-  const unreadNotifs = notifications.filter((n) => !n.read)
   const permissionSet = user?.permissions
+  const { data: notifData } = useNotifications({ limit: 6 })
+  const recentNotifs = notifData?.data ?? []
   const d = useStudentDashboardData()
+  const { student } = useMyStudent()
 
   const canViewNotifications = hasPermission(
     permissionSet,
@@ -89,10 +92,14 @@ export default function StudentDashboardPage() {
   )
   const canViewTimetable = hasPermission(permissionSet, "timetable", "view.own")
 
+  // Department / Faculty / Level come from the student's own record
+  // (`GET /users/students/me`, already resolved once via useStudentDashboardData
+  // → useMyStudentId, so this adds no request), not the auth session — which
+  // never carries them, which is why these read "—" before.
   const dashboardProfile = {
-    department: user?.department ?? "—",
-    faculty: user?.faculty ?? "—",
-    level: user?.level ?? "—",
+    department: student?.department_name || "—",
+    faculty: student?.faculty_name || "—",
+    level: student?.current_level ? `${student.current_level} Level` : "—",
   }
 
   const greeting = () => {
@@ -270,23 +277,26 @@ export default function StudentDashboardPage() {
             <p className="text-xs text-muted-foreground">
               Notification access is disabled for your role.
             </p>
-          ) : unreadNotifs.length === 0 ? (
+          ) : recentNotifs.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No unread notifications right now.
+              No notifications yet.
             </p>
           ) : (
             <div className="space-y-2">
-              {unreadNotifs.slice(0, 6).map((n) => (
+              {recentNotifs.map((n) => (
                 <Link
                   key={n.id}
                   href="/student/notifications"
-                  className="block rounded-2xl border border-border/70 bg-background/60 p-3 transition-colors hover:bg-accent/40"
+                  className={
+                    "block rounded-2xl border border-border/70 p-3 transition-colors hover:bg-accent/40 " +
+                    (n.readAt === null ? "bg-primary/5" : "bg-background/60")
+                  }
                 >
                   <p className="line-clamp-1 text-sm font-medium text-foreground">
-                    {n.title}
+                    {n.subject}
                   </p>
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {n.message}
+                    {n.body}
                   </p>
                 </Link>
               ))}

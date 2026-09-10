@@ -40,7 +40,9 @@ import { usersApi } from "@/services/usersApi"
 import type { CourseOffering } from "@/types/school"
 import type { Tutor } from "@/types/users"
 import type {
+  AcademicCalendarEvent,
   AcademicCalendarMeta,
+  AcademicSessionDetail,
   CalendarEvent,
   CalendarEventFilter,
   CreateScheduleDto,
@@ -250,6 +252,32 @@ export const timetableService = {
         totalPages: Math.max(1, Math.ceil(res.meta.total / res.meta.limit)),
       },
     }
+  },
+
+  // Dedicated path-param reads — `/timetable/schedules/{lecturer,semester}/:id`.
+  // Equivalent to `getAllSchedules({ tutorId })` / `({ semesterId })` but
+  // lighter (no pagination envelope) and what the admin timetable filter bar
+  // uses when scoped to one lecturer or semester.
+  async getSchedulesByLecturer(lecturerId: number): Promise<TimetableSlot[]> {
+    const [res, { offeringsById, tutorsById }] = await Promise.all([
+      apiClient.get<{ data: RawScheduleRelations[] }>(
+        `/timetable/schedules/lecturer/${lecturerId}`,
+        AUTH
+      ),
+      buildLookups(),
+    ])
+    return sortByDay(res.data.map((r) => mapSlot(r, offeringsById, tutorsById)))
+  },
+
+  async getSchedulesBySemester(semesterId: number): Promise<TimetableSlot[]> {
+    const [res, { offeringsById, tutorsById }] = await Promise.all([
+      apiClient.get<{ data: RawScheduleRelations[] }>(
+        `/timetable/schedules/semester/${semesterId}`,
+        AUTH
+      ),
+      buildLookups(),
+    ])
+    return sortByDay(res.data.map((r) => mapSlot(r, offeringsById, tutorsById)))
   },
 
   async getScheduleById(id: number): Promise<TimetableSlot> {
@@ -480,6 +508,21 @@ export const calendarService = {
     return mapCalendarEvent(res.data, offeringsById)
   },
 
+  // GET /calendar/events/course/:offeringId — Student, Tutor, Admin. Every
+  // event linked to one course offering. Same row shape as the other event
+  // lists, so it reuses mapCalendarEvent.
+  async getEventsByCourse(offeringId: number): Promise<CalendarEvent[]> {
+    const [res, offerings] = await Promise.all([
+      apiClient.get<{ data: RawCalendarEvent[] }>(
+        `/calendar/events/course/${offeringId}`,
+        AUTH
+      ),
+      offeringsApi.listShared(),
+    ])
+    const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
+    return res.data.map((e) => mapCalendarEvent(e, offeringsById))
+  },
+
   async toggleEventVisibility(id: number): Promise<CalendarEvent> {
     const [res, offerings] = await Promise.all([
       apiClient.patch<{ data: RawCalendarEvent }>(
@@ -527,6 +570,40 @@ export const academicCalendarService = {
     )
     return res.data
   },
+
+  // GET /academic-calendar/sessions/:id — one session with all its semesters.
+  async getSessionById(id: number): Promise<AcademicSessionDetail> {
+    const res = await apiClient.get<{ data: AcademicSessionDetail }>(
+      `/academic-calendar/sessions/${id}`,
+      AUTH
+    )
+    return res.data
+  },
+
+  // GET /academic-calendar/events — portal-side calendar announcements
+  // (Announcement rows, category "event"). Any authenticated user.
+  async getEvents(
+    params: { page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<AcademicCalendarEvent>> {
+    const res = await apiClient.get<{
+      data: AcademicCalendarEvent[]
+      meta?: { total: number; page: number; limit: number }
+    }>("/academic-calendar/events", {
+      ...AUTH,
+      params: { page: params.page ?? 1, limit: params.limit ?? 20 },
+    })
+    const limit = res.meta?.limit ?? params.limit ?? 20
+    const total = res.meta?.total ?? res.data.length
+    return {
+      data: res.data,
+      meta: {
+        total,
+        page: res.meta?.page ?? 1,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    }
+  },
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -540,6 +617,10 @@ export const timetableKeys = {
     ["timetable", "tutor", id, params] as const,
   byOffering: (offeringId: number) =>
     ["timetable", "offering", offeringId] as const,
+  schedulesByLecturer: (lecturerId: number) =>
+    ["timetable", "schedules", "lecturer", lecturerId] as const,
+  schedulesBySemester: (semesterId: number) =>
+    ["timetable", "schedules", "semester", semesterId] as const,
   admin: (filters?: object) => ["timetable", "admin", filters] as const,
   detail: (id: number) => ["timetable", "detail", id] as const,
   venues: (semesterId?: number) => ["timetable", "venues", semesterId] as const,
@@ -554,6 +635,8 @@ export const calendarKeys = {
   upcoming: (days?: number) => ["calendar", "upcoming", days] as const,
   admin: (filters?: object) => ["calendar", "admin", filters] as const,
   byId: (id: number) => ["calendar", "events", id] as const,
+  byCourse: (offeringId: number) =>
+    ["calendar", "events", "course", offeringId] as const,
 }
 
 export const academicCalendarKeys = {
@@ -561,6 +644,8 @@ export const academicCalendarKeys = {
   activeSemester: () => ["academic-calendar", "active-semester"] as const,
   activeSession: () => ["academic-calendar", "active-session"] as const,
   sessions: () => ["academic-calendar", "sessions"] as const,
+  sessionDetail: (id: number) => ["academic-calendar", "sessions", id] as const,
+  events: (params?: object) => ["academic-calendar", "events", params] as const,
 }
 
 // ── Query options ─────────────────────────────────────────────────────────────
@@ -600,6 +685,18 @@ export const timetableQueryOptions = {
     createApiQueryOptions({
       queryKey: timetableKeys.byOffering(offeringId),
       queryFn: () => timetableService.getSchedulesByOffering(offeringId),
+    }),
+
+  schedulesByLecturer: (lecturerId: number) =>
+    createApiQueryOptions({
+      queryKey: timetableKeys.schedulesByLecturer(lecturerId),
+      queryFn: () => timetableService.getSchedulesByLecturer(lecturerId),
+    }),
+
+  schedulesBySemester: (semesterId: number) =>
+    createApiQueryOptions({
+      queryKey: timetableKeys.schedulesBySemester(semesterId),
+      queryFn: () => timetableService.getSchedulesBySemester(semesterId),
     }),
 
   venues: (semesterId?: number) =>
@@ -650,6 +747,12 @@ export const calendarQueryOptions = {
       queryKey: calendarKeys.byId(id),
       queryFn: () => calendarService.getEventById(id),
     }),
+
+  byCourse: (offeringId: number) =>
+    createApiQueryOptions({
+      queryKey: calendarKeys.byCourse(offeringId),
+      queryFn: () => calendarService.getEventsByCourse(offeringId),
+    }),
 }
 
 export const academicCalendarQueryOptions = {
@@ -675,6 +778,18 @@ export const academicCalendarQueryOptions = {
     createApiQueryOptions({
       queryKey: academicCalendarKeys.sessions(),
       queryFn: () => academicCalendarService.getSessions(),
+    }),
+
+  sessionDetail: (id: number) =>
+    createApiQueryOptions({
+      queryKey: academicCalendarKeys.sessionDetail(id),
+      queryFn: () => academicCalendarService.getSessionById(id),
+    }),
+
+  events: (params?: { page?: number; limit?: number }) =>
+    createApiQueryOptions({
+      queryKey: academicCalendarKeys.events(params),
+      queryFn: () => academicCalendarService.getEvents(params),
     }),
 }
 

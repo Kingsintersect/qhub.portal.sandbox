@@ -1,12 +1,21 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Award, BookOpen, TrendingUp, Clock, GraduationCap } from "lucide-react"
+import {
+  Award,
+  BookOpen,
+  TrendingUp,
+  Clock,
+  GraduationCap,
+  Download,
+  Loader2,
+} from "lucide-react"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
 import { useProgram } from "@/hooks/useCourseStructure"
 import {
   useMyTermResults,
   useStudentTranscript,
+  useDownloadSemesterResult,
 } from "../hooks/use-grades-data"
 import { TermResultsView } from "./TermResultsView"
 import type { Grade, CgpaHistoryEntry } from "../types/grades.types"
@@ -161,6 +170,7 @@ export default function StudentResultsPage() {
   const { transcript, loading: transcriptLoading } = useStudentTranscript(
     !programLoading && !isSecondarySchool ? studentId : null
   )
+  const downloadResult = useDownloadSemesterResult()
   const { data: terms, loading: termsLoading } = useMyTermResults(
     !programLoading && isSecondarySchool
   )
@@ -310,17 +320,38 @@ export default function StudentResultsPage() {
                   {sem.academicYear}
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                  Semester GPA
-                </p>
-                <p className="font-mono text-base font-bold text-foreground">
-                  {sem.gpa.toFixed(2)}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {" "}
-                    / 5.0
-                  </span>
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                    Semester GPA
+                  </p>
+                  <p className="font-mono text-base font-bold text-foreground">
+                    {sem.gpa.toFixed(2)}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {" "}
+                      / 5.0
+                    </span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  title="Download result sheet (PDF)"
+                  onClick={() =>
+                    downloadResult.mutate({
+                      semesterId: sem.semesterId,
+                      label: `${sem.label} ${sem.academicYear}`,
+                    })
+                  }
+                  disabled={downloadResult.isPending}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  {downloadResult.isPending &&
+                  downloadResult.variables?.semesterId === sem.semesterId ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} />
+                  )}
+                </button>
               </div>
             </div>
 

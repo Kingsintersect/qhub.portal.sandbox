@@ -3,11 +3,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
+  usersApi,
   usersKeys,
   usersQueryOptions,
   usersMutationOptions,
 } from "@/services/usersApi"
 import type { ApiClientError } from "@/lib/clients/apiClient"
+import type {
+  UserQueryFilters,
+  StudentQueryFilters,
+  TutorOnboardingStep,
+} from "@/types/users"
 import type { UserQueryFilters, StudentQueryFilters } from "@/types/users"
 import { useUploadProgress } from "@/hooks/use-upload-progress"
 
@@ -84,6 +90,24 @@ export function useStudent(id: number) {
   })
 }
 
+// Exact lookup by matric number (e.g. "CSC/2025/001") — hits
+// `GET /users/students/matric/:matricNumber` directly, so it finds a student
+// even when they're not on the currently-loaded page of the list. Modelled
+// as a mutation because it's a one-shot, user-triggered action whose result
+// feeds component state (opening a detail modal), not a cached view.
+export function useStudentLookupByMatric() {
+  return useMutation({
+    mutationFn: (matricNumber: string) =>
+      usersApi.getStudentByMatric(matricNumber.trim()),
+    onError: (err: ApiClientError, matricNumber) =>
+      toast.error(
+        err.status === 404
+          ? `No student found with matric number "${matricNumber.trim()}"`
+          : describeApiError(err, "Matric lookup failed")
+      ),
+  })
+}
+
 export function useUpdateStudent() {
   const qc = useQueryClient()
   return useMutation({
@@ -134,6 +158,38 @@ export function useUpdateTutor() {
       toast.success("Tutor updated")
     },
     onError: () => toast.error("Failed to update tutor"),
+  })
+}
+
+// Admin/HOD: re-send a tutor's onboarding email (regenerates their password).
+export function useResendTutorInvite() {
+  return useMutation({
+    mutationFn: (lecturerId: number) => usersApi.resendTutorInvite(lecturerId),
+    onSuccess: (res) => {
+      if (res.emailSent) {
+        toast.success(`Onboarding email re-sent to ${res.email}`)
+      } else {
+        toast.warning(
+          res.emailError
+            ? `Password reset, but email failed: ${res.emailError}`
+            : "Password reset — email delivery is not configured yet."
+        )
+      }
+    },
+    onError: (err) =>
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't resend the invite."
+      ),
+  })
+}
+
+// Tutor (self): mark one first-login checklist step complete.
+export function useUpdateMyOnboarding() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (step: TutorOnboardingStep) =>
+      usersApi.updateMyOnboarding(step),
+    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.tutors.me() }),
   })
 }
 

@@ -158,8 +158,10 @@ const studentNav: NavGroup[] = [
         icon: CalendarDays,
       },
       {
+        // No dedicated /student/profile route — the profile editor lives as a
+        // tab on the Settings page.
         title: "Profile",
-        href: "/student/profile",
+        href: "/student/settings",
         matchExactOnly: true,
         icon: UserCog,
       },
@@ -206,9 +208,10 @@ const studentNav: NavGroup[] = [
         icon: CalendarDays,
       },
       {
+        // The fees + payment surface is served at /student/fees.
         title: "Payments",
-        href: "/student/payments",
-        matchExactOnly: true,
+        href: "/student/fees",
+        matchExactOnly: false,
         icon: CreditCard,
       },
     ],

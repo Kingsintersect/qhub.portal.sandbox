@@ -23,12 +23,11 @@ export default function UpcomingAssessmentsPage() {
     if (!search) return byType
 
     return byType.filter((item) => {
-      const course = item.course.courseOffering.course
       const haystack = [
         item.name,
         item.description ?? "",
-        course.code,
-        course.title,
+        item.courseCode,
+        item.courseTitle,
         item.assessmentType,
       ]
         .join(" ")

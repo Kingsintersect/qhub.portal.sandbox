@@ -2,38 +2,34 @@ import { z } from "zod"
 
 export const AssessmentTypeSchema = z.enum(["assignment", "quiz", "forum"])
 
-// Full detail shape — matches the nested course/courseOffering/semester/
-// academicSession relations documented for this entity (previously reached
-// only via the retired /assessments/:id route; now the sole real surface for
-// MoodleSyncAssessment). isVisible/moodleSyncCourseId/moodleAssessmentId/
-// lastSyncAt/createdAt/updatedAt are additive fields the list/course/upcoming
-// endpoints already return on the underlying row — not confirmed by an
-// example body, so read defensively.
+// ── Normalized assessment ─────────────────────────────────────────────────────
+// `GET /assessments/*` returns two wire shapes over one entity:
+//   • list / my / upcoming / course/:id  →  flat `course: { code, title, semesterName }`
+//   • GET /assessments/:id (detail)       →  deep `course.courseOffering.{course,
+//                                             semester,academicSession}` + sync metadata
+// The service maps both into this single shape (see `mapAssessmentListItem` /
+// `mapAssessmentDetail` in moodle-sync.service.ts). Detail-only fields are
+// `null` on rows that came from a list endpoint.
 export const AssessmentResponseSchema = z.object({
   id: z.number(),
-  moodleSyncCourseId: z.number().optional(),
-  moodleAssessmentId: z.number().optional(),
   assessmentType: AssessmentTypeSchema,
   name: z.string(),
   description: z.string().nullable(),
   dueDate: z.string().nullable(),
   maxGrade: z.number().nullable(),
-  isVisible: z.boolean().default(true),
-  lastSyncAt: z.string().nullable().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  course: z.object({
-    id: z.number().optional(),
-    moodleCourseId: z.number().optional(),
-    moodleShortName: z.string(),
-    moodleFullName: z.string(),
-    courseOffering: z.object({
-      id: z.number().optional(),
-      course: z.object({ code: z.string(), title: z.string() }),
-      semester: z.object({ name: z.string() }).optional(),
-      academicSession: z.object({ name: z.string() }).optional(),
-    }),
-  }),
+  isVisible: z.boolean(),
+  courseCode: z.string(),
+  courseTitle: z.string(),
+  semesterName: z.string().nullable(),
+  academicSessionName: z.string().nullable(),
+  // detail-only
+  moodleSyncCourseId: z.number().nullable(),
+  moodleAssessmentId: z.number().nullable(),
+  moodleShortName: z.string().nullable(),
+  moodleFullName: z.string().nullable(),
+  lastSyncAt: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
 })
 
 export const AssessmentListResponseSchema = z.object({
@@ -41,6 +37,8 @@ export const AssessmentListResponseSchema = z.object({
 })
 
 // ── Filters / pagination ──────────────────────────────────────────────────
+// `GET /assessments` accepts type / offeringId / semesterId / isVisible /
+// upcoming / page / limit (assesments_README.md) and returns `meta`.
 
 export const AssessmentFilterSchema = z.object({
   type: AssessmentTypeSchema.optional(),
@@ -62,6 +60,7 @@ export const PaginatedAssessmentsSchema = z.object({
 })
 
 // ── Visibility ─────────────────────────────────────────────────────────────
+// PATCH /assessments/:id/visibility — Admin / Lecturer.
 
 export const UpdateVisibilitySchema = z.object({
   isVisible: z.boolean(),
@@ -70,10 +69,12 @@ export const UpdateVisibilitySchema = z.object({
 export const VisibilityResponseSchema = z.object({
   id: z.number(),
   isVisible: z.boolean(),
-  updatedAt: z.string(),
+  updatedAt: z.string().optional(),
 })
 
 // ── Sync result / status ───────────────────────────────────────────────────
+// POST /assessments/sync/:moodleCourseId — Admin.
+// GET  /assessments/sync/status — Admin.
 
 export const SyncResultSchema = z.object({
   moodleCourseId: z.number(),
@@ -107,6 +108,9 @@ export const SyncStatusSchema = z.object({
 })
 
 // ── CA preview (Moodle → Grade.caScore bridge) ────────────────────────────
+// GET /moodle-sync/assessments/ca-preview/:offeringId — NOT YET SHIPPED
+// (sandbox/API_GAPS_2026-09.md §2 / MISSING_BACKEND_APIS.md §2.14). The
+// "Pull CA from Moodle" button degrades to an error toast until it exists.
 
 export const CaPreviewItemSchema = z.object({
   studentId: z.number(),

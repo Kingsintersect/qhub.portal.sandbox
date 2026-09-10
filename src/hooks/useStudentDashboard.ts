@@ -4,8 +4,8 @@ import { useMemo } from "react"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
 import { useMyTimetable } from "@/modules/timetable/hooks/useTimetable"
 import { useEnrollmentsByStudent } from "@/modules/enrollment/hooks/use-enrollments"
-import { useAttendanceSummary } from "@/modules/enrollment/hooks/use-attendance"
-import { useStudentTranscript } from "@/modules/student-grades/hooks/use-grades-data"
+import { useAttendanceByStudent } from "@/modules/enrollment/hooks/use-attendance"
+import { useStudentCgpa } from "@/modules/student-grades/hooks/use-grades-data"
 import type { DayOfWeek } from "@/modules/timetable/types/timetable.types"
 
 const TODAY_KEY: DayOfWeek[] = [
@@ -24,10 +24,14 @@ export function useStudentDashboardData() {
   const { data: timetableData, isLoading: timetableLoading } = useMyTimetable()
   const { data: enrollments, isLoading: enrollmentsLoading } =
     useEnrollmentsByStudent(studentId)
-  const { data: attendance, isLoading: attendanceLoading } =
-    useAttendanceSummary(studentId)
-  const { data: transcript, loading: transcriptLoading } =
-    useStudentTranscript(studentId)
+  // Raw attendance rows only — one request. The dashboard shows a single
+  // overall figure, so it doesn't need `useAttendanceSummary`'s per-course
+  // breakdown, which additionally fans out to `/timetable/schedules/offering/:id`
+  // (forbidden for students) and refetches the enrolment list.
+  const { data: attendanceRows, isLoading: attendanceLoading } =
+    useAttendanceByStudent(studentId)
+  // CGPA number only — one request, no accompanying full grade list.
+  const { currentCGPA, loading: cgpaLoading } = useStudentCgpa(studentId)
 
   const slots = useMemo(
     () =>
@@ -51,13 +55,12 @@ export function useStudentDashboardData() {
   const totalUnits = activeEnrollments.reduce((a, e) => a + e.creditUnits, 0)
 
   const overallAttendance = useMemo(() => {
-    if (!attendance || attendance.length === 0) return null
-    const totalSessions = attendance.reduce((a, s) => a + s.totalSessions, 0)
-    const attended = attendance.reduce((a, s) => a + s.present + s.late, 0)
-    return totalSessions > 0
-      ? Math.round((attended / totalSessions) * 100)
-      : null
-  }, [attendance])
+    if (!attendanceRows || attendanceRows.length === 0) return null
+    const attended = attendanceRows.filter(
+      (r) => r.status === "present" || r.status === "late"
+    ).length
+    return Math.round((attended / attendanceRows.length) * 100)
+  }, [attendanceRows])
 
   return {
     studentId,
@@ -65,12 +68,12 @@ export function useStudentDashboardData() {
     activeCourseCount: activeEnrollments.length,
     totalUnits,
     overallAttendance,
-    currentCGPA: transcript?.currentCGPA ?? null,
+    currentCGPA,
     isLoading:
       resolvingStudentId ||
       timetableLoading ||
       enrollmentsLoading ||
       attendanceLoading ||
-      transcriptLoading,
+      cgpaLoading,
   }
 }

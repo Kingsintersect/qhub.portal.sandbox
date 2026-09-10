@@ -75,6 +75,32 @@ export interface AcademicCalendarMeta {
   currentSemester: Semester | null
 }
 
+// GET /academic-calendar/sessions/:id — one session with all its semesters.
+// The `.bru` shows no example body; fields beyond id/name are read
+// defensively by consumers.
+export interface AcademicSessionDetail {
+  id: number
+  name: string
+  startDate: string | null
+  endDate: string | null
+  isActive: boolean
+  semesters: Semester[]
+}
+
+// GET /academic-calendar/events — portal-side calendar announcements
+// (Announcement rows with category "event"). Shape inferred from the
+// Content/Announcements contract; every optional field is read with `?.`.
+export interface AcademicCalendarEvent {
+  id: number
+  title: string
+  body: string | null
+  category: string | null
+  startDate: string | null
+  endDate: string | null
+  publishedAt: string | null
+  createdAt: string | null
+}
+
 export interface BusySlot {
   startTime: string
   endTime: string

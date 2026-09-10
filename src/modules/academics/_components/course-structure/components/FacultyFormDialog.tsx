@@ -10,7 +10,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useCreateFaculty, useUpdateFaculty } from "@/hooks/useCourseStructure"
+import {
+  useCreateFaculty,
+  useUpdateFaculty,
+  useEligibleDeans,
+} from "@/hooks/useCourseStructure"
 import { facultySchema, type FacultyFormValues } from "@/schemas/school.schema"
 import type { Faculty } from "@/types/school"
 
@@ -28,6 +32,8 @@ export function FacultyFormDialog({
   const isEditing = !!faculty
   const createFaculty = useCreateFaculty()
   const updateFaculty = useUpdateFaculty()
+  const { data: deansRes } = useEligibleDeans()
+  const eligibleDeans = deansRes?.data ?? []
   const isPending = createFaculty.isPending || updateFaculty.isPending
 
   const {
@@ -157,18 +163,32 @@ export function FacultyFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="faculty-dean">
-            Dean — User ID
+            Dean
             <span className="ml-1 text-xs font-normal text-muted-foreground">
-              (optional — see Users → Staff/Lecturers for the id)
+              (optional — users with the Dean role)
             </span>
           </Label>
-          <Input
+          <select
             id="faculty-dean"
-            type="number"
-            min={1}
-            placeholder="e.g. 42"
-            {...register("deanUserId", { valueAsNumber: true })}
-          />
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+            {...register("deanUserId", {
+              setValueAs: (v) => (v === "" ? undefined : Number(v)),
+            })}
+          >
+            <option value="">— No dean assigned —</option>
+            {eligibleDeans.map((d) => (
+              <option key={d.id} value={d.id}>
+                {[d.firstName, d.lastName].filter(Boolean).join(" ") || d.email}
+                {" — "}
+                {d.email}
+              </option>
+            ))}
+          </select>
+          {eligibleDeans.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No users hold the Dean role yet — assign one under Users first.
+            </p>
+          )}
         </div>
       </div>
     </Modal>
