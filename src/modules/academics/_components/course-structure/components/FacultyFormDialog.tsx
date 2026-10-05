@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useEffect, useMemo } from "react"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -11,12 +11,24 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   useCreateFaculty,
   useUpdateFaculty,
   useEligibleDeans,
+  useMajorPrograms,
 } from "@/hooks/useCourseStructure"
+import { useMajorProgramScope } from "@/hooks/use-major-program-scope"
 import { facultySchema, type FacultyFormValues } from "@/schemas/school.schema"
 import type { Faculty } from "@/types/school"
+
+// Sentinel value for "no selection" in the optional Major Program select.
+const NONE = "_NONE_" as const
 
 interface FacultyFormDialogProps {
   open: boolean
@@ -34,12 +46,44 @@ export function FacultyFormDialog({
   const updateFaculty = useUpdateFaculty()
   const { data: deansRes } = useEligibleDeans()
   const eligibleDeans = deansRes?.data ?? []
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const majorPrograms = useMemo(
+    () => (majorProgramsRes?.data ?? []).filter((mp) => mp.isActive),
+    [majorProgramsRes]
+  )
+  // Major-Program Scoping — sandbox/major-program-scoping/. A scoped caller
+  // (ADMIN etc. holding a role grant tied to one or more specific major
+  // programs) must not be able to tag a new Faculty under a major program
+  // outside their own grant — restrict the option list to their scope, same
+  // as MajorProgramFilterTabs already does for browse/filter screens. An
+  // unscoped caller (SUPER_ADMIN) keeps seeing every active major program.
+  // The faculty's own current value is always kept visible even if outside
+  // scope, so editing an existing out-of-scope faculty never silently blanks
+  // the field.
+  const { isUnscoped, scopedPrograms } = useMajorProgramScope()
+  const majorProgramOptions = useMemo(() => {
+    if (isUnscoped) return majorPrograms
+    const scopedIds = new Set(scopedPrograms.map((sp) => sp.id))
+    const filtered = majorPrograms.filter((mp) => scopedIds.has(mp.id))
+    if (
+      faculty?.majorProgramId != null &&
+      !filtered.some((mp) => mp.id === faculty.majorProgramId)
+    ) {
+      const existing = majorPrograms.find(
+        (mp) => mp.id === faculty.majorProgramId
+      )
+      if (existing) filtered.push(existing)
+    }
+    return filtered
+  }, [majorPrograms, isUnscoped, scopedPrograms, faculty])
+  const hasMultipleMajorPrograms = majorProgramOptions.length > 1
   const isPending = createFaculty.isPending || updateFaculty.isPending
 
   const {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<FacultyFormValues>({
     resolver: zodResolver(facultySchema),
@@ -48,6 +92,14 @@ export function FacultyFormDialog({
 
   useEffect(() => {
     if (!open) return
+    // Default a brand-new Faculty to the scoped caller's own major program
+    // when they only have one — mirrors ProgramFormDialog's "creating
+    // directly under a major program defaults the scope to match" note.
+    // Leaves the field null (institution-wide) for an unscoped caller, and
+    // for a multi-scoped caller who must pick explicitly among their own.
+    const defaultMajorProgramId =
+      faculty?.majorProgramId ??
+      (!isUnscoped && scopedPrograms.length === 1 ? scopedPrograms[0].id : null)
     reset({
       name: faculty?.name ?? "",
       code: faculty?.code ?? "",
@@ -55,8 +107,9 @@ export function FacultyFormDialog({
       deanUserId: faculty?.deanUserId ?? undefined,
       email: faculty?.email ?? "",
       phoneNumber: faculty?.phoneNumber ?? "",
+      majorProgramId: defaultMajorProgramId,
     })
-  }, [open, faculty, reset])
+  }, [open, faculty, reset, isUnscoped, scopedPrograms])
 
   const onSubmit = async (values: FacultyFormValues) => {
     try {
@@ -190,6 +243,50 @@ export function FacultyFormDialog({
             </p>
           )}
         </div>
+        {hasMultipleMajorPrograms && (
+          <div className="space-y-1.5">
+            <Label htmlFor="faculty-major-program">
+              Major Program
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                (optional — blank = institution-wide)
+              </span>
+            </Label>
+            <Controller
+              control={control}
+              name="majorProgramId"
+              render={({ field }) => (
+                <Select
+                  value={field.value ? String(field.value) : NONE}
+                  onValueChange={(v) =>
+                    field.onChange(v === NONE ? null : Number(v))
+                  }
+                >
+                  <SelectTrigger id="faculty-major-program" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>
+                      <span className="text-muted-foreground italic">
+                        Institution-wide
+                      </span>
+                    </SelectItem>
+                    {majorProgramOptions.map((mp) => (
+                      <SelectItem key={mp.id} value={String(mp.id)}>
+                        {mp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Backend support for tagging a faculty with its own major program
+              is pending (sandbox/major-program-scoping A17) — until it ships,
+              this faculty still groups under a major program only once one of
+              its programs is assigned to it.
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   )

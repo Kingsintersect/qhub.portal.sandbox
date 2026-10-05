@@ -7,12 +7,14 @@ import EmptyState from "@/components/custom/EmptyState"
 import { useSyncCalendarEvents } from "../../hooks/use-sync-calendar"
 import { usePullCalendar } from "../../hooks/use-sync-mutations"
 import { PushPullToolbar } from "../shared/push-pull-toolbar"
+import { ResetSyncButton } from "../shared/reset-sync-dialog"
 import { CalendarEventDetail } from "./calendar-event-detail"
 import { getEventTypeMeta } from "../../lib/event-type-meta"
 import type { CalendarEventResponse } from "../../types"
+import { describeSyncError } from "../../lib/sync-error"
 
 export function CalendarEventList() {
-  const { data, isLoading, isError } = useSyncCalendarEvents()
+  const { data, isLoading, isError, error } = useSyncCalendarEvents()
   const pullAll = usePullCalendar()
   const [selected, setSelected] = useState<CalendarEventResponse | null>(null)
 
@@ -35,6 +37,12 @@ export function CalendarEventList() {
         onPull={handlePullAll}
         pullLabel="Pull All"
         pullPending={pullAll.isPending}
+        extraActions={
+          <ResetSyncButton
+            module="calendar"
+            moduleLabel="calendar & Zoom events"
+          />
+        }
       />
 
       {isLoading ? (
@@ -49,7 +57,7 @@ export function CalendarEventList() {
       ) : isError ? (
         <EmptyState
           title="Couldn't load calendar events"
-          description="Please try again."
+          description={describeSyncError(error).description}
         />
       ) : items.length === 0 ? (
         <EmptyState

@@ -10,10 +10,13 @@
 // violation), now consolidated onto the same real data every other schedule
 // screen in this app uses.
 
+import apiClient from "@/lib/clients/apiClient"
 import { usersApi } from "@/services/usersApi"
 import { timetableService } from "@/modules/timetable/services/timetable.service"
 import type { CreateScheduleDto } from "@/modules/timetable/types/timetable.types"
-import type { AssignedCourse } from "../types"
+import type { AssignedCourse, MoodleLaunchResult } from "../types"
+
+const AUTH = { access_token: true } as const
 
 export const tutorCoursesService = {
   async getAssignedCourses(lecturerId: number): Promise<AssignedCourse[]> {
@@ -41,6 +44,7 @@ export const tutorCoursesService = {
             isRequired: p.is_required,
           })),
           categoryPath: offering.category_path.map((c) => c.name),
+          majorProgramIds: offering.major_program_ids,
           // All of the above are `null` / `[]` until the enriched
           // GET /courses/offerings response ships (see AssignedCourse and
           // sandbox/course/missing_course_offering_enrichment.readme.md).
@@ -72,5 +76,18 @@ export const tutorCoursesService = {
 
   async removeScheduleSlot(scheduleId: number) {
     return timetableService.deleteSchedule(scheduleId)
+  },
+
+  // Live (bruno/user/Lecturers - Launch Course.bru, since 2026-09-23):
+  // returns `{ redirectUrl }`, mirroring the student endpoint
+  // (`GET /students/me/courses/:offeringId/launch`). Not-ready states are
+  // 409s (tutor or course not Moodle-synced, or not assigned). A 404 is
+  // still treated as "not set up on Moodle yet" (see MoodleLaunchButton) in
+  // case a backend predates the route.
+  async launchMoodleCourse(offeringId: number): Promise<MoodleLaunchResult> {
+    return apiClient.get<MoodleLaunchResult>(
+      `/users/lecturers/me/courses/${offeringId}/launch`,
+      AUTH
+    )
   },
 }

@@ -1,19 +1,47 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { AlertTriangle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { QueryErrorState } from "@/components/query-error-state"
+import { useAllPrograms } from "@/hooks/useCourseStructure"
 import { InvoiceStatusBadge } from "../shared/invoice-status-badge"
 import { FeeCategoryBadge } from "../shared/fee-category-badge"
 import { CurrencyDisplay } from "../shared/currency-display"
 import { useOverdueInvoices } from "../../hooks/use-invoices"
+import { studentDisplayName } from "../../lib/invoice-student"
 import type { FeeCategory } from "../../types"
 
 export function OverdueReport() {
-  const { data, isLoading, refetch } = useOverdueInvoices()
-  const invoices = data?.data ?? []
+  // Major-Program Scoping — A33. GET /fees/invoices/overdue doesn't support
+  // majorProgramId server-side yet (sent anyway, ahead of the backend), so
+  // this also filters client-side by matching each invoice's
+  // student.programName against the programs under the selected major
+  // program — the invoice response has no programId/majorProgramId of its
+  // own to filter on directly.
+  const [majorProgramId, setMajorProgramId] = useState<number | null>(null)
+  const { data, isLoading, error, refetch } = useOverdueInvoices({
+    majorProgramId: majorProgramId ?? undefined,
+  })
+  const { data: programsRes } = useAllPrograms()
+  const programNamesInScope = useMemo(() => {
+    if (majorProgramId == null) return null
+    return new Set(
+      (programsRes?.data ?? [])
+        .filter((p) => p.majorProgramId === majorProgramId)
+        .map((p) => p.name)
+    )
+  }, [programsRes, majorProgramId])
+
+  const invoices = (data?.data ?? []).filter(
+    (inv) =>
+      !programNamesInScope ||
+      !inv.student?.programName ||
+      programNamesInScope.has(inv.student.programName)
+  )
   // "now" captured once on mount so the render stays pure.
   const [now] = useState(() => Date.now())
 
@@ -40,6 +68,11 @@ export function OverdueReport() {
 
   return (
     <div className="space-y-5">
+      <MajorProgramFilterTabs
+        value={majorProgramId}
+        onChange={setMajorProgramId}
+      />
+
       {/* ── Controls ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <Button
@@ -81,7 +114,15 @@ export function OverdueReport() {
       )}
 
       {/* ── Overdue table ───────────────────────────────────────────── */}
-      {invoices.length === 0 ? (
+      {/* "All caught up" is only true of a successful empty response — a
+          refused (403) or failed request must never read as that. */}
+      {error ? (
+        <QueryErrorState
+          error={error}
+          subject="the overdue report"
+          onRetry={() => refetch()}
+        />
+      ) : invoices.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <AlertTriangle size={36} className="mb-2 opacity-30" />
           <p className="text-sm">No overdue invoices. All caught up.</p>
@@ -144,7 +185,7 @@ export function OverdueReport() {
                       {inv.student ? (
                         <div>
                           <p className="text-xs font-medium">
-                            {inv.student.fullName}
+                            {studentDisplayName(inv.student) ?? "—"}
                           </p>
                           <p className="font-mono text-xs text-muted-foreground">
                             {inv.student.matricNumber}

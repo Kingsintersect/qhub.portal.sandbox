@@ -1,15 +1,25 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowLeft, Building2 } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
 import { CategoryTree } from "@/modules/moodle-sync/components/categories/category-tree"
 import { CategoryPullPanel } from "@/modules/moodle-sync/components/categories/category-pull-panel"
 import { CategoryPushDialog } from "@/modules/moodle-sync/components/categories/category-push-dialog"
 import { CategoryNeedsMappingPanel } from "@/modules/moodle-sync/components/categories/category-needs-mapping-panel"
+import { CategoryHealthAlert } from "@/modules/moodle-sync/components/categories/category-health-alert"
 
 export default function MoodleSyncCategoriesPage() {
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // Real filter: each category's majorProgramId is derived client-side from
+  // the AcademicUnit tree (see moodle-sync.service.ts), so narrowing the
+  // tree to one major program here reflects genuine per-node data, not a
+  // cosmetic filter waiting on the backend.
+  const [majorProgramId, setMajorProgramId] = useState<number | null>(null)
+
   return (
     <PermissionGate
       require={{ resource: "moodle-sync", action: "view" }}
@@ -46,9 +56,15 @@ export default function MoodleSyncCategoriesPage() {
           </div>
         </motion.div>
 
+        <MajorProgramFilterTabs
+          value={majorProgramId}
+          onChange={setMajorProgramId}
+        />
+
+        <CategoryHealthAlert showLink={false} />
         <CategoryPullPanel />
         <CategoryNeedsMappingPanel />
-        <CategoryTree />
+        <CategoryTree majorProgramId={majorProgramId} />
       </div>
     </PermissionGate>
   )

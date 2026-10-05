@@ -25,6 +25,7 @@ export const DEFAULT_GRADE_FILTERS: GradeFilters = {
   semesterId: "all",
   programId: "all",
   gradeLetter: "all",
+  majorProgramId: null,
 }
 
 // ─── Analytics — each a separate real endpoint (see MISSING_BACKEND_APIS.md §2.7) ──
@@ -32,39 +33,48 @@ export const DEFAULT_GRADE_FILTERS: GradeFilters = {
 // distribution/program-performance/cgpa-trends/top-performers charts are each
 // their own endpoint and are fetched independently rather than expected as
 // nested fields of one aggregate response.
+//
+// Major-Program Scoping — every hook below now takes an optional
+// `majorProgramId` (sandbox/major-program-scoping/API_CONTRACTS.md A35, sent
+// ahead of the backend per CLAUDE.md §14) and folds it into its query key so
+// switching the filter tab in GradesSummaryPage doesn't read a stale cache
+// entry from a different scope.
 
-export function useGradesSummary() {
+export function useGradesSummary(majorProgramId?: number | null) {
   return useQuery({
-    queryKey: gradesKeys.dashboard(),
-    queryFn: () => gradesService.getDashboardData(),
+    queryKey: gradesKeys.dashboard(majorProgramId),
+    queryFn: () => gradesService.getDashboardData(majorProgramId),
   })
 }
 
-export function useGradeDistributionData() {
+export function useGradeDistributionData(majorProgramId?: number | null) {
   return useQuery({
-    queryKey: gradesKeys.distribution(),
-    queryFn: () => gradesService.getGradeDistribution(),
+    queryKey: gradesKeys.distribution(majorProgramId),
+    queryFn: () => gradesService.getGradeDistribution(majorProgramId),
   })
 }
 
-export function useProgramPerformanceData() {
+export function useProgramPerformanceData(majorProgramId?: number | null) {
   return useQuery({
-    queryKey: gradesKeys.programPerformance(),
-    queryFn: () => gradesService.getProgramPerformance(),
+    queryKey: gradesKeys.programPerformance(majorProgramId),
+    queryFn: () => gradesService.getProgramPerformance(majorProgramId),
   })
 }
 
-export function useCgpaTrendsData() {
+export function useCgpaTrendsData(majorProgramId?: number | null) {
   return useQuery({
-    queryKey: gradesKeys.cgpaTrends(),
-    queryFn: () => gradesService.getCgpaTrends(),
+    queryKey: gradesKeys.cgpaTrends(majorProgramId),
+    queryFn: () => gradesService.getCgpaTrends(majorProgramId),
   })
 }
 
-export function useTopPerformersData(limit = 10) {
+export function useTopPerformersData(
+  limit = 10,
+  majorProgramId?: number | null
+) {
   return useQuery({
-    queryKey: gradesKeys.topPerformers(limit),
-    queryFn: () => gradesService.getTopPerformers(limit),
+    queryKey: gradesKeys.topPerformers(limit, majorProgramId),
+    queryFn: () => gradesService.getTopPerformers(limit, majorProgramId),
   })
 }
 
@@ -131,7 +141,14 @@ export function useGroupedGrades(
     enabled,
   })
 
-  return { data: query.data ?? [], loading: query.isLoading }
+  return {
+    data: query.data ?? [],
+    loading: query.isLoading,
+    // So a refused/failed load isn't drawn as an empty grouped view.
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  }
 }
 
 // ─── Student Transcript Hook ──────────────────────────────────────────────────
@@ -152,7 +169,7 @@ export function useStudentTranscript(studentId: number | null) {
 
 // Downloads the semester result / transcript PDF and triggers a browser save.
 // `GET /students/me/results/:semesterId/download` 404s if there's no published
-// result for that semester (or until the backend ships it) — surfaced as a
+// result for that semester — surfaced as a
 // friendly toast, not an error boundary.
 export function useDownloadSemesterResult() {
   return useMutation({
@@ -210,7 +227,14 @@ export function useMyTermResults(enabled: boolean) {
     enabled,
   })
 
-  return { data: query.data ?? [], loading: query.isLoading }
+  return {
+    data: query.data ?? [],
+    loading: query.isLoading,
+    // So a refused/failed load isn't "No results available yet."
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  }
 }
 
 // ─── Grade Scales Hook ────────────────────────────────────────────────────────
@@ -284,27 +308,4 @@ export function useGrade(id: number | null) {
     enabled: !!id && id > 0,
     staleTime: 30 * 1000,
   })
-}
-
-// ─── Grades for one course + semester (Lecturer / Admin) ─────────────────────
-
-export function useGradesByCourseAndSemester(
-  courseId: number | null,
-  semesterId: number | null
-) {
-  const query = useQuery({
-    queryKey: gradesKeys.byCourseAndSemester(courseId ?? 0, semesterId ?? 0),
-    queryFn: () =>
-      gradesService.getGradesByCourseAndSemester(
-        courseId as number,
-        semesterId as number
-      ),
-    enabled: !!courseId && !!semesterId,
-    staleTime: 60 * 1000,
-  })
-  return {
-    grades: query.data ?? [],
-    loading: query.isLoading,
-    isError: query.isError,
-  }
 }

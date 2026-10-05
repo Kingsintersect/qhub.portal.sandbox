@@ -20,11 +20,23 @@ import DataTable, { type Column } from "@/components/custom/DataTable"
 import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
-import Combobox from "@/components/custom/Combobox"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { AccountStatusBadge } from "./account-status-badge"
+import { accountStatusOf } from "../lib/account-status"
 import { BulkImportTutorsModal } from "./BulkImportTutorsModal"
-import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { TutorCourseAssignForm } from "./tutor-course-assign-form"
+import { isMajorProgramRequiredError } from "../lib/major-program-required"
 import { usePermissions } from "@/lib/permissions/usePermissions"
+import { QueryErrorState } from "@/components/query-error-state"
+import { useAppStore } from "@/store"
+import { UserRole } from "@/config/nav.config"
+import {
+  useMajorPrograms,
+  useDepartments,
+  useFaculties,
+} from "@/hooks/useCourseStructure"
+import { toast } from "sonner"
+import { MajorProgramTabs } from "@/components/custom/MajorProgramTabs"
 import {
   formatOfferingCategory,
   formatOfferingMeta,
@@ -34,8 +46,6 @@ import {
   useCreateTutor,
   useUpdateTutor,
   useTutorCourses,
-  useCourseOfferings,
-  useAssignCourse,
   useUnassignCourse,
   useSetUserActive,
   useResendTutorInvite,
@@ -91,13 +101,7 @@ const baseColumns: Column<Tutor & Record<string, unknown>>[] = [
     key: "is_active",
     header: "Status",
     align: "center",
-    render: (row) => (
-      <StatusBadge
-        label={row.user.is_active ? "Active" : "Inactive"}
-        variant={row.user.is_active ? "success" : "destructive"}
-        dot
-      />
-    ),
+    render: (row) => <AccountStatusBadge user={row.user} />,
   },
 ]
 
@@ -112,12 +116,34 @@ export default function TutorsPage({
 }: TutorsPageProps = {}) {
   const { can } = usePermissions()
 
+  // Bringing a tutor onto the portal ("Add Tutor" assigns the tutor role to an
+  // existing user; "Bulk Import" onboards a registrar's list) is account
+  // provisioning. In a Nigerian university lecturers are appointed through the
+  // Registry/Establishments office and their accounts provisioned by ICT/admin
+  // — a Dean reviews the faculty's tutors but doesn't create them. DEAN's live
+  // session holds the same "tutors:manage" grant as ADMIN, so a permission
+  // check can't tell them apart — restricted by role instead, same precedent
+  // as Summary.tsx's isAdmin check. SUPER_ADMIN keeps total control per
+  // CLAUDE.md. Revisit if the backend splits provisioning into its own
+  // permission. Dean keeps read access (and canEdit below) unchanged.
+  const role = useAppStore((s) => s.user?.role)
+  const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN
+
   // Props take precedence; fall back to internally-derived values
-  const canCreate = canCreateProp ?? can(PERM.maanageTutors)
+  const canCreate = (canCreateProp ?? can(PERM.maanageTutors)) && isAdmin
   const canEdit = can(PERM.maanageTutors)
   const canManageCourses = can(PERM.manageDepts) // SUPER_ADMIN only
 
-  const { data, isLoading } = useTutors()
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const majorPrograms = (majorProgramsRes?.data ?? []).filter(
+    (mp) => mp.isActive
+  )
+  const { data, isLoading, isError, error, refetch } = useTutors({
+    major_program_id: majorProgramFilter ?? undefined,
+  })
   const createTutor = useCreateTutor()
   const updateTutor = useUpdateTutor()
   const setActive = useSetUserActive()
@@ -160,8 +186,9 @@ export default function TutorsPage({
           </Button>
         )}
 
-        {/* Deactivate / reactivate account — tutors:manage only */}
-        {canEdit && (
+        {/* Deactivate / reactivate account — tutors:manage only. Hidden for
+            a deleted account (login revoked; a flag can't restore it). */}
+        {canEdit && accountStatusOf(row.user) !== "deleted" && (
           <Button
             variant="ghost"
             size="sm"
@@ -179,8 +206,9 @@ export default function TutorsPage({
           </Button>
         )}
 
-        {/* Resend onboarding email — tutors:manage only */}
-        {canEdit && (
+        {/* Resend onboarding email — tutors:manage only. Not for a deleted
+            account: it would mint a new password for a revoked login. */}
+        {canEdit && accountStatusOf(row.user) !== "deleted" && (
           <Button
             variant="ghost"
             size="sm"
@@ -238,12 +266,13 @@ export default function TutorsPage({
             </div>
           </div>
 
-          {/* Bulk Import + Add Tutor — both gated to tutors:manage. Bulk
+          {/* Bulk Import + Add Tutor — both gated to tutors:manage AND the
+              ADMIN/SUPER_ADMIN role (canCreate, see above). Bulk
               import is the primary path (registrar list → CSV → whole
               department onboarded at once); "Add Tutor" stays for the
               one-off case of promoting a single existing user. See
               sandbox/user/tutor_onboarding_workflow.md §1. */}
-          <PermissionGate require={PERM.maanageTutors}>
+          {canCreate && (
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -256,27 +285,43 @@ export default function TutorsPage({
                 <Plus size={16} /> Add Tutor
               </Button>
             </div>
-          </PermissionGate>
+          )}
         </div>
       </motion.div>
+
+      <MajorProgramTabs
+        programs={majorPrograms}
+        value={majorProgramFilter}
+        onChange={setMajorProgramFilter}
+      />
 
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
       >
-        <DataTable
-          data={(data?.data ?? []) as (Tutor & Record<string, unknown>)[]}
-          columns={[...baseColumns, actionsColumn]}
-          loading={isLoading}
-          searchPlaceholder="Search by name, staff no, department…"
-          searchExtractor={(row) =>
-            `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.staff_number} ${row.department_name} ${row.designation}`
-          }
-          rowKey="id"
-          pageSize={10}
-          emptyMessage="No tutors found"
-        />
+        {/* A refused (403) or failed request must never read as "No tutors
+            found" — only a successful empty response gets that copy. */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="the tutor list"
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <DataTable
+            data={(data?.data ?? []) as (Tutor & Record<string, unknown>)[]}
+            columns={[...baseColumns, actionsColumn]}
+            loading={isLoading}
+            searchPlaceholder="Search by name, staff no, department…"
+            searchExtractor={(row) =>
+              `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.staff_number} ${row.department_name} ${row.designation}`
+            }
+            rowKey="id"
+            pageSize={10}
+            emptyMessage="No tutors found"
+          />
+        )}
       </motion.div>
 
       {/* Detail modal — view only, no permission gate needed (button is always visible) */}
@@ -308,7 +353,7 @@ export default function TutorsPage({
           open={showCreate}
           onClose={() => setShowCreate(false)}
           title="Add New Tutor"
-          subtitle="Select an existing user and fill in tutor details"
+          subtitle="Enter an email and fill in tutor details"
           size="xl"
         >
           <CreateTutorForm
@@ -449,20 +494,58 @@ function CreateTutorForm({
   isSubmitting: boolean
 }) {
   const [form, setForm] = useState<CreateTutorPayload>({
-    user_id: 0,
+    email: "",
     first_name: "",
     last_name: "",
     staff_number: "",
-    department_id: 1,
+    faculty_id: undefined,
+    department_id: undefined,
+    major_program_id: undefined,
     designation: "",
   })
+  // Cross-program teaching (2026-09-26): a lecturer can teach B.Sc,
+  // postgraduate and business-school courses at the same time, so a tutor
+  // isn't tied to one major program. Their major program comes from each
+  // course they're assigned (Manage Courses). Here we only record the home
+  // Faculty → Department they belong to, both optional.
+  //
+  // While the backend still requires majorProgramId (422), the Major program
+  // field appears after a rejected create, with a note that it doesn't limit
+  // teaching. It never shows once the backend drops the requirement.
+  const [needsMajorProgram, setNeedsMajorProgram] = useState(false)
+
+  const { data: facultiesRes } = useFaculties()
+  const faculties = (facultiesRes?.data ?? []).filter((f) => f.isActive)
+  const { data: departmentsRes, isFetching: loadingDepartments } =
+    useDepartments(form.faculty_id || null)
+  const departments = (departmentsRes?.data ?? []).filter((d) => d.isActive)
+
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const majorPrograms = (majorProgramsRes?.data ?? []).filter(
+    (mp) => mp.isActive
+  )
 
   const update = (key: keyof CreateTutorPayload, value: string | number) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
+  const handleFacultyChange = (value: number) =>
+    setForm((prev) => ({
+      ...prev,
+      faculty_id: value || undefined,
+      department_id: undefined,
+    }))
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(form)
+    if (needsMajorProgram && !form.major_program_id) {
+      toast.error("Please select a major program.")
+      return
+    }
+    // The mutation's own onError already shows a toast with the real reason
+    // (e.g. "no user with this email exists yet").
+    void onSubmit(form).catch((error: Error) => {
+      if (isMajorProgramRequiredError(error)) setNeedsMajorProgram(true)
+    })
   }
 
   return (
@@ -471,23 +554,121 @@ function CreateTutorForm({
       className="max-h-[60vh] space-y-4 overflow-y-auto pr-1"
     >
       <p className="text-xs text-muted-foreground">
-        Enter the existing User ID of the person you want to assign as a tutor.
+        Enter the tutor&apos;s email. If no account exists yet, one will be
+        created automatically. Tutors can teach in any major program: assign
+        their courses from Manage Courses after creating them.
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-foreground">
-            User ID *
+          <label
+            htmlFor="tutor-email"
+            className="mb-1 block text-xs font-medium text-foreground"
+          >
+            Email *
           </label>
           <input
-            type="number"
+            id="tutor-email"
+            type="email"
             className={inputCls}
-            placeholder="e.g. 8"
+            placeholder="tutor@example.com"
             required
-            value={form.user_id || ""}
-            onChange={(e) => update("user_id", parseInt(e.target.value) || 0)}
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
           />
         </div>
+        {needsMajorProgram && (
+          <div>
+            <label
+              htmlFor="tutor-major-program"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              Major program *
+            </label>
+            <select
+              id="tutor-major-program"
+              className={selectCls}
+              required
+              value={form.major_program_id || ""}
+              onChange={(e) =>
+                update("major_program_id", Number(e.target.value))
+              }
+              aria-describedby="tutor-major-program-note"
+            >
+              <option value="">Select a major program…</option>
+              {majorPrograms.map((mp) => (
+                <option key={mp.id} value={mp.id}>
+                  {mp.name}
+                </option>
+              ))}
+            </select>
+            <p
+              id="tutor-major-program-note"
+              className="mt-1 text-[11px] text-amber-700 dark:text-amber-300"
+            >
+              The server still asks for one when creating a tutor. It
+              doesn&apos;t limit what they can teach: courses from any major
+              program can be assigned.
+            </p>
+          </div>
+        )}
+        {faculties.length > 0 && (
+          <div>
+            <label
+              htmlFor="tutor-faculty"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              Home faculty
+            </label>
+            <select
+              id="tutor-faculty"
+              className={selectCls}
+              value={form.faculty_id || ""}
+              onChange={(e) => handleFacultyChange(Number(e.target.value))}
+            >
+              <option value="">None</option>
+              {faculties.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {form.faculty_id ? (
+          <div>
+            <label
+              htmlFor="tutor-department"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              Home department
+            </label>
+            {!loadingDepartments && departments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                This faculty has no departments.
+              </p>
+            ) : (
+              <select
+                id="tutor-department"
+                className={selectCls}
+                value={form.department_id || ""}
+                disabled={loadingDepartments}
+                onChange={(e) =>
+                  update("department_id", Number(e.target.value))
+                }
+              >
+                <option value="">
+                  {loadingDepartments ? "Loading…" : "None"}
+                </option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : null}
         <div>
           <label className="mb-1 block text-xs font-medium text-foreground">
             Staff Number *
@@ -586,40 +767,6 @@ function CreateTutorForm({
         </div>
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-medium text-foreground">
-          Qualifications
-        </label>
-        <textarea
-          className={inputCls}
-          rows={2}
-          value={form.qualifications ?? ""}
-          onChange={(e) => update("qualifications", e.target.value)}
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-foreground">
-          Research Areas
-        </label>
-        <textarea
-          className={inputCls}
-          rows={2}
-          value={form.research_areas ?? ""}
-          onChange={(e) => update("research_areas", e.target.value)}
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-foreground">
-          Bio
-        </label>
-        <textarea
-          className={inputCls}
-          rows={2}
-          value={form.bio ?? ""}
-          onChange={(e) => update("bio", e.target.value)}
-        />
-      </div>
-
       <div className="flex justify-end pt-2">
         <Button type="submit" disabled={isSubmitting} className="gap-2">
           {isSubmitting && <Loader2 size={14} className="animate-spin" />}
@@ -655,7 +802,7 @@ function EditTutorForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(form)
+    void onSubmit(form).catch(() => {})
   }
 
   return (
@@ -750,12 +897,6 @@ function EditTutorForm({
 }
 
 // ── Course assignment panel ───────────────────────────────────────────────────
-const ROLE_OPTIONS: { value: TutorCourseRole; label: string }[] = [
-  { value: "primary", label: "Primary" },
-  { value: "assistant", label: "Assistant" },
-  { value: "tutorial", label: "Tutorial" },
-]
-
 const roleVariant: Record<TutorCourseRole, "success" | "info" | "purple"> = {
   primary: "success",
   assistant: "info",
@@ -767,115 +908,45 @@ const selectCls =
   "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-foreground appearance-none"
 
 function TutorCoursesPanel({ tutor }: { tutor: Tutor }) {
-  const { data: coursesData, isLoading } = useTutorCourses(tutor.id)
-  const { data: offeringsData } = useCourseOfferings()
-  const assignCourse = useAssignCourse()
+  const {
+    data: coursesData,
+    isLoading,
+    isError: coursesFailed,
+    error: coursesError,
+    refetch: refetchCourses,
+  } = useTutorCourses(tutor.id)
   const unassignCourse = useUnassignCourse()
 
-  const [selectedOffering, setSelectedOffering] = useState<number>(0)
-  const [selectedRole, setSelectedRole] = useState<TutorCourseRole>("primary")
-
-  const assignments = coursesData?.data ?? []
-  const assignedOfferingIds = new Set(assignments.map((a) => a.offering_id))
-  const availableOfferings = (offeringsData?.data ?? []).filter(
-    (o) => !assignedOfferingIds.has(o.id)
+  const assignments = useMemo(() => coursesData?.data ?? [], [coursesData])
+  const assignedOfferingIds = useMemo(
+    () => new Set(assignments.map((a) => a.offering_id)),
+    [assignments]
   )
-
-  const offeringOptions = useMemo(
-    () =>
-      availableOfferings.map((o) => {
-        const category = formatOfferingCategory(o)
-        const programmes = o.programs.length
-          ? `${o.programs.length} programme${o.programs.length === 1 ? "" : "s"}`
-          : null
-        return {
-          value: o.id,
-          label: `${o.course_code} — ${o.course_title}`,
-          description: [
-            [formatOfferingMeta(o), o.status].filter(Boolean).join(" · "),
-            category,
-            programmes,
-          ]
-            .filter(Boolean)
-            .join("  ·  "),
-        }
-      }),
-    [availableOfferings]
-  )
-
-  const handleAssign = async () => {
-    if (!selectedOffering) return
-    await assignCourse.mutateAsync({
-      tutor_id: tutor.id,
-      offering_id: selectedOffering,
-      role: selectedRole,
-    })
-    setSelectedOffering(0)
-    setSelectedRole("primary")
-  }
 
   return (
     <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
-      {/* Assign new course */}
-      <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
-        <h3 className="text-sm font-semibold text-foreground">Assign Course</h3>
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_140px_auto]">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              Course Offering
-            </label>
-            <Combobox
-              options={offeringOptions}
-              value={selectedOffering || null}
-              onChange={(v) => setSelectedOffering(v as number)}
-              placeholder="Search courses…"
-              searchPlaceholder="Type code or title…"
-              emptyMessage="No courses found"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              Role
-            </label>
-            <select
-              className={selectCls}
-              value={selectedRole}
-              onChange={(e) =>
-                setSelectedRole(e.target.value as TutorCourseRole)
-              }
-            >
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button
-            onClick={handleAssign}
-            disabled={!selectedOffering || assignCourse.isPending}
-            className="gap-2"
-          >
-            {assignCourse.isPending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Plus size={14} />
-            )}
-            Assign
-          </Button>
-        </div>
-      </div>
+      <TutorCourseAssignForm
+        tutorId={tutor.id}
+        assignedOfferingIds={assignedOfferingIds}
+      />
 
       {/* Current assignments */}
       <div>
         <h3 className="mb-3 text-sm font-semibold text-foreground">
-          Assigned Courses ({assignments.length})
+          Assigned Courses ({coursesFailed ? "—" : assignments.length})
         </h3>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
             Loading…
           </div>
+        ) : coursesFailed ? (
+          // A refused or failed load isn't "No courses assigned yet".
+          <QueryErrorState
+            error={coursesError}
+            subject="this tutor's courses"
+            onRetry={() => void refetchCourses()}
+          />
         ) : assignments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <BookOpen size={32} className="mb-2 opacity-40" />

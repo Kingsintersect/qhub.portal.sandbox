@@ -1,6 +1,14 @@
-import apiClient from "@/lib/clients/apiClient"
+import type { z } from "zod"
+import apiClient, { ApiClientError } from "@/lib/clients/apiClient"
+import {
+  CategoryHealthSchema,
+  CategoryRepairResultSchema,
+} from "../schemas/category.schema"
 import { academicUnitsApi } from "@/services/academicStructureApi"
+import { offeringsApi } from "@/services/courseOfferingApi"
 import type {
+  CategoryHealth,
+  CategoryRepairResult,
   CategorySyncResponse,
   CoursesBulkPushPayload,
   CourseSyncResponse,
@@ -12,6 +20,9 @@ import type {
   UsersBulkPushPayload,
   PullUsersResult,
   UnmatchedMoodleUser,
+  CohortSyncResponse,
+  PushCohortDto,
+  SyncCohortMembersResult,
   AssessmentResponse,
   AssessmentFilter,
   PaginatedAssessments,
@@ -19,18 +30,47 @@ import type {
   VisibilityResponse,
   AssessmentSyncResult,
   AssessmentSyncStatusResult,
-  CaPreviewResponse,
   GradeResponse,
   CalendarEventResponse,
+  ReconcileModule,
+  ResetModule,
+  ReconcilePreview,
+  ReconcileApplyResult,
+  ResetResult,
+  CourseDriftCheck,
+  DriftScanStatus,
+  EnrollmentDriftFilters,
+  EnrollmentDriftItem,
+  EnrollmentDriftList,
+  EnrollmentDriftSummary,
 } from "../types"
+import {
+  ApplyReconcileRequestSchema,
+  ResetRequestSchema,
+} from "../schemas/reconcile.schema"
+import {
+  EnrollmentDriftFiltersSchema,
+  ResolveDriftReasonSchema,
+} from "../schemas/enrollment-drift.schema"
 
 // Real backend contract per bruno/moodle-sync/*.bru (the sole source of truth
 // for this module — see CLAUDE.md §13). List/detail GETs are wrapped in a
 // `{ data: ... }` envelope (confirmed by every List .bru's
-// `res.body.data[0].id` post-response script); push/pull actions that return
-// a single sync record respond with the raw object (confirmed by the Push
-// .bru files reading `res.body.id` directly) — unwrapped here so callers
-// keep receiving the plain shapes they already expect.
+// `res.body.data[0].id` post-response script).
+//
+// Push actions are NOT uniformly wrapped or unwrapped — this varies per
+// endpoint, confirmed per-endpoint via each Push .bru's post-response
+// script, not assumed module-wide:
+//   - Category Sync - Push.bru reads `res.body.data.id`   -> WRAPPED
+//   - Course Sync - Push.bru reads `res.body.id`           -> unwrapped
+//   - Enrollment Sync - Push.bru reads `res.body.moodleEnrollmentId` -> unwrapped
+//   - User Sync - Push.bru reads `res.body.id`             -> unwrapped
+// CORRECTION (2026-09-12): this comment previously claimed ALL push actions
+// were unwrapped "confirmed by the Push .bru files reading res.body.id
+// directly" — that was wrong; it only checked one of the four and
+// generalized. `pushCategory` was fixed to unwrap `{ data: ... }`; the
+// three above remain unwrapped as before, since their own bru scripts
+// still confirm that shape.
 const BASE = "/moodle-sync"
 const AUTH = { access_token: true } as const
 
@@ -52,14 +92,47 @@ interface RawCategorySync {
   needsMapping: boolean
   syncError: string | null
   lastSyncAt: string | null
+  // A36 (2026-09-26, live): nearest ancestor unit's major program, resolved
+  // server-side; null when the server can't resolve it.
+  majorProgramId?: number | null
+}
+
+interface UnitLookupEntry {
+  name: string
+  typeCode: string
+  parentId: number | null
+  linkedEntity: { type: string; id: number } | null
+}
+
+// Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+// Walks a category's AcademicUnit ancestor chain (parentId) looking for the
+// nearest node whose linkedEntity resolves to a MajorProgram (A18) — e.g.
+// the "PART-TIME PROGRAMS" root category. Real derivation, not a guess:
+// every node in `unitsById` came from the same tree this category's own
+// `academicUnitId` belongs to. A depth guard prevents an infinite loop if
+// the tree ever has a cyclic parentId (shouldn't happen, but this is
+// client-side derived data, not a trusted server invariant).
+function resolveMajorProgramId(
+  academicUnitId: number | null,
+  unitsById: Map<number, UnitLookupEntry>
+): number | null {
+  let currentId = academicUnitId
+  let guard = 0
+  while (currentId !== null && guard < 50) {
+    const unit = unitsById.get(currentId)
+    if (!unit) return null
+    if (unit.linkedEntity?.type === "major_program") {
+      return unit.linkedEntity.id
+    }
+    currentId = unit.parentId
+    guard += 1
+  }
+  return null
 }
 
 function mapCategorySync(
   raw: RawCategorySync,
-  unitsById: Map<
-    number,
-    { name: string; typeCode: string; parentId: number | null }
-  >
+  unitsById: Map<number, UnitLookupEntry>
 ): CategorySyncResponse {
   const unit = unitsById.get(raw.academicUnitId)
   return {
@@ -76,17 +149,25 @@ function mapCategorySync(
     needsMapping: raw.needsMapping,
     syncError: raw.syncError,
     lastSyncAt: raw.lastSyncAt,
+    // Prefer the server's own resolution (A36); derive it from the unit tree
+    // only when the server sends none.
+    majorProgramId:
+      raw.majorProgramId ??
+      resolveMajorProgramId(raw.academicUnitId, unitsById),
   }
 }
 
-async function buildUnitLookup(): Promise<
-  Map<number, { name: string; typeCode: string; parentId: number | null }>
-> {
+async function buildUnitLookup(): Promise<Map<number, UnitLookupEntry>> {
   const res = await academicUnitsApi.list()
   return new Map(
     res.data.map((u) => [
       u.id,
-      { name: u.name, typeCode: u.typeCode, parentId: u.parentId },
+      {
+        name: u.name,
+        typeCode: u.typeCode,
+        parentId: u.parentId,
+        linkedEntity: u.linkedEntity,
+      },
     ])
   )
 }
@@ -225,26 +306,83 @@ function normalizeAssessmentSyncStatus(
   }
 }
 
+/** Laravel's unregistered-route 404, or a 405: the endpoint isn't built yet. */
+function isRouteMissing(error: unknown): boolean {
+  if (!(error instanceof ApiClientError)) return false
+  return (
+    error.status === 405 ||
+    (error.status === 404 &&
+      /^The route .+ could not be found/i.test(error.message))
+  )
+}
+
 export const moodleSyncService = {
   // ---------- Categories ----------
 
-  async listCategories(): Promise<CategorySyncResponse[]> {
-    const [res, unitsById] = await Promise.all([
-      apiClient.get<{ data: RawCategorySync[] }>(`${BASE}/categories`, AUTH),
-      buildUnitLookup(),
-    ])
-    return res.data.map((r) => mapCategorySync(r, unitsById))
+  /**
+   * The nightly mapping check (sandbox/automation §6), or null while the
+   * server has no such route, in which case useCategoryHealth derives it.
+   */
+  async getCategoryHealth(): Promise<CategoryHealth | null> {
+    try {
+      const res = await apiClient.get<{ data: CategoryHealth }>(
+        `${BASE}/categories/health`,
+        AUTH
+      )
+      return CategoryHealthSchema.parse(res.data)
+    } catch (error) {
+      if (isRouteMissing(error)) return null
+      throw error
+    }
   },
 
-  async getCategoriesNeedingMapping(): Promise<CategorySyncResponse[]> {
+  /** Queue the mapping check now (sandbox/automation §6). */
+  async runCategoryHealthCheck(): Promise<void> {
+    await apiClient.post<void>(
+      `${BASE}/categories/health/check`,
+      undefined,
+      AUTH
+    )
+  },
+
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // `majorProgramId` is sent ahead of the backend per CLAUDE.md §14 (no
+  // confirmation `/moodle-sync/categories` honors it yet) AND applied as a
+  // real client-side filter — unlike most other speculative majorProgramId
+  // sends in this codebase, this one is genuine: `mapCategorySync` above
+  // already derives each row's true majorProgramId from the AcademicUnit
+  // tree (A18's linkedEntity mechanism), so filtering on it here is
+  // filtering on real data, not a guess.
+  async listCategories(filters?: {
+    majorProgramId?: number
+  }): Promise<CategorySyncResponse[]> {
+    const [res, unitsById] = await Promise.all([
+      apiClient.get<{ data: RawCategorySync[] }>(`${BASE}/categories`, {
+        ...AUTH,
+        params: filters as Record<string, unknown>,
+      }),
+      buildUnitLookup(),
+    ])
+    const mapped = res.data.map((r) => mapCategorySync(r, unitsById))
+    return filters?.majorProgramId
+      ? mapped.filter((c) => c.majorProgramId === filters.majorProgramId)
+      : mapped
+  },
+
+  async getCategoriesNeedingMapping(filters?: {
+    majorProgramId?: number
+  }): Promise<CategorySyncResponse[]> {
     const [res, unitsById] = await Promise.all([
       apiClient.get<{ data: RawCategorySync[] }>(
         `${BASE}/categories/needs-mapping`,
-        AUTH
+        { ...AUTH, params: filters as Record<string, unknown> }
       ),
       buildUnitLookup(),
     ])
-    return res.data.map((r) => mapCategorySync(r, unitsById))
+    const mapped = res.data.map((r) => mapCategorySync(r, unitsById))
+    return filters?.majorProgramId
+      ? mapped.filter((c) => c.majorProgramId === filters.majorProgramId)
+      : mapped
   },
 
   async getCategory(id: number): Promise<CategorySyncResponse> {
@@ -258,8 +396,16 @@ export const moodleSyncService = {
     return mapCategorySync(res.data, unitsById)
   },
 
-  pushCategory: (dto: PushCategoryDto) =>
-    apiClient.post<RawCategorySync>(`${BASE}/categories/push`, dto, AUTH),
+  // Confirmed wrapped by Category Sync - Push.bru's post-response script
+  // (`res.body.data.id`) — see the file header correction.
+  async pushCategory(dto: PushCategoryDto): Promise<RawCategorySync> {
+    const res = await apiClient.post<{ data: RawCategorySync }>(
+      `${BASE}/categories/push`,
+      dto,
+      AUTH
+    )
+    return res.data
+  },
 
   // Replaces the old faculty-only pushHierarchy — any AcademicUnit can be a
   // subtree root now (a whole Faculty, or just one Program's Level/Semester
@@ -293,8 +439,65 @@ export const moodleSyncService = {
       AUTH
     ),
 
+  // POST /moodle-sync/categories/repair-hierarchy — re-parents each mapped
+  // portal node under its Moodle parent's node. Idempotent. Since B23
+  // (2026-10-02) the server itself refuses moves touching a major-program
+  // node or making a cycle, and reports them. Its `?dryRun=1` preview is not
+  // used: a backend without the B23 fix would ignore the flag and really
+  // run the repair, and a POST can't be probed safely. lib/repair-plan.ts
+  // keeps computing the preview the dialog shows first.
+  repairCategoryHierarchy: async (): Promise<CategoryRepairResult> => {
+    const res = await apiClient.post<{
+      data: z.input<typeof CategoryRepairResultSchema>
+    }>(`${BASE}/categories/repair-hierarchy`, undefined, AUTH)
+    return CategoryRepairResultSchema.parse(res.data)
+  },
+
   deleteCategoryMapping: (id: number) =>
     apiClient.delete<{ message: string }>(`${BASE}/categories/${id}`, AUTH),
+
+  // ---------- Cohorts (Multi-Program Platform) ----------
+  // A cohort is Program + AcademicSession (+ Level) — not a new concept,
+  // pushed to Moodle as a real cohort so shared courses can use Moodle's
+  // own "Cohort sync" enrolment method for auto-enrol/auto-unenrol.
+  // Membership itself isn't managed through these endpoints — it's driven
+  // automatically off the existing StudentEnrollment lifecycle on the
+  // backend; sync-members is a manual drift-reconciliation action. See
+  // sandbox/multi-program-platform/{API_CONTRACTS,MOODLE_COHORT_SYNC}.md.
+
+  async listCohorts(): Promise<CohortSyncResponse[]> {
+    const res = await apiClient.get<{ data: CohortSyncResponse[] }>(
+      `${BASE}/cohorts`,
+      AUTH
+    )
+    return res.data
+  },
+
+  // CORRECTION (2026-09-12): both of these were previously typed as
+  // unwrapped "matching pushCategory's convention" — that premise was
+  // itself wrong (see pushCategory above and the file header). Per
+  // confirmation from the backend team, `CategorySyncController::push()`
+  // wraps in `{ data: ... }`, and `CohortSyncController` (push and
+  // sync-members) was correctly built to match that real behavior. Fixed
+  // to unwrap here to match. See sandbox/multi-program-platform/
+  // API_CONTRACTS.md §C for the corrected contract.
+  async pushCohort(dto: PushCohortDto): Promise<CohortSyncResponse> {
+    const res = await apiClient.post<{ data: CohortSyncResponse }>(
+      `${BASE}/cohorts/push`,
+      dto,
+      AUTH
+    )
+    return res.data
+  },
+
+  async syncCohortMembers(id: number): Promise<SyncCohortMembersResult> {
+    const res = await apiClient.post<{ data: SyncCohortMembersResult }>(
+      `${BASE}/cohorts/${id}/sync-members`,
+      undefined,
+      AUTH
+    )
+    return res.data
+  },
 
   // ---------- Users ----------
 
@@ -372,10 +575,20 @@ export const moodleSyncService = {
 
   // ---------- Courses ----------
 
-  async listCourses(): Promise<CourseSyncResponse[]> {
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // Sent ahead of the backend per CLAUDE.md §14. Send-only, unlike
+  // listCategories above: CourseSyncResponse carries no field a
+  // majorProgramId could be derived from client-side without an extra
+  // cross-join against the category tree's moodleCategoryId (course's own
+  // `moodleCategoryId` isn't the same id space as a category row's
+  // `academicUnitId`) — not built here rather than faked, same reasoning as
+  // A33's pure-aggregate sends elsewhere in this codebase.
+  async listCourses(filters?: {
+    majorProgramId?: number
+  }): Promise<CourseSyncResponse[]> {
     const res = await apiClient.get<{ data: CourseSyncResponse[] }>(
       `${BASE}/courses`,
-      AUTH
+      { ...AUTH, params: filters as Record<string, unknown> }
     )
     return res.data
   },
@@ -420,8 +633,12 @@ export const moodleSyncService = {
 
   // ---------- Enrollments ----------
 
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // `majorProgramId` sent ahead of the backend per CLAUDE.md §14 — send-only,
+  // same reasoning as listCourses above (EnrollmentSyncResponse carries no
+  // program-derivable field either).
   async listEnrollments(
-    filters: { status?: string } = {}
+    filters: { status?: string; majorProgramId?: number } = {}
   ): Promise<EnrollmentSyncResponse[]> {
     const res = await apiClient.get<{ data: EnrollmentSyncResponse[] }>(
       `${BASE}/enrollments`,
@@ -459,6 +676,99 @@ export const moodleSyncService = {
       AUTH
     ),
 
+  // ── Enrollment drift ──────────────────────────────────────────────────────
+  // sandbox/moodle-sync-reconciliation/ENROLLMENT_DRIFT.md §5. The portal is
+  // the authority: nothing here ever creates a portal enrollment.
+
+  // One course, synchronous. Updates only the drift report, never enrollments.
+  async checkCourseEnrollments(
+    moodleCourseId: number
+  ): Promise<CourseDriftCheck> {
+    const res = await apiClient.post<{ data: CourseDriftCheck }>(
+      `${BASE}/enrollments/drift/check/${moodleCourseId}`,
+      undefined,
+      AUTH
+    )
+    return res.data
+  },
+
+  // Every synced course, queued. Poll getDriftScanStatus while RUNNING.
+  async startDriftScan(): Promise<DriftScanStatus> {
+    const res = await apiClient.post<{ data: DriftScanStatus }>(
+      `${BASE}/enrollments/drift/scan`,
+      undefined,
+      AUTH
+    )
+    return res.data
+  },
+
+  async getDriftScanStatus(): Promise<DriftScanStatus> {
+    const res = await apiClient.get<{ data: DriftScanStatus }>(
+      `${BASE}/enrollments/drift/scan`,
+      AUTH
+    )
+    return res.data
+  },
+
+  async listEnrollmentDrift(
+    filters: EnrollmentDriftFilters = {}
+  ): Promise<EnrollmentDriftList> {
+    const params = EnrollmentDriftFiltersSchema.parse(filters)
+    return apiClient.get<EnrollmentDriftList>(`${BASE}/enrollments/drift`, {
+      ...AUTH,
+      params: params as Record<string, unknown>,
+    })
+  },
+
+  async getEnrollmentDriftSummary(): Promise<EnrollmentDriftSummary> {
+    const res = await apiClient.get<{ data: EnrollmentDriftSummary }>(
+      `${BASE}/enrollments/drift/summary`,
+      AUTH
+    )
+    return res.data
+  },
+
+  // MISSING_IN_MOODLE only — re-pushes the portal enrollment.
+  async reEnrollDrift(id: number): Promise<EnrollmentDriftItem> {
+    const res = await apiClient.post<{ data: EnrollmentDriftItem }>(
+      `${BASE}/enrollments/drift/${id}/re-enroll`,
+      undefined,
+      AUTH
+    )
+    return res.data
+  },
+
+  // ONLY_IN_MOODLE only — removes the student from the Moodle course. The
+  // portal is not changed.
+  async unenrolDrift(id: number, reason: string): Promise<EnrollmentDriftItem> {
+    const body = ResolveDriftReasonSchema.parse({ reason })
+    const res = await apiClient.post<{ data: EnrollmentDriftItem }>(
+      `${BASE}/enrollments/drift/${id}/unenrol`,
+      body,
+      AUTH
+    )
+    return res.data
+  },
+
+  async dismissDrift(id: number, reason: string): Promise<EnrollmentDriftItem> {
+    const body = ResolveDriftReasonSchema.parse({ reason })
+    const res = await apiClient.post<{ data: EnrollmentDriftItem }>(
+      `${BASE}/enrollments/drift/${id}/dismiss`,
+      body,
+      AUTH
+    )
+    return res.data
+  },
+
+  async reopenDrift(id: number): Promise<EnrollmentDriftItem> {
+    const res = await apiClient.post<{ data: EnrollmentDriftItem }>(
+      `${BASE}/enrollments/drift/${id}/reopen`,
+      undefined,
+      AUTH
+    )
+    return res.data
+  },
+
   // ---------- Assessments ----------
   // Verified live 2026-09-10 against the running backend: the COMPLETE contract
   // is `/assessments/*` (assesments_README.md / bruno/assessments), NOT
@@ -483,7 +793,12 @@ export const moodleSyncService = {
   ): Promise<{ data: AssessmentResponse[] }> => {
     const res = await apiClient.get<{ data: RawAssessmentListItem[] }>(
       `/assessments`,
-      { ...AUTH, params: { offeringId: filters.courseId, type: filters.type } }
+      // `courseOfferingId` is the param the controller reads (bruno
+      // "Assessments - List"); `offeringId` is only an alias (A42.1).
+      {
+        ...AUTH,
+        params: { courseOfferingId: filters.courseId, type: filters.type },
+      }
     )
     return { data: (res.data ?? []).map(mapAssessmentListItem) }
   },
@@ -542,7 +857,7 @@ export const moodleSyncService = {
       ...AUTH,
       params: {
         type: filters.type,
-        offeringId: filters.courseOfferingId,
+        courseOfferingId: filters.courseOfferingId,
         semesterId: filters.semesterId,
         isVisible: filters.isVisible,
         upcoming: filters.upcoming,
@@ -558,6 +873,47 @@ export const moodleSyncService = {
         page: filters.page ?? 1,
         limit: filters.limit ?? data.length,
       },
+    }
+  },
+
+  // `GET /assessments` has no `lecturerId` filter, and `GET /assessments/my`
+  // is student-only (403s a tutor) — confirmed live 2026-09-23. The
+  // per-offering filter (`courseOfferingId`, alias `offeringId`) works since
+  // A42.1 (2026-09-26) and rows now carry `courseOfferingId`, but one call
+  // per offering would be N requests, so this still makes one list call and
+  // matches client-side. This derives a
+  // best-effort match instead: fetch the tutor's own assigned offerings
+  // (the same `?lecturerId=` call Course Assignments already uses) and the
+  // full assessment list once, then keep only assessments whose course code
+  // matches one of the tutor's own course codes. Honest, not exact — same
+  // "derived filter" caveat already established elsewhere in this app for
+  // records with no id to match on directly.
+  async getMyTutorAssessments(
+    lecturerId: number,
+    filters: Partial<
+      Pick<AssessmentFilter, "type" | "isVisible" | "page" | "limit">
+    > = {}
+  ): Promise<PaginatedAssessments> {
+    const [{ data: offerings }, allAssessments] = await Promise.all([
+      offeringsApi.list({ lecturerId }),
+      moodleSyncService.listAssessmentsPaginated({
+        type: filters.type,
+        isVisible: filters.isVisible,
+        limit: 500,
+      }),
+    ])
+    const myCourseCodes = new Set(
+      offerings.map((o) => o.course_code.toLowerCase())
+    )
+    const mine = allAssessments.data.filter((a) =>
+      myCourseCodes.has(a.courseCode.toLowerCase())
+    )
+    const page = filters.page ?? 1
+    const limit = filters.limit ?? mine.length
+    const start = (page - 1) * limit
+    return {
+      data: mine.slice(start, start + limit),
+      meta: { total: mine.length, page, limit },
     }
   },
 
@@ -605,7 +961,14 @@ export const moodleSyncService = {
     return apiClient.delete<{ message: string }>(`/assessments/${id}`, AUTH)
   },
 
-  async getAssessmentSyncStatus(): Promise<AssessmentSyncStatusResult> {
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // `majorProgramId` sent ahead of the backend per CLAUDE.md §14. Send-only:
+  // this is a pure aggregate (summary counts + a flat per-course list with
+  // no program-derivable field), so there's nothing to filter client-side —
+  // same reasoning as A33's other pure-aggregate sends in this codebase.
+  async getAssessmentSyncStatus(filters?: {
+    majorProgramId?: number
+  }): Promise<AssessmentSyncStatusResult> {
     // `/assessments/sync/status` — Admin. Documented shape is
     // `{ summary: {...}, courses: [...] }`; the older
     // `/moodle-sync/assessments/sync-status` returned a flatter
@@ -613,34 +976,19 @@ export const moodleSyncService = {
     // Normalize both so the table never crashes on a shape change.
     const res = await apiClient.get<Record<string, unknown>>(
       `/assessments/sync/status`,
-      AUTH
+      { ...AUTH, params: filters as Record<string, unknown> }
     )
     return normalizeAssessmentSyncStatus(res)
   },
 
-  // Retry = re-run the pull (upsert-based, idempotent). `/assessments/sync/:id/retry`
-  // exists too, but re-calling sync is equivalent and one less path to depend on.
+  // POST /assessments/sync/:moodleCourseId/retry (bruno "Assessments - Retry
+  // Sync"): same response shape as a course sync.
   retryAssessmentSync(moodleCourseId: number): Promise<AssessmentSyncResult> {
     return apiClient.post<AssessmentSyncResult>(
-      `/assessments/sync/${moodleCourseId}`,
+      `/assessments/sync/${moodleCourseId}/retry`,
       undefined,
       AUTH
     )
-  },
-
-  // Moodle CA → Grade.caScore bridge. NOT YET SHIPPED (404 on both
-  // `/assessments/ca-preview` and `/moodle-sync/assessments/ca-preview` as of
-  // 2026-09-10) — sandbox/API_GAPS_2026-09.md §2 has the spec. The
-  // "Pull CA from Moodle" button surfaces the error until it lands; manual CA
-  // entry works meanwhile.
-  async getCaPreview(
-    offeringId: number,
-    params: { semesterId: number; caMax?: number }
-  ): Promise<CaPreviewResponse> {
-    const res = await apiClient.get<
-      CaPreviewResponse | { data: CaPreviewResponse }
-    >(`/assessments/ca-preview/${offeringId}`, { ...AUTH, params })
-    return "data" in res ? res.data : res
   },
 
   // ---------- Grades (read-only) ----------
@@ -700,6 +1048,58 @@ export const moodleSyncService = {
   async getCalendarEvent(id: number): Promise<CalendarEventResponse> {
     const res = await apiClient.get<{ data: CalendarEventResponse }>(
       `${BASE}/calendar/${id}`,
+      AUTH
+    )
+    return res.data
+  },
+
+  // ── Reconcile & Reset ────────────────────────────────────────────────────
+  // sandbox/moodle-sync-reconciliation/API_CONTRACTS.md.
+
+  // Dry run against live Moodle — writes nothing.
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // `majorProgramId` sent ahead of the backend per CLAUDE.md §14 as a query
+  // param (the endpoint takes no body) — send-only, narrowing which
+  // module's records get previewed/reconciled to one major program isn't
+  // something the frontend can verify happened without the backend's own
+  // response naming the scope it applied.
+  async previewReconcile(
+    module: ReconcileModule,
+    filters?: { majorProgramId?: number }
+  ): Promise<ReconcilePreview> {
+    const res = await apiClient.post<{ data: ReconcilePreview }>(
+      `${BASE}/${module}/reconcile/preview`,
+      undefined,
+      { ...AUTH, params: filters as Record<string, unknown> }
+    )
+    return res.data
+  },
+
+  // Applies exactly the previewed diff. Removed-in-Moodle rows are flagged,
+  // never deleted.
+  async applyReconcile(
+    module: ReconcileModule,
+    previewId: string
+  ): Promise<ReconcileApplyResult> {
+    const body = ApplyReconcileRequestSchema.parse({ previewId })
+    const res = await apiClient.post<{ data: ReconcileApplyResult }>(
+      `${BASE}/${module}/reconcile/apply`,
+      body,
+      AUTH
+    )
+    return res.data
+  },
+
+  // Cache-only modules. `repull: true` deletes and re-pulls in one queued job
+  // so the portal is never left empty in between.
+  async resetModule(
+    module: ResetModule,
+    repull: boolean
+  ): Promise<ResetResult> {
+    const body = ResetRequestSchema.parse({ repull })
+    const res = await apiClient.post<{ data: ResetResult }>(
+      `${BASE}/${module}/reset`,
+      body,
       AUTH
     )
     return res.data

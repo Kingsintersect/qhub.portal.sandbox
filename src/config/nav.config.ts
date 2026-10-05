@@ -1,5 +1,7 @@
 import {
   AppWindowIcon,
+  ArrowUpCircle,
+  History,
   Banknote,
   BarChart,
   CalendarCheck2,
@@ -21,7 +23,6 @@ import {
   ClipboardList,
   FileText,
   GraduationCap,
-  MessageSquare,
   Bell,
   Settings,
   Users,
@@ -29,7 +30,6 @@ import {
   Building2,
   ShieldCheck,
   Database,
-  Layers,
   CreditCard,
   FolderOpen,
   UserCog,
@@ -39,6 +39,10 @@ import {
   UserCheck,
   CalendarCheck,
   MapPin,
+  Activity,
+  Landmark,
+  Waypoints,
+  DatabaseZap,
 } from "lucide-react"
 
 /* ------------------------------------------------------------------ */
@@ -62,6 +66,15 @@ export interface NavItem {
   title: string
   href?: string
   icon: LucideIcon
+  /**
+   * Hides the item unless the session holds this permission, or any one of
+   * a list of them (filtered in
+   * Sidebar.tsx). Lets roles that share routes (TUTOR/HOD/DEAN on /tutor)
+   * see only what their permissions allow, instead of a role check.
+   */
+  permission?:
+    | { resource: string; action: string }
+    | { resource: string; action: string }[]
   badge?: string | number
   badgeVariant?: string
   matchExactOnly?: boolean
@@ -158,6 +171,12 @@ const studentNav: NavGroup[] = [
         icon: CalendarDays,
       },
       {
+        title: "Academic History",
+        href: "/student/academic-history",
+        matchExactOnly: true,
+        icon: History,
+      },
+      {
         // No dedicated /student/profile route — the profile editor lives as a
         // tab on the Settings page.
         title: "Profile",
@@ -170,12 +189,9 @@ const studentNav: NavGroup[] = [
   {
     label: "Moodle LMS",
     items: [
-      {
-        title: "Moodle Grades",
-        href: "/student/moodle/grades",
-        matchExactOnly: true,
-        icon: Award,
-      },
+      // REMOVED (2026-09-24): "Moodle Grades" -> "/student/moodle/grades".
+      // Students never see raw Moodle marks, only published results
+      // (Results & Grading contract C2.8). Their results live under "Results".
       {
         title: "Moodle Calendar",
         href: "/student/moodle/calendar",
@@ -197,9 +213,10 @@ const studentNav: NavGroup[] = [
         title: "Notifications",
         href: "/student/notifications",
         matchExactOnly: true,
+        // No badge: a hardcoded "3" used to sit here regardless of the real
+        // unread count. The sidebar only renders static badges from this
+        // config; the live unread count is shown on the header bell instead.
         icon: Bell,
-        badge: 3,
-        badgeVariant: "warning",
       },
       {
         title: "Calendar & Events",
@@ -271,30 +288,27 @@ const tutorNav: NavGroup[] = [
         matchExactOnly: true,
         icon: CalendarDays,
       },
+      // Replaces the old "Grading" section (Submit Results / Grade Book),
+      // removed 2026-09-24: tutors grade only in Moodle. One workspace for
+      // TUTOR, HOD and DEAN; a tutor sees their own offerings read-only,
+      // HOD/DEAN permissions unlock pulling, normalizing and approving.
       {
-        title: "Grading",
+        title: "Course Results",
+        href: "/tutor/results",
         icon: ClipboardList,
-        children: [
-          {
-            title: "Submit Results",
-            href: "/tutor/grading/submit",
-            matchExactOnly: true,
-            icon: FileText,
-          },
-          {
-            title: "Grade Book",
-            href: "/tutor/grading/book",
-            matchExactOnly: true,
-            icon: FolderOpen,
-          },
-        ],
+        permission: { resource: "results", action: "view" },
       },
+      // Read-only academic standing lookup; standings.view (HOD, not tutors).
       {
-        title: "Resources",
-        href: "/tutor/resources",
-        matchExactOnly: true,
-        icon: Layers,
+        title: "Students",
+        href: "/tutor/students",
+        icon: GraduationCap,
+        permission: { resource: "standings", action: "view" },
       },
+      // REMOVED (2026-09-12): "Resources" -> "/tutor/resources" 404'd —
+      // found via a full nav sweep, live-tested with a real TUTOR login.
+      // No dedicated resources page exists under /tutor — pulled the dead
+      // link rather than silently building a new page.
     ],
   },
   {
@@ -306,18 +320,20 @@ const tutorNav: NavGroup[] = [
         matchExactOnly: true,
         icon: Bell,
       },
-      {
-        title: "Calendar & Events",
-        href: "/tutor/timetable/calendar",
-        matchExactOnly: false,
-        icon: CalendarDays,
-      },
+      // REMOVED (2026-09-12): "Calendar & Events" -> "/tutor/timetable/
+      // calendar" 404'd — found the same way. "/tutor/timetable" itself
+      // (the parent, one level up) is real and already the timetable view;
+      // no separate nested calendar page exists under it.
     ],
   },
   {
     label: "Account",
     items: [
       {
+        // RESTORED (2026-09-12): was removed as a dead link, then a real
+        // page was built at this path — the tutor onboarding checklist's
+        // "Confirm your profile" step (TutorOnboardingChecklist.tsx) always
+        // linked here, so this needed a real destination, not just removal.
         title: "Settings",
         href: "/tutor/settings",
         matchExactOnly: true,
@@ -512,6 +528,14 @@ const adminNav: NavGroup[] = [
         matchExactOnly: true,
         icon: Banknote,
       },
+      {
+        // sandbox/payment-routing: settlement accounts + split rules. The
+        // page itself is RoleGuard'ed to ADMIN (DEAN/STAFF share this layout).
+        title: "Settlement & Splits",
+        href: "/manager/finance/settlement",
+        matchExactOnly: true,
+        icon: Landmark,
+      },
     ],
   },
   {
@@ -522,21 +546,39 @@ const adminNav: NavGroup[] = [
         href: "/manager/grades/summary",
         matchExactOnly: true,
         icon: BarChart,
+        permission: [
+          { resource: "results", action: "analytics.view" },
+          { resource: "grades-summary", action: "view" },
+        ],
       },
       {
-        title: "Results",
+        title: "Course Results",
         href: "/manager/grades/results",
+        icon: ClipboardList,
+        permission: { resource: "results", action: "view" },
+      },
+      {
+        title: "Adjustment Approvals",
+        href: "/manager/grades/approvals",
         matchExactOnly: true,
-        icon: ListChevronsUpDown,
+        icon: ShieldCheck,
+        permission: { resource: "results", action: "adjust.approve" },
       },
       {
         title: "Publish Results",
         href: "/manager/grades/publish-results",
         matchExactOnly: true,
         icon: ListChecks,
+        permission: { resource: "results", action: "publish" },
       },
       {
-        title: "Grading Schemes",
+        title: "All Grades",
+        href: "/manager/grades/all-grades",
+        matchExactOnly: true,
+        icon: ListChevronsUpDown,
+      },
+      {
+        title: "Result Configuration",
         href: "/manager/grades/grading-schemes",
         matchExactOnly: true,
         icon: Settings2,
@@ -544,14 +586,60 @@ const adminNav: NavGroup[] = [
     ],
   },
   {
-    label: "Reports",
+    // Session promotion (sandbox/session-promotion/). Each entry is gated by
+    // the contract's permission, so read-only roles sharing this nav (DEAN)
+    // only see what their session allows.
+    label: "Session Promotion",
     items: [
       {
-        title: "Analytics",
-        href: "/manager/analytics",
-        matchExactOnly: true,
-        icon: BarChart3,
+        title: "Promotion Runs",
+        href: "/manager/progression/runs",
+        icon: ArrowUpCircle,
+        permission: [
+          { resource: "progression", action: "run.view" },
+          { resource: "progression", action: "run.create" },
+        ],
       },
+      {
+        title: "Session Close",
+        href: "/manager/progression/session-close",
+        matchExactOnly: true,
+        icon: ListChecks,
+        permission: [
+          { resource: "progression", action: "readiness.view" },
+          { resource: "progression", action: "session.lock" },
+        ],
+      },
+      {
+        title: "Semester Rollover",
+        href: "/manager/progression/rollover",
+        matchExactOnly: true,
+        icon: CalendarCheck,
+        permission: [
+          { resource: "progression", action: "readiness.view" },
+          { resource: "progression", action: "session.lock" },
+        ],
+      },
+      {
+        title: "Progression Policy",
+        href: "/manager/progression/policy",
+        matchExactOnly: true,
+        icon: Settings2,
+        permission: [
+          { resource: "progression", action: "policy.view" },
+          { resource: "progression", action: "policy.manage" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
+      // REMOVED (2026-09-12): "Analytics" -> "/manager/analytics" 404'd —
+      // found via a full nav sweep, same gap as SUPER_ADMIN's "Analytics"
+      // link (see the matching note on adminNav above). No analytics page
+      // exists anywhere in the app yet to repoint this at — pulled the
+      // dead link rather than silently building a new dashboard.
       {
         title: "Announcements",
         href: "/manager/announcements",
@@ -563,20 +651,17 @@ const adminNav: NavGroup[] = [
         href: "/manager/notification",
         matchExactOnly: true,
         icon: Bell,
+        // The page is gated on notifications.manage; without it (e.g. DEAN,
+        // who shares this nav) the link only led to a permission-denied modal.
+        permission: { resource: "notifications", action: "manage" },
       },
     ],
   },
-  {
-    label: "Account",
-    items: [
-      {
-        title: "Settings",
-        href: "/manager/settings",
-        matchExactOnly: true,
-        icon: Settings,
-      },
-    ],
-  },
+  // REMOVED (2026-09-12): "Account" > "Settings" -> "/manager/settings"
+  // 404'd — found via a full nav sweep, same gap as SUPER_ADMIN's "Account
+  // Settings" link. No admin-tier settings page exists anywhere in the app
+  // (only /student/settings and /guest/settings are real) — pulled the
+  // dead link rather than silently building a new page.
 ]
 
 /* ------------------------------------------------------------------ */
@@ -638,64 +723,23 @@ const superAdminNav: NavGroup[] = [
             matchExactOnly: true,
             icon: MapPin,
           },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Synchronize LMS",
-    items: [
-      {
-        title: "Moodle Syncronizer",
-        icon: WifiSyncIcon,
-        children: [
           {
-            title: "Overview",
-            href: "/admin/moodle-sync",
+            title: "System Monitoring",
+            href: "/admin/configurations/system-monitoring",
             matchExactOnly: true,
-            icon: WifiSyncIcon,
+            icon: Activity,
           },
           {
-            title: "Categories",
-            href: "/admin/moodle-sync/categories",
+            title: "Payment Gateways",
+            href: "/admin/configurations/payment-gateways",
             matchExactOnly: true,
-            icon: Building2,
+            icon: Waypoints,
           },
           {
-            title: "Users",
-            href: "/admin/moodle-sync/users",
+            title: "Instance Reset",
+            href: "/admin/configurations/instance-reset",
             matchExactOnly: true,
-            icon: Users,
-          },
-          {
-            title: "Courses",
-            href: "/admin/moodle-sync/courses",
-            matchExactOnly: true,
-            icon: BookOpen,
-          },
-          {
-            title: "Enrollments",
-            href: "/admin/moodle-sync/enrollments",
-            matchExactOnly: true,
-            icon: Link2,
-          },
-          {
-            title: "Assessments",
-            href: "/admin/moodle-sync/assessments",
-            matchExactOnly: true,
-            icon: ClipboardList,
-          },
-          {
-            title: "Grades",
-            href: "/admin/moodle-sync/grades",
-            matchExactOnly: true,
-            icon: Award,
-          },
-          {
-            title: "Calendar & Zoom",
-            href: "/admin/moodle-sync/calendar",
-            matchExactOnly: true,
-            icon: CalendarDays,
+            icon: DatabaseZap,
           },
         ],
       },
@@ -779,6 +823,65 @@ const superAdminNav: NavGroup[] = [
     ],
   },
   {
+    label: "Synchronize LMS",
+    items: [
+      {
+        title: "Moodle Syncronizer",
+        icon: WifiSyncIcon,
+        children: [
+          {
+            title: "Overview",
+            href: "/admin/moodle-sync",
+            matchExactOnly: true,
+            icon: WifiSyncIcon,
+          },
+          {
+            title: "Categories",
+            href: "/admin/moodle-sync/categories",
+            matchExactOnly: true,
+            icon: Building2,
+          },
+          {
+            title: "Users",
+            href: "/admin/moodle-sync/users",
+            matchExactOnly: true,
+            icon: Users,
+          },
+          {
+            title: "Courses",
+            href: "/admin/moodle-sync/courses",
+            matchExactOnly: true,
+            icon: BookOpen,
+          },
+          {
+            title: "Enrollments",
+            href: "/admin/moodle-sync/enrollments",
+            matchExactOnly: true,
+            icon: Link2,
+          },
+          {
+            title: "Assessments",
+            href: "/admin/moodle-sync/assessments",
+            matchExactOnly: true,
+            icon: ClipboardList,
+          },
+          {
+            title: "Grades",
+            href: "/admin/moodle-sync/grades",
+            matchExactOnly: true,
+            icon: Award,
+          },
+          {
+            title: "Calendar & Zoom",
+            href: "/admin/moodle-sync/calendar",
+            matchExactOnly: true,
+            icon: CalendarDays,
+          },
+        ],
+      },
+    ],
+  },
+  {
     label: "Account Operations",
     items: [
       {
@@ -834,6 +937,12 @@ const superAdminNav: NavGroup[] = [
         matchExactOnly: true,
         icon: Banknote,
       },
+      {
+        title: "Settlement & Splits",
+        href: "/admin/finance/settlement",
+        matchExactOnly: true,
+        icon: Landmark,
+      },
     ],
   },
   {
@@ -844,24 +953,89 @@ const superAdminNav: NavGroup[] = [
         href: "/admin/grades/summary",
         matchExactOnly: true,
         icon: BarChart,
+        permission: [
+          { resource: "results", action: "analytics.view" },
+          { resource: "grades-summary", action: "view" },
+        ],
       },
       {
-        title: "Results",
+        title: "Course Results",
         href: "/admin/grades/results",
+        icon: ClipboardList,
+        permission: { resource: "results", action: "view" },
+      },
+      {
+        title: "Adjustment Approvals",
+        href: "/admin/grades/approvals",
         matchExactOnly: true,
-        icon: ListChevronsUpDown,
+        icon: ShieldCheck,
+        permission: { resource: "results", action: "adjust.approve" },
       },
       {
         title: "Publish Results",
         href: "/admin/grades/publish-results",
         matchExactOnly: true,
         icon: ListChecks,
+        permission: { resource: "results", action: "publish" },
       },
       {
-        title: "Grading Schemes",
+        title: "All Grades",
+        href: "/admin/grades/all-grades",
+        matchExactOnly: true,
+        icon: ListChevronsUpDown,
+      },
+      {
+        title: "Result Configuration",
         href: "/admin/grades/grading-schemes",
         matchExactOnly: true,
         icon: Settings2,
+      },
+    ],
+  },
+  {
+    // Session promotion (sandbox/session-promotion/). Each entry is gated by
+    // the contract's permission, so read-only roles sharing this nav (DEAN)
+    // only see what their session allows.
+    label: "Session Promotion",
+    items: [
+      {
+        title: "Promotion Runs",
+        href: "/admin/progression/runs",
+        icon: ArrowUpCircle,
+        permission: [
+          { resource: "progression", action: "run.view" },
+          { resource: "progression", action: "run.create" },
+        ],
+      },
+      {
+        title: "Session Close",
+        href: "/admin/progression/session-close",
+        matchExactOnly: true,
+        icon: ListChecks,
+        permission: [
+          { resource: "progression", action: "readiness.view" },
+          { resource: "progression", action: "session.lock" },
+        ],
+      },
+      {
+        title: "Semester Rollover",
+        href: "/admin/progression/rollover",
+        matchExactOnly: true,
+        icon: CalendarCheck,
+        permission: [
+          { resource: "progression", action: "readiness.view" },
+          { resource: "progression", action: "session.lock" },
+        ],
+      },
+      {
+        title: "Progression Policy",
+        href: "/admin/progression/policy",
+        matchExactOnly: true,
+        icon: Settings2,
+        permission: [
+          { resource: "progression", action: "policy.view" },
+          { resource: "progression", action: "policy.manage" },
+        ],
       },
     ],
   },
@@ -908,38 +1082,97 @@ const superAdminNav: NavGroup[] = [
   {
     label: "System",
     items: [
+      // REMOVED (2026-09-12): "Analytics" -> "/admin/system/analytics" 404'd
+      // — found via a full nav sweep. Unlike "System Config" below, there is
+      // no existing analytics page anywhere in the app to repoint this at;
+      // it was advertised in the sidebar but never built. Pulled the dead
+      // link rather than silently building a new analytics dashboard —
+      // flagged to the user as a real, separately-scoped feature to build.
       {
-        title: "Analytics",
-        href: "/admin/system/analytics",
-        matchExactOnly: true,
-        icon: BarChart3,
-      },
-      {
+        // FIX (2026-09-12): pointed at "/admin/system/config", which has
+        // never had a page — 404'd, found via a full nav sweep. The real,
+        // fully-built system-settings page already exists at this path
+        // (src/app/(dashboard)/admin/(routes)/configurations/app-config) —
+        // this was a wrong href, not a missing page.
         title: "System Config",
-        href: "/admin/system/config",
+        href: "/admin/configurations/app-config",
         matchExactOnly: true,
         icon: Database,
       },
     ],
   },
-  {
-    label: "Account",
-    items: [
-      {
-        title: "Settings",
-        href: "/admin/account/settings",
-        matchExactOnly: true,
-        icon: Settings,
-      },
-    ],
-  },
+  // REMOVED (2026-09-12): "Account" > "Settings" -> "/admin/account/settings"
+  // 404'd — found via a full nav sweep. No admin-facing settings page exists
+  // to repoint this at (unlike System Config); student/guest have a real
+  // equivalent at */settings this could be adapted from, but building it is
+  // new page work, not a link fix — pulled the dead link and flagged to the
+  // user as a real, separately-scoped feature to build rather than doing it
+  // silently.
 ]
 
 /* ------------------------------------------------------------------ */
 /*  Dean navigation                                                    */
 /* ------------------------------------------------------------------ */
 
-const deanNav: NavGroup[] = adminNav
+// DEAN otherwise mirrors ADMIN's nav exactly (deliberately — both are
+// platform-wide operational roles), except for one entry point: adminNav's
+// "User Management" > "Summary" link is the page that exposes "Add User"
+// (any role, including SUPER_ADMIN) and "Manage roles" (assign/revoke any
+// role) — see StatisticsManagementShell in
+// src/modules/user-management/components/UserManagementShell.tsx. Per
+// sandbox/BACKEND_DEVIATIONS_2026-09-14.md A27 and
+// sandbox/major-program-scoping/README.md §F (both confirmed live,
+// 2026-09-16), DEAN currently gets Admin-equivalent access to that
+// create/manage-any-account-any-role capability, which should be
+// Admin/Super-Admin-only. Every other "User Management" entry (Students,
+// Tutors, Staff, Documents, Hostels, Clearance) stays — DEAN's real
+// permissions already cover those correctly (students/tutors/staff
+// view+manage). See UserManagementShell.tsx's matching role check for the
+// page-level guard (nav removal alone doesn't stop direct navigation).
+// Grades Management: DEAN shares the tutor routes for course results (a
+// Dean can teach too), so "Course Results" points at /tutor/results. The
+// permission filter hides Publish / Adjustment Approvals (DEAN holds neither);
+// result configuration stays with ADMIN / SUPER_ADMIN.
+const deanGradesNav = (group: NavGroup): NavGroup => ({
+  ...group,
+  items: group.items
+    .filter((item) => item.title !== "Result Configuration")
+    .map((item) =>
+      item.title === "Course Results"
+        ? { ...item, href: "/tutor/results" }
+        : item
+    ),
+})
+
+// Settlement & Splits is ADMIN-only on the manager side (the page's RoleGuard
+// excludes DEAN), so the link is dropped here rather than leading to a
+// permission-denied screen.
+const deanNav: NavGroup[] = adminNav.map((group) =>
+  group.label === "Finance"
+    ? {
+        ...group,
+        items: group.items.filter(
+          (item) => item.href !== "/manager/finance/settlement"
+        ),
+      }
+    : group.label === "Grades Management"
+      ? deanGradesNav(group)
+      : group.label !== "User Management"
+        ? group
+        : {
+            ...group,
+            items: group.items.map((item) =>
+              item.title !== "User Management" || !item.children
+                ? item
+                : {
+                    ...item,
+                    children: item.children.filter(
+                      (c) => c.title !== "Summary"
+                    ),
+                  }
+            ),
+          }
+)
 
 /* ------------------------------------------------------------------ */
 /*  Bursary navigation                                                 */
@@ -965,19 +1198,20 @@ const bursaryNav: NavGroup[] = [
         matchExactOnly: true,
         icon: CreditCard,
       },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
       {
-        title: "Settings",
-        href: "/admin/settings",
+        title: "Settlement & Splits",
+        href: "/admin/finance/settlement",
         matchExactOnly: true,
-        icon: Settings,
+        icon: Landmark,
       },
     ],
   },
+  // REMOVED (2026-09-12): "Account" > "Settings" -> "/admin/settings"
+  // 404'd — found via a full nav sweep, live-tested with a real BURSARY
+  // login. Same gap as every other role's "Settings" link this sweep found
+  // — no page exists at this path (distinct from "/admin/account/settings",
+  // SUPER_ADMIN's own dead link, removed earlier — this is a different,
+  // equally-nonexistent path).
 ]
 
 const applicantNav: NavGroup[] = [
@@ -1012,17 +1246,23 @@ const staffNav: NavGroup[] = [
     label: "Records",
     items: [
       {
+        // FIX (2026-09-12): pointed at "/manager/students", which has never
+        // had a page — 404'd, found via a full nav sweep (live-tested with
+        // a real STAFF login, not just static analysis). The real students
+        // list lives at this path (same route ADMIN's own nav uses).
         title: "Students",
-        href: "/manager/students",
+        href: "/manager/users/students",
         matchExactOnly: true,
         icon: GraduationCap,
       },
-      {
-        title: "Departments",
-        href: "/manager/departments",
-        matchExactOnly: true,
-        icon: Building2,
-      },
+      // REMOVED (2026-09-12): "Departments" -> "/manager/departments"
+      // 404'd — found the same way. No dedicated department-list page
+      // exists; the closest real feature is the broader Academic Structure
+      // builder ("/manager/academics/academic-structure"), which manages
+      // the whole faculty/department/program tree rather than a simple
+      // department list — didn't repoint to it since that would change
+      // what this link promises, not just fix its href. Pulled the dead
+      // link and flagged to the user rather than deciding that silently.
       {
         title: "Clearance",
         href: "/manager/clearance",
@@ -1040,25 +1280,15 @@ const staffNav: NavGroup[] = [
         matchExactOnly: true,
         icon: Bell,
       },
-      {
-        title: "Messages",
-        href: "/manager/messages",
-        matchExactOnly: true,
-        icon: MessageSquare,
-      },
+      // REMOVED (2026-09-12): "Messages" -> "/manager/messages" 404'd —
+      // found the same way. No messaging feature exists anywhere in this
+      // app (not just this page) — pulled the dead link rather than
+      // silently building a new messaging system.
     ],
   },
-  {
-    label: "Account",
-    items: [
-      {
-        title: "Settings",
-        href: "/manager/settings",
-        matchExactOnly: true,
-        icon: Settings,
-      },
-    ],
-  },
+  // REMOVED (2026-09-12): "Account" > "Settings" -> "/manager/settings"
+  // 404'd — found the same way, same gap as ADMIN's and SUPER_ADMIN's own
+  // "Settings"/"Account Settings" links (see the matching notes above).
 ]
 
 const guestNav: NavGroup[] = [
@@ -1108,9 +1338,16 @@ export const roleDashboardPath: Record<UserRole, string> = {
   [UserRole.APPLICANT]: "/process-admission",
   [UserRole.STUDENT]: "/student/dashboard",
   [UserRole.GUEST]: "/guest/dashboard",
-  [UserRole.TUTOR]: "/tutor/dashboard",
+  // FIX (2026-09-12): both were "/tutor/dashboard", which has never had a
+  // page — every TUTOR and HOD login redirected straight to a 404 (HOD
+  // reuses tutorNav, see hodNav below). No "dashboard" subroute exists
+  // under tutor/ at all — the real dashboard is the tutor area's own root,
+  // "/tutor" (src/app/(dashboard)/tutor/page.tsx), which tutorNav's own
+  // sidebar "Dashboard" item already correctly links to. Found via a full
+  // nav sweep, live-tested with a real TUTOR login.
+  [UserRole.TUTOR]: "/tutor",
   [UserRole.STAFF]: "/manager/dashboard",
-  [UserRole.HOD]: "/tutor/dashboard",
+  [UserRole.HOD]: "/tutor",
   [UserRole.DEAN]: "/manager/dashboard",
   [UserRole.BURSARY]: "/admin/finance/fees",
   [UserRole.DIRECTOR]: "/director/dashboard",
@@ -1128,4 +1365,53 @@ export function resolvePostSignInPath(role: UserRole): string {
     return "/process-admission"
   }
   return roleDashboardPath[role]
+}
+
+// First path segment, e.g. "/manager/grades/results?x=1" -> "manager".
+const firstSegment = (path: string): string =>
+  path.split(/[?#]/)[0].split("/").filter(Boolean)[0] ?? ""
+
+function collectHrefs(items: NavItem[]): string[] {
+  return items.flatMap((i) => [
+    ...(i.href ? [i.href] : []),
+    ...collectHrefs(i.children ?? []),
+  ])
+}
+
+/**
+ * Role-aware post-sign-in destination. A `callbackUrl` (e.g. the page a user
+ * was on when their session ended) is honoured only when it is a same-site
+ * path inside the signed-in role's own area — the top-level route segments
+ * its nav tree and dashboard use (DEAN: /manager and /tutor; ADMIN: /manager;
+ * …). Conservative by design: an area a role can open but has no nav link to
+ * (e.g. SUPER_ADMIN on /director) also falls back to the role's own page. Anything else — another role's area, an auth
+ * page, an absolute or protocol-relative URL — falls back to the role's own
+ * landing page, so a user is never sent to a route their role can't open.
+ */
+export function resolveSignInRedirect(
+  role: UserRole,
+  callbackUrl: string | null | undefined,
+  // Overrides the role's static landing page — e.g. a STUDENT who is
+  // admitted and has paid tuition lands on /student/dashboard instead of
+  // /process-admission (decided asynchronously in lib/auth/post-sign-in.ts).
+  home: string = resolvePostSignInPath(role)
+): string {
+  if (
+    !callbackUrl ||
+    !callbackUrl.startsWith("/") ||
+    callbackUrl.startsWith("//")
+  )
+    return home
+  const segment = firstSegment(callbackUrl)
+  if (!segment || segment === "auth") return home
+  const allowed = new Set(
+    [
+      ...collectHrefs(navConfig[role].flatMap((g) => g.items)),
+      home,
+      roleDashboardPath[role],
+    ]
+      .map(firstSegment)
+      .filter(Boolean)
+  )
+  return allowed.has(segment) ? callbackUrl : home
 }

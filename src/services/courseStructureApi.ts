@@ -14,6 +14,13 @@ import type {
   CreateProgramPayload,
   UpdateProgramPayload,
   CreateCurriculumLevelPayload,
+  MajorProgram,
+  CreateMajorProgramPayload,
+  UpdateMajorProgramPayload,
+  Cohort,
+  CreateCohortPayload,
+  UpdateCohortPayload,
+  TransitionCohortPayload,
 } from "@/types/school"
 
 // Real backend contract per bruno/academic (the sole source of truth for
@@ -31,6 +38,22 @@ const AUTH = { access_token: true } as const
 export const facultiesApi = {
   async list(): Promise<{ data: Faculty[] }> {
     return apiClient.get<{ data: Faculty[] }>(`${BASE}/faculties`, AUTH)
+  },
+
+  // GET /academic/faculties?majorProgramId= — real, backend-enforced
+  // (run_api's FacultyController, A17): most-specific-plus-derived —
+  // a Faculty directly tagged with this major program, OR one
+  // derivable through its own Departments/Programs, OR (untagged with
+  // nothing derivable) a genuinely institution-wide Faculty. Not a
+  // client-side filter over listByMajorProgram — the backend already
+  // does the resolution.
+  async listByMajorProgram(
+    majorProgramId: number
+  ): Promise<{ data: Faculty[] }> {
+    return apiClient.get<{ data: Faculty[] }>(`${BASE}/faculties`, {
+      ...AUTH,
+      params: { majorProgramId },
+    })
   },
 
   async getById(id: number): Promise<{ data: Faculty }> {
@@ -79,6 +102,22 @@ export const departmentsApi = {
     return apiClient.get<{ data: Department[] }>(`${BASE}/departments`, {
       ...AUTH,
       params: { facultyId },
+    })
+  },
+
+  // GET /academic/departments?majorProgramId= — real, backend-enforced
+  // (run_api's DepartmentController, added 2026-09-24 alongside the
+  // Lecturer facultyId/departmentId relax). Same most-specific-plus-
+  // derived resolution as facultiesApi.listByMajorProgram(), one tier
+  // down. Used when a major program's real structure has no Faculty
+  // layer at all — lets a Department (attached with a null facultyId)
+  // still be found directly by major program.
+  async listByMajorProgram(
+    majorProgramId: number
+  ): Promise<{ data: Department[] }> {
+    return apiClient.get<{ data: Department[] }>(`${BASE}/departments`, {
+      ...AUTH,
+      params: { majorProgramId },
     })
   },
 
@@ -174,12 +213,97 @@ export const levelsApi = {
   },
 }
 
+// Major Programs — bruno/academic/Major Programs - *.bru, contract per
+// sandbox/major-program-scoping/API_CONTRACTS.md §6.
+export const majorProgramsApi = {
+  async list(): Promise<{ data: MajorProgram[] }> {
+    return apiClient.get<{ data: MajorProgram[] }>(
+      `${BASE}/major-programs`,
+      AUTH
+    )
+  },
+
+  async create(
+    payload: CreateMajorProgramPayload
+  ): Promise<{ data: MajorProgram }> {
+    return apiClient.post<{ data: MajorProgram }>(
+      `${BASE}/major-programs`,
+      payload,
+      AUTH
+    )
+  },
+
+  async update(
+    id: number,
+    payload: UpdateMajorProgramPayload
+  ): Promise<{ data: MajorProgram }> {
+    return apiClient.patch<{ data: MajorProgram }>(
+      `${BASE}/major-programs/${id}`,
+      payload,
+      AUTH
+    )
+  },
+
+  // Hard delete (409 while any Program still references it) — per
+  // bruno/academic/Major Programs - Delete.bru. To deactivate without
+  // deleting, PATCH `{isActive: false}` via update() instead.
+  async remove(id: number): Promise<void> {
+    return apiClient.delete<void>(`${BASE}/major-programs/${id}`, AUTH)
+  },
+}
+
+// Cohorts — contract per sandbox/program-structure-depth/API_CONTRACTS.md §2.
+export const cohortsApi = {
+  async listByProgram(programId: number): Promise<{ data: Cohort[] }> {
+    return apiClient.get<{ data: Cohort[] }>(`${BASE}/cohorts`, {
+      ...AUTH,
+      params: { programId },
+    })
+  },
+
+  async create(payload: CreateCohortPayload): Promise<{ data: Cohort }> {
+    return apiClient.post<{ data: Cohort }>(`${BASE}/cohorts`, payload, AUTH)
+  },
+
+  async update(
+    id: number,
+    payload: UpdateCohortPayload
+  ): Promise<{ data: Cohort }> {
+    return apiClient.patch<{ data: Cohort }>(
+      `${BASE}/cohorts/${id}`,
+      payload,
+      AUTH
+    )
+  },
+
+  async transition(
+    id: number,
+    payload: TransitionCohortPayload
+  ): Promise<{ data: Cohort }> {
+    return apiClient.post<{ data: Cohort }>(
+      `${BASE}/cohorts/${id}/transition`,
+      payload,
+      AUTH
+    )
+  },
+
+  async remove(id: number): Promise<void> {
+    return apiClient.delete<void>(`${BASE}/cohorts/${id}`, AUTH)
+  },
+}
+
 // ── Query keys ──────────────────────────────
 
 export const courseStructureKeys = {
   faculties: {
     all: ["course-structure", "faculties"] as const,
     list: () => [...courseStructureKeys.faculties.all, "list"] as const,
+    byMajorProgram: (majorProgramId: number) =>
+      [
+        ...courseStructureKeys.faculties.all,
+        "by-major-program",
+        majorProgramId,
+      ] as const,
     detail: (id: number) =>
       [...courseStructureKeys.faculties.all, "detail", id] as const,
     eligibleDeans: () =>
@@ -193,6 +317,12 @@ export const courseStructureKeys = {
         ...courseStructureKeys.departments.all,
         "by-faculty",
         facultyId,
+      ] as const,
+    byMajorProgram: (majorProgramId: number) =>
+      [
+        ...courseStructureKeys.departments.all,
+        "by-major-program",
+        majorProgramId,
       ] as const,
     detail: (id: number) =>
       [...courseStructureKeys.departments.all, "detail", id] as const,
@@ -209,6 +339,15 @@ export const courseStructureKeys = {
     all: ["course-structure", "levels"] as const,
     list: () => [...courseStructureKeys.levels.all, "list"] as const,
   },
+  majorPrograms: {
+    all: ["course-structure", "major-programs"] as const,
+    list: () => [...courseStructureKeys.majorPrograms.all, "list"] as const,
+  },
+  cohorts: {
+    all: ["course-structure", "cohorts"] as const,
+    byProgram: (programId: number) =>
+      [...courseStructureKeys.cohorts.all, "by-program", programId] as const,
+  },
 }
 
 // ── Query options ───────────────────────────
@@ -219,6 +358,11 @@ export const courseStructureQueryOptions = {
       createApiQueryOptions({
         queryKey: courseStructureKeys.faculties.list(),
         queryFn: () => facultiesApi.list(),
+      }),
+    byMajorProgram: (majorProgramId: number) =>
+      createApiQueryOptions({
+        queryKey: courseStructureKeys.faculties.byMajorProgram(majorProgramId),
+        queryFn: () => facultiesApi.listByMajorProgram(majorProgramId),
       }),
     detail: (id: number) =>
       createApiQueryOptions({
@@ -241,6 +385,12 @@ export const courseStructureQueryOptions = {
       createApiQueryOptions({
         queryKey: courseStructureKeys.departments.byFaculty(facultyId),
         queryFn: () => departmentsApi.listByFaculty(facultyId),
+      }),
+    byMajorProgram: (majorProgramId: number) =>
+      createApiQueryOptions({
+        queryKey:
+          courseStructureKeys.departments.byMajorProgram(majorProgramId),
+        queryFn: () => departmentsApi.listByMajorProgram(majorProgramId),
       }),
     detail: (id: number) =>
       createApiQueryOptions({
@@ -270,6 +420,20 @@ export const courseStructureQueryOptions = {
       createApiQueryOptions({
         queryKey: courseStructureKeys.levels.list(),
         queryFn: () => levelsApi.list(),
+      }),
+  },
+  majorPrograms: {
+    list: () =>
+      createApiQueryOptions({
+        queryKey: courseStructureKeys.majorPrograms.list(),
+        queryFn: () => majorProgramsApi.list(),
+      }),
+  },
+  cohorts: {
+    byProgram: (programId: number) =>
+      createApiQueryOptions({
+        queryKey: courseStructureKeys.cohorts.byProgram(programId),
+        queryFn: () => cohortsApi.listByProgram(programId),
       }),
   },
 }
@@ -338,5 +502,51 @@ export const courseStructureMutationOptions = {
     >({
       mutationKey: [...courseStructureKeys.levels.all, "create"],
       mutationFn: (payload) => levelsApi.create(payload),
+    }),
+  createMajorProgram: () =>
+    createApiMutationOptions<{ data: MajorProgram }, CreateMajorProgramPayload>(
+      {
+        mutationKey: [...courseStructureKeys.majorPrograms.all, "create"],
+        mutationFn: (payload) => majorProgramsApi.create(payload),
+      }
+    ),
+  updateMajorProgram: () =>
+    createApiMutationOptions<
+      { data: MajorProgram },
+      { id: number; payload: UpdateMajorProgramPayload }
+    >({
+      mutationKey: [...courseStructureKeys.majorPrograms.all, "update"],
+      mutationFn: ({ id, payload }) => majorProgramsApi.update(id, payload),
+    }),
+  removeMajorProgram: () =>
+    createApiMutationOptions<void, number>({
+      mutationKey: [...courseStructureKeys.majorPrograms.all, "remove"],
+      mutationFn: (id) => majorProgramsApi.remove(id),
+    }),
+  createCohort: () =>
+    createApiMutationOptions<{ data: Cohort }, CreateCohortPayload>({
+      mutationKey: [...courseStructureKeys.cohorts.all, "create"],
+      mutationFn: (payload) => cohortsApi.create(payload),
+    }),
+  updateCohort: () =>
+    createApiMutationOptions<
+      { data: Cohort },
+      { id: number; payload: UpdateCohortPayload }
+    >({
+      mutationKey: [...courseStructureKeys.cohorts.all, "update"],
+      mutationFn: ({ id, payload }) => cohortsApi.update(id, payload),
+    }),
+  transitionCohort: () =>
+    createApiMutationOptions<
+      { data: Cohort },
+      { id: number; payload: TransitionCohortPayload }
+    >({
+      mutationKey: [...courseStructureKeys.cohorts.all, "transition"],
+      mutationFn: ({ id, payload }) => cohortsApi.transition(id, payload),
+    }),
+  removeCohort: () =>
+    createApiMutationOptions<void, number>({
+      mutationKey: [...courseStructureKeys.cohorts.all, "remove"],
+      mutationFn: (id) => cohortsApi.remove(id),
     }),
 }

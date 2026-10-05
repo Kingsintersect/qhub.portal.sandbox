@@ -12,10 +12,13 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { QueryErrorState } from "@/components/query-error-state"
 import { UNIVERSITY_LOGO_URL, UNIVERSITY_NAME } from "@/config/global.config"
 import { useAppStore } from "@/store"
 import { useMyStudentId } from "@/hooks/use-my-student-id"
-import { useStudentTranscript } from "../../hooks/use-grades-data"
+import { useProgram } from "@/hooks/useCourseStructure"
+import { useStudentCgpa } from "../../hooks/use-grades-data"
+import { useMyPublishedGrades } from "../../hooks/use-results"
 import { generateResultPdf } from "./generateResultPdf"
 import {
   AcademicStanding,
@@ -40,29 +43,40 @@ function getCurrentAcademicYearLabel(date = new Date()) {
 
 export default function StudentResultHistoryPage() {
   const user = useAppStore((state) => state.user)
-  const { studentId } = useMyStudentId()
-  const { transcript, loading } = useStudentTranscript(studentId)
+  const {
+    studentId,
+    programId,
+    isLoading: studentLoading,
+    isError: studentErrored,
+    notFound: studentMissing,
+    refetch: retryStudent,
+  } = useMyStudentId()
+  const { data: programRes } = useProgram(programId)
+  const gradesQuery = useMyPublishedGrades(studentId)
+  const cgpa = useStudentCgpa(studentId)
+  const loading = studentLoading || gradesQuery.isLoading || cgpa.loading
+  const grades = gradesQuery.data
   const [selectedAcademicYear, setSelectedAcademicYear] = useState("")
   const [selectedSemesterId, setSelectedSemesterId] = useState("")
   const [isDownloading, setIsDownloading] = useState(false)
   const currentAcademicYear = useMemo(() => getCurrentAcademicYearLabel(), [])
 
   const semesterOptions = useMemo(() => {
-    if (!transcript) return []
+    if (!grades) return []
 
     return Array.from(
       new Map(
-        transcript.grades.map((grade) => [
-          `${grade.academicYear}::${grade.semesterId}`,
+        grades.map((grade) => [
+          `${grade.academicSession}::${grade.semesterId}`,
           {
-            academicYear: grade.academicYear,
-            semesterId: grade.semesterId,
+            academicYear: grade.academicSession,
+            semesterId: String(grade.semesterId),
             semesterName: grade.semesterName,
           },
         ])
       ).values()
     )
-  }, [transcript]).sort((left, right) => {
+  }, [grades]).sort((left, right) => {
     if (left.academicYear === right.academicYear) {
       return left.semesterName.localeCompare(right.semesterName)
     }
@@ -95,36 +109,34 @@ export default function StudentResultHistoryPage() {
   }, [academicYearOptions, currentAcademicYear, selectedAcademicYear])
 
   const filteredGrades = useMemo(() => {
-    if (!transcript) return []
-    return transcript.grades.filter((grade) => {
-      if (grade.status !== "PUBLISHED") return false
+    if (!grades) return []
+    return grades.filter((grade) => {
       const matchesYear =
-        !selectedAcademicYear || grade.academicYear === selectedAcademicYear
+        !selectedAcademicYear || grade.academicSession === selectedAcademicYear
       const matchesSemester =
-        !selectedSemesterId || grade.semesterId === selectedSemesterId
+        !selectedSemesterId || String(grade.semesterId) === selectedSemesterId
       return matchesYear && matchesSemester
     })
-  }, [transcript, selectedAcademicYear, selectedSemesterId])
+  }, [grades, selectedAcademicYear, selectedSemesterId])
 
   const reportCourses = useMemo(
     () => toReportCourses(filteredGrades),
     [filteredGrades]
   )
-  const authoritativeGpa = useMemo(() => {
-    if (!transcript || !selectedSemesterId) return null
-    const entry = transcript.cgpaHistory.find(
-      (h) => h.semesterId === selectedSemesterId
-    )
-    return entry?.gpa ?? null
-  }, [transcript, selectedSemesterId])
+  // The backend's own GPA/CGPA for the semester; never recomputed here.
+  const official = useMemo(() => {
+    if (!selectedSemesterId) return null
+    const entry = cgpa.history.find((h) => h.semesterId === selectedSemesterId)
+    return entry ? { gpa: entry.gpa, cgpa: entry.cgpa } : null
+  }, [cgpa.history, selectedSemesterId])
   const reportSummary = useMemo(
-    () => calculateReportSummary(reportCourses, authoritativeGpa),
-    [reportCourses, authoritativeGpa]
+    () => calculateReportSummary(reportCourses, official),
+    [reportCourses, official]
   )
   const studentInfo = useMemo(() => {
-    if (!transcript) return null
-    return buildReportStudentInfo(transcript, user)
-  }, [transcript, user])
+    if (!grades) return null
+    return buildReportStudentInfo(user, programRes?.data.name ?? "—")
+  }, [grades, user, programRes])
 
   const selectedSemester =
     filteredOptions.find(
@@ -134,7 +146,8 @@ export default function StudentResultHistoryPage() {
     studentInfo &&
     selectedAcademicYear &&
     selectedSemester &&
-    reportCourses.length > 0
+    reportCourses.length > 0 &&
+    official
   )
 
   async function handleDownload() {
@@ -166,7 +179,46 @@ export default function StudentResultHistoryPage() {
     )
   }
 
-  if (!transcript || !studentInfo) {
+  // Found in QA 2026-10-05: an account with the student role but no student
+  // record (GET /users/students/me → 404) rendered a blank page here.
+  if (studentId == null) {
+    if (studentErrored && !studentMissing) {
+      return (
+        <QueryErrorState
+          error={null}
+          subject="your student record"
+          onRetry={retryStudent}
+        />
+      )
+    }
+    return (
+      <div
+        role="status"
+        className="rounded-2xl border border-dashed border-border p-8 text-center"
+      >
+        <p className="text-sm font-semibold text-foreground">
+          Your student record isn&apos;t set up yet
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Your grade report appears once the registry has created your student
+          record and your results are published. Contact the registry if
+          you&apos;ve already been admitted.
+        </p>
+      </div>
+    )
+  }
+
+  if (gradesQuery.isError) {
+    return (
+      <QueryErrorState
+        error={gradesQuery.error}
+        subject="your published results"
+        onRetry={() => void gradesQuery.refetch()}
+      />
+    )
+  }
+
+  if (!grades || !studentInfo) {
     return null
   }
 
@@ -186,8 +238,8 @@ export default function StudentResultHistoryPage() {
                 Student Grade Report
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Review your published semester results, breakdown by course, and
-                export a branded official slip.
+                Review your published semester results by course, and download a
+                result slip once the registry has computed your GPA.
               </p>
             </div>
 
@@ -283,6 +335,17 @@ export default function StudentResultHistoryPage() {
               .
             </div>
           )}
+
+        {selectedSemester && reportCourses.length > 0 && !official && (
+          <p
+            role="status"
+            className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            Your GPA for this semester hasn&apos;t been computed by the registry
+            yet, so the result slip can&apos;t be downloaded. Your published
+            grades are shown below.
+          </p>
+        )}
 
         {selectedAcademicYear &&
           selectedSemester &&

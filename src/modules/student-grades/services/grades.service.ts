@@ -59,14 +59,6 @@ import type {
   GradeSemester,
   GradeProgram,
   CourseOption,
-  PublishSelectionFilters,
-  PublishSummary,
-  CreateGradeDto,
-  BulkGradeDto,
-  BulkGradeResult,
-  UpdateGradeDto,
-  PublishResult,
-  GradeStatusTransitionResult,
   CalculateCgpaResult,
 } from "../types/grades.types"
 
@@ -451,20 +443,6 @@ class GradesService {
     await apiClient.delete<void>(`${BASE}/grade-scales/${id}`, AUTH)
   }
 
-  // GET /results/grades/course/:courseId/semester/:semesterId — Lecturer,
-  // Admin. Every grade for one course in one semester, in one call (no
-  // pagination) — for the tutor grade book's per-course view.
-  async getGradesByCourseAndSemester(
-    courseId: number,
-    semesterId: number
-  ): Promise<Grade[]> {
-    const res = await apiClient.get<{ data: RawGradeRelations[] }>(
-      `${BASE}/grades/course/${courseId}/semester/${semesterId}`,
-      AUTH
-    )
-    return res.data.map(mapGrade)
-  }
-
   // GET /results/grades/:id — one grade with its relations expanded. The list
   // rows already carry most of this; used to refresh a single row (e.g. the
   // detail modal) against the freshest server state. Envelope unconfirmed —
@@ -488,6 +466,16 @@ class GradesService {
     if (filters.semesterId !== "all")
       params.semesterId =
         Number(filters.semesterId.replace(/\D/g, "")) || undefined
+    // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+    // A35. Sent ahead of the backend per CLAUDE.md §14. No client-side
+    // fallback filter is possible here: mapGrade (below) always sets
+    // programId/programName to "" because the raw /results/grades response's
+    // `course` relation carries no program info at all — there's genuinely
+    // nothing per-row to match against a major program with, unlike
+    // fee-management's invoices (which do carry a resolvable program via the
+    // student relation).
+    if (filters.majorProgramId != null)
+      params.majorProgramId = filters.majorProgramId
     // studentId/courseId aren't part of GradeFilters (search box covers that
     // client-side below); academicYearId/programId/gradeLetter have no real
     // query-param counterpart on GET /results/grades and are applied
@@ -527,7 +515,7 @@ class GradesService {
   // out of getStudentTranscript so surfaces that only need the number (e.g.
   // the student dashboard's CGPA stat) don't also pull the full grade list.
   async getStudentCgpa(studentId: number): Promise<{
-    currentCGPA: number
+    currentCGPA: number | null
     history: CgpaHistoryEntry[]
   }> {
     const res = await apiClient.get<{
@@ -539,11 +527,14 @@ class GradesService {
         cgpa: number
         totalCreditUnits: number
       }[]
-      currentCGPA: number
+      // Confirmed live: null for a student with no CGPA-bearing semester
+      // yet, not just a theoretical case — every consumer must render it
+      // defensively.
+      currentCGPA: number | null
     }>(`${BASE}/cgpa/student/${studentId}`, AUTH)
 
     return {
-      currentCGPA: res.currentCGPA,
+      currentCGPA: res.currentCGPA ?? null,
       history: res.data.map((h) => ({
         id: h.id,
         studentId,
@@ -587,138 +578,23 @@ class GradesService {
     }
   }
 
-  // ── Grade Actions — real ────────────────────────────────────────────────────
-
-  async createGrade(dto: CreateGradeDto): Promise<Grade> {
-    const res = await apiClient.post<{ data: RawGradeRelations }>(
-      `${BASE}/grades`,
-      dto,
-      AUTH
-    )
-    return mapGrade(res.data)
-  }
-
-  async updateGrade(id: number, dto: UpdateGradeDto): Promise<Grade> {
-    const res = await apiClient.patch<{ data: RawGradeRelations }>(
-      `${BASE}/grades/${id}`,
-      dto,
-      AUTH
-    )
-    return mapGrade(res.data)
-  }
-
-  async bulkCreateGrades(dto: BulkGradeDto): Promise<BulkGradeResult> {
-    return apiClient.post<BulkGradeResult>(`${BASE}/grades/bulk`, dto, AUTH)
-  }
-
-  async submitGrade(id: number): Promise<GradeStatusTransitionResult> {
-    return apiClient.patch<GradeStatusTransitionResult>(
-      `${BASE}/grades/${id}/submit`,
-      undefined,
-      AUTH
-    )
-  }
-
-  async approveGrade(
-    id: number,
-    remarks?: string
-  ): Promise<GradeStatusTransitionResult> {
-    return apiClient.patch<GradeStatusTransitionResult>(
-      `${BASE}/grades/${id}/approve`,
-      { remarks },
-      AUTH
-    )
-  }
-
-  async rejectGrade(
-    id: number,
-    remarks: string
-  ): Promise<GradeStatusTransitionResult> {
-    const res = await apiClient.patch<GradeStatusTransitionResult>(
-      `${BASE}/grades/${id}/reject`,
-      { remarks },
-      AUTH
-    )
-    // Reject moves SUBMITTED -> DRAFT per result_README.md; the response's
-    // own `status` field is the authoritative value, this is just a safety
-    // fallback in case the backend ever echoes something unexpected.
-    return { ...res, status: res.status ?? "DRAFT" }
-  }
-
-  // ── Publish — real, semester-scoped (NOT per-grade-id) ──────────────────────
-  // The real endpoint publishes every APPROVED grade in a semester in one
-  // shot; there is no "publish these specific grade IDs" endpoint. Callers
-  // should re-fetch the affected grade set afterward rather than expect a
-  // list of updated records back.
-
-  async publishSemester(semesterId: number): Promise<PublishResult> {
-    const res = await apiClient.post<{ data: PublishResult }>(
-      `${BASE}/grades/publish/${semesterId}`,
-      undefined,
-      AUTH
-    )
-    return res.data
-  }
-
-  // ── Publish preview: real grades list, filtered client-side to a course ────
-  // No dedicated "publish preview" endpoint exists — this is just the real
-  // grades list, filtered by whatever the wizard has selected.
-
-  async getGradesForPublish(
-    filters: PublishSelectionFilters
-  ): Promise<Grade[]> {
-    const params: Record<string, unknown> = {}
-    if (filters.semesterId)
-      params.semesterId =
-        Number(filters.semesterId.replace(/\D/g, "")) || undefined
-    if (filters.courseId) params.courseId = filters.courseId
-    const res = await apiClient.get<{ data: RawGradeRelations[] }>(
-      `${BASE}/grades`,
-      {
-        ...AUTH,
-        params,
-      }
-    )
-    return res.data.map(mapGrade)
-  }
-
-  buildPublishSummary(grades: Grade[]): PublishSummary {
-    const publishable = grades.filter((g) => g.status === "APPROVED")
-    const alreadyPublished = grades.filter(
-      (g) => g.status === "PUBLISHED"
-    ).length
-    const scored = grades.filter((g) => g.totalScore !== null)
-    const avgScore = scored.length
-      ? Math.round(
-          (scored.reduce((a, g) => a + (g.totalScore ?? 0), 0) /
-            scored.length) *
-            10
-        ) / 10
-      : null
-    const passing = grades.filter((g) => (g.gradePoint ?? 0) > 0).length
-    const withheld = grades.filter(
-      (g) => g.hasOutstandingFees && g.status !== "PUBLISHED"
-    ).length
-    return {
-      totalGrades: grades.length,
-      publishableCount: publishable.length,
-      alreadyPublished,
-      draftCount: grades.filter((g) => g.status === "DRAFT").length,
-      submittedCount: grades.filter((g) => g.status === "SUBMITTED").length,
-      withheldCount: withheld,
-      avgScore,
-      passRate: grades.length
-        ? Math.round((passing / grades.length) * 1000) / 10
-        : 0,
-    }
-  }
-
   // ── Analytics — real, see MISSING_BACKEND_APIS.md §2.7 for current status ──
 
-  async getDashboardData(): Promise<GradeSummaryStats> {
+  // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+  // A35. majorProgramId sent ahead of the backend per CLAUDE.md §14. This is
+  // a pure institution-wide aggregate (totals only, no per-program
+  // breakdown) — there is genuinely nothing per-record to filter client-side,
+  // same reasoning as A33's "don't fake a filter on a pure aggregate with no
+  // per-record breakdown." Sent only, no working fallback.
+  async getDashboardData(
+    majorProgramId?: number | null
+  ): Promise<GradeSummaryStats> {
     const res = await apiClient.get<
       GradeSummaryStats | { data: GradeSummaryStats }
-    >(`${BASE}/dashboard`, AUTH)
+    >(`${BASE}/dashboard`, {
+      ...AUTH,
+      params: majorProgramId != null ? { majorProgramId } : undefined,
+    })
     return unwrap<GradeSummaryStats>(res, {
       totalGrades: 0,
       publishedCount: 0,
@@ -746,33 +622,65 @@ class GradesService {
     return res.data
   }
 
-  async getGradeDistribution(): Promise<GradeDistributionItem[]> {
+  // Grade letter distribution, institution-wide — no program dimension at
+  // all in the response (grouped by grade letter, not program). Same "pure
+  // aggregate, sent only" reasoning as getDashboardData above.
+  async getGradeDistribution(
+    majorProgramId?: number | null
+  ): Promise<GradeDistributionItem[]> {
     const res = await apiClient.get<
       GradeDistributionItem[] | { data: GradeDistributionItem[] }
-    >(`${BASE}/grades/distribution`, AUTH)
+    >(`${BASE}/grades/distribution`, {
+      ...AUTH,
+      params: majorProgramId != null ? { majorProgramId } : undefined,
+    })
     return unwrap<GradeDistributionItem[]>(res, [])
   }
 
-  async getProgramPerformance(): Promise<ProgramPerformance[]> {
+  // Unlike the other four analytics endpoints here, this one's response IS
+  // per-program (sandbox/result/missing_grade_apis.readme.md §3 documents a
+  // real numeric `programId` per row) — a genuine client-side fallback filter
+  // is possible and built in GradesSummaryPage (matches each row's programId
+  // against programs known to belong to the selected major program, same
+  // pattern as director/grades/page.tsx's byProgram name-matching).
+  async getProgramPerformance(
+    majorProgramId?: number | null
+  ): Promise<ProgramPerformance[]> {
     const res = await apiClient.get<
       ProgramPerformance[] | { data: ProgramPerformance[] }
-    >(`${BASE}/programs/performance`, AUTH)
+    >(`${BASE}/programs/performance`, {
+      ...AUTH,
+      params: majorProgramId != null ? { majorProgramId } : undefined,
+    })
     return unwrap<ProgramPerformance[]>(res, [])
   }
 
-  async getCgpaTrends(): Promise<CgpaTrendPoint[]> {
+  // Aggregated by semester, not by program — same "pure aggregate, sent
+  // only" reasoning as getDashboardData above.
+  async getCgpaTrends(
+    majorProgramId?: number | null
+  ): Promise<CgpaTrendPoint[]> {
     const res = await apiClient.get<
       CgpaTrendPoint[] | { data: CgpaTrendPoint[] }
-    >(`${BASE}/cgpa/trends`, AUTH)
+    >(`${BASE}/cgpa/trends`, {
+      ...AUTH,
+      params: majorProgramId != null ? { majorProgramId } : undefined,
+    })
     return unwrap<CgpaTrendPoint[]>(res, [])
   }
 
-  async getTopPerformers(limit = 10): Promise<TopPerformer[]> {
+  // Each row carries `programName` (no id) — a genuine but weaker fallback
+  // filter than getProgramPerformance's (name match, same approach as
+  // director/grades/page.tsx's byProgram), built in GradesSummaryPage.
+  async getTopPerformers(
+    limit = 10,
+    majorProgramId?: number | null
+  ): Promise<TopPerformer[]> {
     const res = await apiClient.get<TopPerformer[] | { data: TopPerformer[] }>(
       `${BASE}/students/top-performers`,
       {
         ...AUTH,
-        params: { limit },
+        params: majorProgramId != null ? { limit, majorProgramId } : { limit },
       }
     )
     return unwrap<TopPerformer[]>(res, [])
@@ -784,6 +692,16 @@ class GradesService {
   ): Promise<GroupedGradeData[]> {
     const params: Record<string, unknown> = { groupBy }
     if (filters.status !== "all") params.status = filters.status
+    // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+    // A35. Sent ahead of the backend per CLAUDE.md §14. Same "no per-record
+    // program id" caveat as getGrades above applies to every grouping
+    // dimension except `groupBy: "program"` (whose `key` is documented as the
+    // real programId per sandbox/result/missing_grade_apis.readme.md §5) —
+    // narrowing that one case client-side isn't done here to keep this
+    // filter's behavior consistent across all three groupings rather than
+    // working for one and silently not for the other two.
+    if (filters.majorProgramId != null)
+      params.majorProgramId = filters.majorProgramId
     const res = await apiClient.get<
       GroupedGradeData[] | { data: GroupedGradeData[] }
     >(`${BASE}/grades/grouped`, {
@@ -806,8 +724,7 @@ class GradesService {
   // term result sheet otherwise). 404 if no PUBLISHED result exists for that
   // semester — the caller surfaces that as "not available yet" rather than a
   // hard error. Endpoint spec: bruno/student/Download Result.bru.
-  // NOTE (2026-09-10): verified 404 against the live backend — not shipped
-  // yet. The button is built and wired; it degrades gracefully until then.
+  // The button degrades gracefully when no result is available.
   async downloadSemesterResult(semesterId: number): Promise<Blob> {
     return apiClient.get<Blob>(`/students/me/results/${semesterId}/download`, {
       ...AUTH,
@@ -822,13 +739,6 @@ class GradesService {
       data: { terms: TermResultEntry[] }
     }>("/students/me/results", AUTH)
     return res.data.terms
-  }
-
-  // ── Out of scope — different module, still mock (see file header) ──────────
-
-  async getCoursesByProgram(programId: string): Promise<CourseOption[]> {
-    await new Promise((r) => setTimeout(r, 150))
-    return COURSES.filter((c) => c.programId === programId)
   }
 
   // ── Export ───────────────────────────────────────────────────────────────────

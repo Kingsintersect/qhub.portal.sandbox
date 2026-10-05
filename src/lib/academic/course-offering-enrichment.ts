@@ -54,6 +54,9 @@ export interface CourseOfferingEnrichment {
   owning_faculty_name: string | null
   programs: CourseProgramLink[]
   category_path: CourseCategoryNode[]
+  // The offering's true owning major programs (live on GET /courses/offerings
+  // as `majorProgramIds`, e.g. [4]). Empty when the backend omits it.
+  major_program_ids: number[]
 }
 
 // ── wire (camelCase subset of the raw offering item) ──────────────────────────
@@ -92,6 +95,7 @@ export interface WireOfferingEnrichmentInput {
   session?: { id: number; name: string }
   semester?: { id: number; name: string }
   enrolledCount?: number
+  majorProgramIds?: number[]
   course?: WireEnrichedCourseFields
 }
 
@@ -115,17 +119,23 @@ export interface AcademicTermNames {
 export const fetchAcademicTermNames = dedupeAsync(
   async (): Promise<AcademicTermNames> => {
     try {
-      const res = await apiClient.get<{
-        data: {
-          session: { id: number; name: string } | null
-          semesters: { id: number; name: string }[]
-        }
-      }>("/academic-calendar", AUTH)
+      type CalendarBody = {
+        session: { id: number; name: string } | null
+        semesters: { id: number; name: string }[]
+      }
+      // The live /academic-calendar body is NOT wrapped in `data` (Bruno
+      // re-alignment, 2026-10-06); accept either so this can't silently
+      // throw into the catch below and lose every term name.
+      const res = await apiClient.get<CalendarBody | { data: CalendarBody }>(
+        "/academic-calendar",
+        AUTH
+      )
+      const body = "data" in res ? res.data : res
       return {
-        sessionId: res.data.session?.id ?? null,
-        sessionName: res.data.session?.name ?? null,
+        sessionId: body.session?.id ?? null,
+        sessionName: body.session?.name ?? null,
         semesterNamesById: new Map(
-          (res.data.semesters ?? []).map((s) => [s.id, s.name])
+          (body.semesters ?? []).map((s) => [s.id, s.name])
         ),
       }
     } catch {
@@ -172,6 +182,7 @@ export function mapCourseOfferingEnrichment(
       name: c.name,
       moodle_category_id: c.moodleCategoryId ?? null,
     })),
+    major_program_ids: o.majorProgramIds ?? [],
   }
 }
 

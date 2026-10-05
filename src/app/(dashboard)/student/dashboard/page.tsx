@@ -12,8 +12,13 @@ import {
 import Link from "next/link"
 import { useAppStore } from "@/store"
 import { useStudentDashboardData } from "@/hooks/useStudentDashboard"
+import { useStudentAcademicHome } from "@/hooks/use-student-academic-home"
+import { cn } from "@/lib/utils"
 import { useMyStudent } from "@/hooks/use-my-student-id"
 import { useNotifications } from "@/modules/notifications/hooks/use-notifications"
+import { RegistrationOpenBanner } from "@/modules/enrollment/components/registration-open-banner"
+import { useMyTimetable } from "@/modules/timetable/hooks/useTimetable"
+import { useEnrollmentsByStudent } from "@/modules/enrollment/hooks/use-enrollments"
 
 interface DashboardCardProps {
   title: string
@@ -80,9 +85,17 @@ const fmt = (n: number | null, suffix = "") =>
 export default function StudentDashboardPage() {
   const { user } = useAppStore()
   const permissionSet = user?.permissions
-  const { data: notifData } = useNotifications({ limit: 6 })
+  const { data: notifData, isError: notifsFailed } = useNotifications({
+    limit: 6,
+  })
   const recentNotifs = notifData?.data ?? []
   const d = useStudentDashboardData()
+  // useStudentDashboardData doesn't expose per-source errors, so observe the
+  // same cached queries (same keys, no extra requests): a refused (403) or
+  // failed timetable/enrolment read is unknown — "—" — never "0" or
+  // "Nothing scheduled".
+  const timetableFailed = useMyTimetable().isError
+  const enrollmentsFailed = useEnrollmentsByStudent(d.studentId).isError
   const { student } = useMyStudent()
 
   const canViewNotifications = hasPermission(
@@ -96,11 +109,25 @@ export default function StudentDashboardPage() {
   // (`GET /users/students/me`, already resolved once via useStudentDashboardData
   // → useMyStudentId, so this adds no request), not the auth session — which
   // never carries them, which is why these read "—" before.
-  const dashboardProfile = {
-    department: student?.department_name || "—",
-    faculty: student?.faculty_name || "—",
-    level: student?.current_level ? `${student.current_level} Level` : "—",
-  }
+  // Resolved through program → department → faculty when the record lacks
+  // them (useStudentAcademicHome).
+  const home = useStudentAcademicHome()
+  // Only what is actually set: the programme always; its department and/or
+  // faculty depending on what owns it (a department, a faculty directly, or
+  // a department inside a faculty); then the level.
+  const programme =
+    student?.program_name && student.program_name !== "—"
+      ? student.program_name
+      : null
+  const profileTiles = [
+    { label: "Programme", value: programme ?? (home.isLoading ? "…" : null) },
+    { label: "Department", value: home.department },
+    { label: "Faculty", value: home.faculty },
+    {
+      label: "Level",
+      value: student?.current_level ? `${student.current_level} Level` : null,
+    },
+  ].filter((t): t is { label: string; value: string } => t.value != null)
 
   const greeting = () => {
     const h = new Date().getHours()
@@ -129,12 +156,25 @@ export default function StudentDashboardPage() {
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Your classes, courses, attendance, and results — all in one place.
         </p>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatPill label="Department" value={dashboardProfile.department} />
-          <StatPill label="Faculty" value={dashboardProfile.faculty} />
-          <StatPill label="Level" value={dashboardProfile.level} />
-        </div>
+        {profileTiles.length > 0 && (
+          <div
+            className={cn(
+              "mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2",
+              profileTiles.length >= 4
+                ? "lg:grid-cols-4"
+                : profileTiles.length === 3
+                  ? "lg:grid-cols-3"
+                  : ""
+            )}
+          >
+            {profileTiles.map((t) => (
+              <StatPill key={t.label} label={t.label} value={t.value} />
+            ))}
+          </div>
+        )}
       </motion.div>
+
+      <RegistrationOpenBanner />
 
       {d.studentId === null && !d.isLoading && (
         <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-xs text-muted-foreground">
@@ -151,12 +191,16 @@ export default function StudentDashboardPage() {
           icon={<CalendarDays size={18} />}
         >
           <p className="text-3xl font-bold text-foreground">
-            {fmt(d.isLoading ? null : d.todaysSessions.length)}
+            {timetableFailed
+              ? "—"
+              : fmt(d.isLoading ? null : d.todaysSessions.length)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {nextSession
-              ? `Next: ${nextSession.courseCode} at ${nextSession.startTime}`
-              : "Nothing scheduled today"}
+            {timetableFailed
+              ? "Your timetable couldn't be loaded"
+              : nextSession
+                ? `Next: ${nextSession.courseCode} at ${nextSession.startTime}`
+                : "Nothing scheduled today"}
           </p>
         </DashboardCard>
 
@@ -166,10 +210,14 @@ export default function StudentDashboardPage() {
           icon={<BookOpen size={18} />}
         >
           <p className="text-3xl font-bold text-foreground">
-            {fmt(d.isLoading ? null : d.activeCourseCount)}
+            {enrollmentsFailed
+              ? "—"
+              : fmt(d.isLoading ? null : d.activeCourseCount)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {fmt(d.isLoading ? null : d.totalUnits)} total credit units
+            {enrollmentsFailed
+              ? "Your enrolments couldn't be loaded"
+              : `${fmt(d.isLoading ? null : d.totalUnits)} total credit units`}
           </p>
         </DashboardCard>
 
@@ -217,6 +265,11 @@ export default function StudentDashboardPage() {
           {!canViewTimetable ? (
             <p className="text-xs text-muted-foreground">
               Timetable permission is not enabled for your role.
+            </p>
+          ) : timetableFailed ? (
+            <p role="status" className="text-xs text-muted-foreground">
+              Your timetable couldn&apos;t be loaded, so today&apos;s classes
+              can&apos;t be shown.
             </p>
           ) : d.todaysSessions.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -276,6 +329,10 @@ export default function StudentDashboardPage() {
           {!canViewNotifications ? (
             <p className="text-xs text-muted-foreground">
               Notification access is disabled for your role.
+            </p>
+          ) : notifsFailed ? (
+            <p role="status" className="text-xs text-muted-foreground">
+              Your notifications couldn&apos;t be loaded.
             </p>
           ) : recentNotifs.length === 0 ? (
             <p className="text-xs text-muted-foreground">

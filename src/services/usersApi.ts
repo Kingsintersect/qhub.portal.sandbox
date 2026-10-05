@@ -65,6 +65,10 @@ interface WireUserRef {
   phoneNumber: string | null
   avatar: string | null
   isActive: boolean
+  // Set once DELETE /users/:id has revoked this account's login (bruno/user/
+  // Users - Delete.bru, 2026-09-28). Documented on Users list/show; read
+  // defensively on nested user objects too.
+  deletedAt?: string | null
 }
 
 interface WireUser extends WireUserRef {
@@ -72,7 +76,14 @@ interface WireUser extends WireUserRef {
   lastLoginAt: string | null
   createdAt: string
   updatedAt?: string
-  roles?: { id: number; name: string; slug: string }[]
+  // CORRECTION (2026-09-12): typed as `{id,name,slug}[]` since this
+  // module's inception, but confirmed live via GET /users (SUPER_ADMIN
+  // token) that the real backend sends bare role-name strings, e.g.
+  // `["student"]` — matching NextAuth's own session.user.roles shape
+  // elsewhere in the app. The object-shape assumption meant every role
+  // badge rendered blank with an undefined React key — found via a full
+  // browser QA sweep. See User.roles in @/types/users for the same fix.
+  roles?: string[]
 }
 
 interface WireRelationRef {
@@ -91,7 +102,10 @@ interface WireStudent {
   admissionDate: string
   graduationDate: string | null
   status: Student["status"]
-  currentCGPA: number | string | null
+  // StudentResource sends `currentCgpa` (bruno/user/Students - Show.bru);
+  // `currentCGPA` is kept as a fallback for older responses.
+  currentCgpa?: number | string | null
+  currentCGPA?: number | string | null
   dateOfBirth: string
   gender: Student["gender"]
   nationality: string
@@ -102,14 +116,22 @@ interface WireStudent {
   guardianName: string
   guardianPhone: string
   guardianEmail: string | null
+  guardianAddress?: string | null
   passportPhoto: string | null
   createdAt: string
   updatedAt: string
   user: WireUserRef
   program?: WireRelationRef & {
     department?: WireRelationRef & { faculty?: WireRelationRef }
+    // A program owned directly by a faculty (no department). Proposed in
+    // BACKEND_DEVIATIONS B22; read as soon as the backend sends it.
+    faculty?: WireRelationRef
   }
   currentLevel?: WireRelationRef & { numericValue: number }
+  // Top-level department/faculty refs (live on QHUB 2026-10-05; StudentResource
+  // no longer nests them under `program`). Null when the program has none.
+  department?: (WireRelationRef & { faculty?: WireRelationRef }) | null
+  faculty?: WireRelationRef | null
 }
 
 interface WireStaffProfile {
@@ -124,6 +146,13 @@ interface WireStaffProfile {
   updatedAt: string
   user: WireUserRef
   department?: WireRelationRef & { faculty?: WireRelationRef }
+  // Flat names, as LecturerResource sends them live (QHUB 2026-10-05) instead
+  // of a nested `department` object.
+  departmentName?: string | null
+  facultyId?: number | null
+  facultyName?: string | null
+  majorProgramId?: number | null
+  majorProgramName?: string | null
 }
 
 interface WireLecturer extends WireStaffProfile {
@@ -218,6 +247,7 @@ const mapUserRef = (u: WireUserRef): Student["user"] => ({
   phone_number: u.phoneNumber,
   avatar: u.avatar,
   is_active: u.isActive,
+  deleted_at: u.deletedAt ?? null,
 })
 
 const mapUser = (u: WireUser): User => ({
@@ -235,6 +265,7 @@ const mapUser = (u: WireUser): User => ({
   created_at: u.createdAt,
   updated_at: u.updatedAt ?? u.createdAt,
   roles: u.roles ?? [],
+  deleted_at: u.deletedAt ?? null,
 })
 
 const mapStudent = (s: WireStudent): Student => ({
@@ -243,16 +274,36 @@ const mapStudent = (s: WireStudent): Student => ({
   matric_number: s.matricNumber,
   program_id: s.programId,
   program_name: s.program?.name ?? "—",
-  department_name: s.program?.department?.name ?? "—",
-  faculty_name: s.program?.department?.faculty?.name ?? "—",
-  current_level: s.currentLevel?.numericValue ?? 0,
-  current_level_id: s.currentLevelId ?? s.currentLevel?.id ?? 0,
+  // A program is owned by a department (and through it a faculty) or
+  // directly by a faculty; both shapes occur in one institution.
+  department_name: s.program?.department?.name ?? s.department?.name ?? "—",
+  faculty_name:
+    s.program?.department?.faculty?.name ??
+    s.program?.faculty?.name ??
+    s.department?.faculty?.name ??
+    s.faculty?.name ??
+    "—",
+  program_owned_by:
+    s.program?.department || s.department
+      ? "department"
+      : s.program?.faculty || s.faculty
+        ? "faculty"
+        : null,
+  // Nullable — sandbox/program-structure-depth/. `0` was
+  // previously used as a "no level" sentinel; `null` is the correct
+  // representation now that FOUNDATIONAL/CERTIFICATE students genuinely
+  // have no Level at all (see Student.current_level_id's note).
+  current_level: s.currentLevel?.numericValue ?? null,
+  current_level_id: s.currentLevelId ?? s.currentLevel?.id ?? null,
   entry_mode: s.entryMode,
   mode_of_study: s.modeOfStudy,
   admission_date: s.admissionDate,
   graduation_date: s.graduationDate,
   status: s.status,
-  current_cgpa: s.currentCGPA != null ? Number(s.currentCGPA) : null,
+  current_cgpa: (() => {
+    const cgpa = s.currentCgpa ?? s.currentCGPA
+    return cgpa != null ? Number(cgpa) : null
+  })(),
   date_of_birth: s.dateOfBirth,
   gender: s.gender,
   nationality: s.nationality,
@@ -263,7 +314,8 @@ const mapStudent = (s: WireStudent): Student => ({
   guardian_name: s.guardianName,
   guardian_phone: s.guardianPhone,
   guardian_email: s.guardianEmail,
-  passport_photo: s.passportPhoto,
+  guardian_address: s.guardianAddress ?? null,
+  passport_photo: s.passportPhoto || null,
   created_at: s.createdAt,
   updated_at: s.updatedAt,
   user: mapUserRef(s.user),
@@ -274,8 +326,10 @@ const mapTutor = (l: WireLecturer): Tutor => ({
   user_id: l.userId,
   staff_number: l.staffNumber,
   department_id: l.departmentId ?? 0,
-  department_name: l.department?.name ?? "—",
-  faculty_name: l.department?.faculty?.name ?? "—",
+  department_name: l.department?.name ?? l.departmentName ?? "—",
+  faculty_name: l.department?.faculty?.name ?? l.facultyName ?? "—",
+  major_program_id: l.majorProgramId ?? null,
+  major_program_name: l.majorProgramName ?? null,
   designation: l.designation,
   specialization: l.specialization,
   office_location: l.officeLocation,
@@ -306,7 +360,9 @@ const mapStaff = (s: WireStaff): Staff => ({
   user_id: s.userId,
   staff_number: s.staffNumber,
   department_id: s.departmentId,
-  department_name: s.department?.name ?? null,
+  department_name: s.department?.name ?? s.departmentName ?? null,
+  major_program_id: s.majorProgramId ?? null,
+  major_program_name: s.majorProgramName ?? null,
   designation: s.designation,
   job_title: s.jobTitle,
   office_location: s.officeLocation,
@@ -375,6 +431,7 @@ export const usersApi = {
           level: filters?.level,
           facultyName: filters?.faculty_name,
           departmentName: filters?.department_name,
+          majorProgramId: filters?.major_program_id,
           page: filters?.page,
           limit: filters?.limit ?? 100,
         },
@@ -422,6 +479,12 @@ export const usersApi = {
     return { data: mapStudent(res.data) }
   },
 
+  // PATCH /users/students/:id — Admin, Self. Only keys present on `payload`
+  // are sent (undefined values are dropped by JSON serialisation). Since
+  // 2026-09-28 a student updating their own record may only send contact,
+  // permanent-address, guardian and phone fields — anything else 403s with
+  // `FIELD_NOT_SELF_EDITABLE` — so self-service callers pass a
+  // `SelfUpdateStudentPayload` and never include level/mode/status.
   async updateStudent(
     id: number,
     payload: UpdateStudentPayload
@@ -433,6 +496,11 @@ export const usersApi = {
         modeOfStudy: payload.mode_of_study,
         status: payload.status,
         contactAddress: payload.contact_address,
+        permanentAddress: payload.permanent_address,
+        guardianName: payload.guardian_name,
+        guardianPhone: payload.guardian_phone,
+        guardianEmail: payload.guardian_email,
+        guardianAddress: payload.guardian_address,
         phoneNumber: payload.phone_number,
       },
       AUTH
@@ -455,6 +523,7 @@ export const usersApi = {
           isActive: filters?.is_active,
           facultyName: filters?.faculty_name,
           departmentName: filters?.department_name,
+          majorProgramId: filters?.major_program_id,
           page: filters?.page,
           limit: filters?.limit ?? 100,
         },
@@ -528,19 +597,39 @@ export const usersApi = {
     return res.data
   },
 
+  // Create-or-Attach, confirmed live 2026-09-23 (sandbox/tutor-staff-user-
+  // creation/, A39 — backend shipped this same-day). `email` no longer has
+  // to match an existing User: if it does, unchanged attach behavior; if it
+  // doesn't, the backend creates one inline in the same transaction and
+  // emails a welcome message itself. Response carries `userCreated`/
+  // `emailSent`/`emailError` alongside `data` — no client-side
+  // orchestration needed anymore (this used to manually create a bare
+  // account and retry; the backend does that internally now).
   async createTutor(
     payload: CreateTutorPayload
   ): Promise<ApiSingleResponse<Tutor>> {
-    const res = await apiClient.post<{ data: WireLecturer }>(
+    const res = await apiClient.post<{
+      data: WireLecturer
+      userCreated?: boolean
+      emailSent?: boolean
+      emailError?: string
+    }>(
       "/users/lecturers",
       {
-        userId: payload.user_id,
+        email: payload.email,
         firstName: payload.first_name,
         middleName: payload.middle_name,
         lastName: payload.last_name,
         phoneNumber: payload.phone_number,
         staffNumber: payload.staff_number,
-        departmentId: payload.department_id,
+        // Omitted (not 0/null) when the form's structure detection found
+        // no real Faculty/Department under this major program — the
+        // backend's own facultyId/departmentId are nullable, not just
+        // tolerant of a placeholder value.
+        facultyId: payload.faculty_id || undefined,
+        departmentId: payload.department_id || undefined,
+        // Omitted when not chosen: tutors aren't scoped to one major program.
+        majorProgramId: payload.major_program_id || undefined,
         designation: payload.designation,
         specialization: payload.specialization,
         officeLocation: payload.office_location,
@@ -549,13 +638,19 @@ export const usersApi = {
         gender: payload.gender,
         nationality: payload.nationality,
         stateOfOrigin: payload.state_of_origin,
-        qualifications: payload.qualifications,
-        researchAreas: payload.research_areas,
-        bio: payload.bio,
       },
       AUTH
     )
-    return { data: mapTutor(res.data), message: "Tutor created" }
+
+    if (!res.userCreated) {
+      return { data: mapTutor(res.data), message: "Tutor created" }
+    }
+    return {
+      data: mapTutor(res.data),
+      message: res.emailSent
+        ? "Tutor created — a new account was created and a welcome email was sent."
+        : 'Tutor created — a new account was created, but the welcome email could not be sent. Use "Resend Invite" to try again.',
+    }
   },
 
   async updateTutor(
@@ -578,7 +673,13 @@ export const usersApi = {
     return { data: mapTutor(res.data), message: "Tutor updated" }
   },
 
-  /* ── Staff ── */
+  /* ── Staff ──
+   * A35/ENDPOINT_INVENTORY.md confirmed `GET /users/staff` was the only one of
+   * the three user-list endpoints (students/lecturers/staff) with *no*
+   * `majorProgramId` param at all, frontend or backend. Sent speculatively
+   * here per CLAUDE.md §14, matching exactly how `listStudents`/`listTutors`
+   * above already send it — if the backend ignores it, the list is simply
+   * unfiltered by major program rather than silently wrong. */
   async listStaff(filters?: UserQueryFilters): Promise<ApiListResponse<Staff>> {
     const res = await apiClient.get<ApiPaginatedResponse<WireStaff>>(
       "/users/staff",
@@ -587,6 +688,7 @@ export const usersApi = {
         params: {
           search: filters?.search,
           isActive: filters?.is_active,
+          majorProgramId: filters?.major_program_id,
           page: filters?.page,
           limit: filters?.limit ?? 100,
         },
@@ -608,19 +710,37 @@ export const usersApi = {
   // form lets an admin pick one via the real `/auth/roles` list (see getStaffEligibleRoles
   // below) since the mock this replaces always required a role choice. Confirm with
   // backend whether `roleId` is honored or ignored — see MISSING_BACKEND_APIS.md.
+  // A27: Staff is one of the 7 major-program-scoped roles, required (not
+  // nullable) at creation — same contract shape as `createTutor`'s
+  // `majorProgramId` above (SCHEMA_CHANGES.md §3-4). Sent alongside the
+  // existing fields; if the backend hasn't shipped enforcement for it yet,
+  // this fails honestly (422) rather than silently dropping the scope.
+  //
+  // Create-or-Attach, confirmed live 2026-09-23 (A39) — same as createTutor
+  // above: `email` creates a User inline if none exists, no client-side
+  // orchestration needed (this used to look the email up and manually
+  // create a bare account; the backend does both internally now).
   async createStaff(
     payload: CreateStaffPayload
   ): Promise<ApiSingleResponse<Staff>> {
-    const res = await apiClient.post<{ data: WireStaff }>(
+    const res = await apiClient.post<{
+      data: WireStaff
+      userCreated?: boolean
+      emailSent?: boolean
+      emailError?: string
+    }>(
       "/users/staff",
       {
-        userId: payload.user_id,
+        email: payload.email,
         firstName: payload.first_name,
         middleName: payload.middle_name,
         lastName: payload.last_name,
         phoneNumber: payload.phone_number,
         staffNumber: payload.staff_number,
         departmentId: payload.department_id,
+        facultyId: payload.faculty_id,
+        // Omitted for HOD/dean (cross-program roles) unless the server asks.
+        majorProgramId: payload.major_program_id || undefined,
         designation: payload.designation,
         jobTitle: payload.job_title,
         roleId: payload.role_id,
@@ -633,7 +753,48 @@ export const usersApi = {
       },
       AUTH
     )
-    return { data: mapStaff(res.data), message: "Staff created" }
+
+    if (!res.userCreated) {
+      return { data: mapStaff(res.data), message: "Staff created" }
+    }
+    return {
+      data: mapStaff(res.data),
+      message: res.emailSent
+        ? "Staff member created — a new account was created and a welcome email was sent."
+        : 'Staff member created — a new account was created, but the welcome email could not be sent. Use "Resend Invite" to try again.',
+    }
+  },
+
+  // POST /users/staff/:id/resend-invite — Admin only. NEW 2026-09-23 (A39's
+  // "worth doing" secondary ask, shipped same day) — mirrors
+  // resendTutorInvite exactly.
+  async resendStaffInvite(
+    staffId: number,
+    opts: { login_url?: string; template_id?: number } = {}
+  ): Promise<{
+    userId: number
+    email: string
+    emailSent: boolean
+    sentAt: string | null
+    emailError?: string
+  }> {
+    const res = await apiClient.post<{
+      data: {
+        userId: number
+        email: string
+        emailSent: boolean
+        sentAt: string | null
+        emailError?: string
+      }
+    }>(
+      `/users/staff/${staffId}/resend-invite`,
+      {
+        loginUrl: opts.login_url || undefined,
+        templateId: opts.template_id,
+      },
+      AUTH
+    )
+    return res.data
   },
 
   async updateStaff(
@@ -660,12 +821,20 @@ export const usersApi = {
    * §"Course Offering — lecturerId filter"). Session/semester display names are
    * resolved from `GET /academic-calendar` in a parallel request — the offering
    * endpoint itself only returns the term ids. */
-  async listCourseOfferings(): Promise<ApiListResponse<CourseOffering>> {
+  // Major-Program Scoping — `?majorProgramId=` is real and backend-enforced
+  // on this endpoint (confirmed live, A4/A36 item 4: narrows within the
+  // caller's own scope, 403 OUT_OF_SCOPE otherwise). Used to scope the
+  // tutor-assignment course picker to the tutor's own major program.
+  async listCourseOfferings(filters?: {
+    majorProgramId?: number | null
+  }): Promise<ApiListResponse<CourseOffering>> {
     const [res, terms] = await Promise.all([
-      apiClient.get<ApiListResponse<WireCourseOffering>>(
-        "/courses/offerings",
-        AUTH
-      ),
+      apiClient.get<ApiListResponse<WireCourseOffering>>("/courses/offerings", {
+        ...AUTH,
+        params: filters?.majorProgramId
+          ? { majorProgramId: filters.majorProgramId }
+          : undefined,
+      }),
       fetchAcademicTermNames(),
     ])
     const list = res.data ?? []
@@ -741,15 +910,31 @@ export const usersApi = {
    * MISSING_BACKEND_APIS.md §"GET /users/stats", now shipped by the backend
    * team. `useUserStats` surfaces a request error like any other failed
    * query if this ever fails (no client-side fallback computation, per the
-   * "don't fake it" convention used across this module). */
+   * "don't fake it" convention used across this module).
+   *
+   * CORRECTION (2026-09-12): the original mapping below assumed flat
+   * `totalStudents`/`totalTutors`/`totalStaff` fields — confirmed live via
+   * GET /users/stats (SUPER_ADMIN token) that the real backend never sends
+   * those; it sends `byRole: Record<UserRoleSlug, number>` instead (e.g.
+   * `{ student: 12, tutor: 3, staff: 3, admin: 5, ... }`). The old mapping
+   * silently read `undefined` for all three and the Summary page's "User
+   * Distribution" widget showed 0 for every role despite a correct
+   * non-zero total — found via a full browser QA sweep, not reported by a
+   * user. Also picked up the real `inactiveUsers` field the backend
+   * provides directly instead of only deriving it client-side. */
   async getStats(): Promise<ApiSingleResponse<UserStats>> {
     const res = await apiClient.get<{
       data: {
         totalUsers: number
-        totalStudents: number
-        totalTutors: number
-        totalStaff: number
+        // Profile-table counts (Student/Lecturer/Staff rows), added
+        // 2026-09-14 per bruno/user/Users - Stats.bru. Preferred over the
+        // role-name counts in `byRole` when present.
+        totalStudents?: number
+        totalTutors?: number
+        totalStaff?: number
         activeUsers: number
+        inactiveUsers?: number
+        byRole?: Record<string, number>
         byFaculty?: {
           facultyId: number
           facultyName: string
@@ -761,12 +946,13 @@ export const usersApi = {
         tutorsByDesignation?: { designation: string; count: number }[]
       }
     }>("/users/stats", AUTH)
+    const byRole = res.data.byRole ?? {}
     return {
       data: {
         total_users: res.data.totalUsers,
-        total_students: res.data.totalStudents,
-        total_tutors: res.data.totalTutors,
-        total_staff: res.data.totalStaff,
+        total_students: res.data.totalStudents ?? byRole.student ?? 0,
+        total_tutors: res.data.totalTutors ?? byRole.tutor ?? 0,
+        total_staff: res.data.totalStaff ?? byRole.staff ?? 0,
         active_users: res.data.activeUsers,
         by_faculty: res.data.byFaculty?.map((f) => ({
           faculty_id: f.facultyId,
@@ -783,19 +969,28 @@ export const usersApi = {
 
   /* ── Eligible Roles (for staff creation) ──
    * Sourced from the real /auth/roles list, excluding roles assigned through their own
-   * dedicated flow (student via admission, tutor via "Add Tutor" above). */
+   * dedicated flow (student via admission, tutor via "Add Tutor" above).
+   * The roles table has no `slug` column (bruno/user/Users - List.bru), so the
+   * exclusion matches on `name`; `slug` is filled from the name for callers. The
+   * list is paginated (default 15), so every page is read. */
   async getStaffEligibleRoles(): Promise<ApiListResponse<EligibleRole>> {
-    const res = await apiClient.get<
-      ApiListResponse<{
-        id: number
-        name: string
-        slug: string
-        description: string | null
-      }>
-    >("/auth/roles", AUTH)
-    const eligible = res.data.filter(
-      (r) => r.slug !== "student" && r.slug !== "tutor"
-    )
+    const limit = 100
+    let page = 1
+    let all: { id: number; name: string; description: string | null }[] = []
+    for (;;) {
+      const res = await apiClient.get<{
+        data: { id: number; name: string; description: string | null }[]
+        meta?: { total?: number }
+      }>("/auth/roles", { ...AUTH, params: { page, limit } })
+      all = all.concat(res.data)
+      const total = res.meta?.total ?? all.length
+      if (all.length >= total || res.data.length === 0) break
+      page += 1
+    }
+    const excluded = new Set(["student", "tutor"])
+    const eligible = all
+      .filter((r) => !excluded.has(r.name.toLowerCase()))
+      .map((r) => ({ ...r, slug: r.name }))
     return { data: eligible, total: eligible.length }
   },
 
@@ -917,10 +1112,14 @@ export const usersQueryOptions = {
         queryFn: () => usersApi.getTutorCourses(id),
       }),
   },
-  courseOfferings: () =>
+  courseOfferings: (filters?: { majorProgramId?: number | null }) =>
     createApiQueryOptions({
-      queryKey: [...usersKeys.all, "course-offerings"] as const,
-      queryFn: () => usersApi.listCourseOfferings(),
+      queryKey: [
+        ...usersKeys.all,
+        "course-offerings",
+        filters?.majorProgramId ?? null,
+      ] as const,
+      queryFn: () => usersApi.listCourseOfferings(filters),
     }),
   staff: {
     list: (filters?: UserQueryFilters) =>

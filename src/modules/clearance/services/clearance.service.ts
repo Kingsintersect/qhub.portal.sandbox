@@ -12,18 +12,33 @@ import type {
 } from "../types"
 
 // Real backend contract per bruno/clearance/*.bru (the sole source of truth
-// for this module — see CLAUDE.md §13). Every endpoint here returns its
-// resource FLAT, with no `{ data: ... }` envelope — confirmed by every
-// bruno file's post-response script reading `res.body?.id` directly, never
-// `res.body?.data?.id`, and by clearance_README.md's example bodies, which
-// are all flat too.
+// for this module — see CLAUDE.md §13).
+//
+// CORRECTION (2026-09-11): the claim this comment used to make — "every
+// endpoint returns FLAT, no envelope" — is wrong, and was live-disproven
+// while fixing the "types.map is not a function" crash on
+// /admin/configurations/clearance-types. Confirmed live against the
+// backend (student token for the first two, SUPER_ADMIN token for the
+// third, which needs admin access):
+//   - GET /clearance/types              -> {"data": []}                    WRAPPED
+//   - GET /clearance/student/:id        -> {"data": []}                    WRAPPED
+//   - GET /clearance/student/:id/status -> {studentId, ...}                FLAT (unchanged)
+//   - GET /clearance (admin queue)      -> {"data": [], "meta": {...}}     WRAPPED
+// The pattern matches every other module in this codebase: LIST endpoints
+// are `{data: [...]}`-wrapped, single-record status/action responses are
+// flat.
 const BASE = "/clearance"
 const AUTH = { access_token: true } as const
 
 export const clearanceService = {
   // ── Clearance Types ──────────────────────
-  listTypes: (): Promise<ClearanceType[]> =>
-    apiClient.get<ClearanceType[]>(`${BASE}/types`, AUTH),
+  async listTypes(): Promise<ClearanceType[]> {
+    const res = await apiClient.get<{ data: ClearanceType[] }>(
+      `${BASE}/types`,
+      AUTH
+    )
+    return res.data
+  },
 
   createType: (payload: CreateClearanceTypeDto): Promise<ClearanceType> =>
     apiClient.post<ClearanceType>(`${BASE}/types`, payload, AUTH),
@@ -40,23 +55,35 @@ export const clearanceService = {
     apiClient.delete<ClearanceType>(`${BASE}/types/${id}`, AUTH),
 
   // ── Student Clearances ───────────────────
-  // Assumed flat array, not {data, meta}-paginated — no example body is
-  // shown for this endpoint, but every other clearance endpoint is flat
-  // (unlike most other modules in this backend), so this follows suit. If
-  // the real response turns out to be paginated, the review queue will just
-  // silently render page 1 with no "load more" — worth a quick live check.
-  list: (filters: ClearanceQueryFilters = {}): Promise<StudentClearance[]> =>
-    apiClient.get<StudentClearance[]>(BASE, {
+  // Confirmed live wrapped with a SUPER_ADMIN token — see this file's
+  // header comment. `meta` (page/limit/total) is returned too but dropped
+  // here since the only current consumer just needs the list.
+  //
+  // Major-Program Scoping — live since 2026-09-22 (bruno/clearance/
+  // Clearance - List.bru: optional ?majorProgramId=, scoped through
+  // student.program.majorProgramId; 403 OUT_OF_SCOPE outside the caller's
+  // scope). clearance-review-queue.tsx still also filters client-side (via
+  // use-student-major-program-map.ts) as a harmless second pass.
+  async list(filters: ClearanceQueryFilters = {}): Promise<StudentClearance[]> {
+    const res = await apiClient.get<{ data: StudentClearance[] }>(BASE, {
       ...AUTH,
       params: filters as Record<string, unknown>,
-    }),
+    })
+    return res.data
+  },
 
   getById: (id: number): Promise<StudentClearance> =>
     apiClient.get<StudentClearance>(`${BASE}/${id}`, AUTH),
 
-  // Admin, Self only — Staff gets 403 here (unlike getById above).
-  listByStudent: (studentId: number): Promise<StudentClearance[]> =>
-    apiClient.get<StudentClearance[]>(`${BASE}/student/${studentId}`, AUTH),
+  // Admin, Self only — Staff gets 403 here (unlike getById above). Confirmed
+  // live wrapped — see this file's header comment.
+  async listByStudent(studentId: number): Promise<StudentClearance[]> {
+    const res = await apiClient.get<{ data: StudentClearance[] }>(
+      `${BASE}/student/${studentId}`,
+      AUTH
+    )
+    return res.data
+  },
 
   // Admin, Self only — same auth gate as listByStudent.
   getSummary: (studentId: number): Promise<ClearanceSummary> =>

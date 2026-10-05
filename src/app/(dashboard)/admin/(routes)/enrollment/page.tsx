@@ -1,10 +1,13 @@
 "use client"
 
+import { QueryErrorState } from "@/components/query-error-state"
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { UserCheck, Plus, Layers } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { Button } from "@/components/ui/button"
+import { MajorProgramTabs } from "@/components/custom/MajorProgramTabs"
+import { useMajorPrograms } from "@/hooks/useCourseStructure"
 import { useEnrollments } from "@/modules/enrollment/hooks/use-enrollments"
 import { EnrollmentTable } from "@/modules/enrollment/components/enrollment-table"
 import { EnrollStudentDialog } from "@/modules/enrollment/components/enroll-student-dialog"
@@ -14,7 +17,16 @@ import { usePermissions } from "@/lib/permissions/usePermissions"
 import type { EnrollmentRecord } from "@/modules/enrollment/types"
 
 export default function AdminEnrollmentPage() {
-  const { data, isLoading } = useEnrollments()
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const majorPrograms = (majorProgramsRes?.data ?? []).filter(
+    (mp) => mp.isActive
+  )
+  const { data, isLoading, isError, error, refetch } = useEnrollments({
+    majorProgramId: majorProgramFilter ?? undefined,
+  })
   const { can } = usePermissions()
   const canManage = can({ resource: "enrollment", action: "manage" })
 
@@ -72,12 +84,27 @@ export default function AdminEnrollmentPage() {
           )}
         </motion.div>
 
-        <EnrollmentTable
-          data={enrollments}
-          loading={isLoading}
-          canDrop={canManage}
-          onDrop={setDropping}
+        <MajorProgramTabs
+          programs={majorPrograms}
+          value={majorProgramFilter}
+          onChange={setMajorProgramFilter}
         />
+
+        {/* A refused (403) or failed load isn't "no enrolments". */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="enrolments"
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <EnrollmentTable
+            data={enrollments}
+            loading={isLoading}
+            canDrop={canManage}
+            onDrop={setDropping}
+          />
+        )}
       </div>
 
       {canManage && (

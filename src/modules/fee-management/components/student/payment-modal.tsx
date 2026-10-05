@@ -19,14 +19,12 @@ import { useFeeManagementUiStore } from "../../store/fee-management-ui.store"
 import { useInvoice } from "../../hooks/use-invoices"
 import type { InitiatePaymentDto, PaymentMethod } from "../../types"
 
-// Offline bank details — rendered when checkoutUrl is null
-const BANK_DETAILS = {
-  bankName: "First Bank of Nigeria",
-  accountName: "University Bursary Account",
-  accountNumber: "2020202020",
-  sortCode: "011-2",
-  note: "Use your invoice number as the payment narration.",
-} as const
+// Account details come only from the server (never a placeholder): the
+// gateway-issued `virtualAccount` for GATEWAY_TRANSFER (B30 item 4), or, for
+// an offline BANK_TRANSFER, `bankAccount` — the invoice's major program's
+// settlement account (bruno/fee/Payments - Initiate.bru, 2026-10-03). When
+// neither is sent, only the reference is shown and the bursary supplies the
+// account details.
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   GATEWAY: "Online (Card / Transfer)",
@@ -40,7 +38,7 @@ export function PaymentModal() {
   const open = paymentModalInvoiceId !== null
 
   const { data: invoice } = useInvoice(paymentModalInvoiceId ?? 0)
-  const { data: feeType } = useFeeType(invoice?.feeType.id ?? 0)
+  const { data: feeType } = useFeeType(invoice?.feeType?.id ?? 0)
   const initiate = useInitiatePayment()
 
   const outstanding = invoice
@@ -123,18 +121,20 @@ export function PaymentModal() {
   // Offline instructions shown after successful initiation with no checkoutUrl
   const offlineData =
     initiate.isSuccess && !initiate.data?.checkoutUrl ? initiate.data : null
+  const offlineAccount =
+    offlineData?.virtualAccount ?? offlineData?.bankAccount ?? null
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
       title="Pay Invoice"
-      subtitle={invoice?.feeType.name ?? ""}
+      subtitle={invoice?.feeType?.name ?? ""}
       size="sm"
       footer={
         offlineData ? (
           <Button onClick={handleClose} className="w-full">
-            Done — I have the bank details
+            Done
           </Button>
         ) : (
           <>
@@ -170,10 +170,13 @@ export function PaymentModal() {
           </p>
           <dl className="space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
             {Object.entries({
-              "Bank Name": BANK_DETAILS.bankName,
-              "Account Name": BANK_DETAILS.accountName,
-              "Account Number": BANK_DETAILS.accountNumber,
-              "Sort Code": BANK_DETAILS.sortCode,
+              ...(offlineAccount
+                ? {
+                    Bank: offlineAccount.bank,
+                    "Account Name": offlineAccount.accountName,
+                    "Account Number": offlineAccount.accountNumber,
+                  }
+                : {}),
               Reference: offlineData.referenceNumber,
             }).map(([label, value]) => (
               <div
@@ -185,7 +188,13 @@ export function PaymentModal() {
               </div>
             ))}
           </dl>
-          <p className="text-xs text-muted-foreground">{BANK_DETAILS.note}</p>
+          <p className="text-xs text-muted-foreground">
+            {offlineData.virtualAccount
+              ? "Transfer the exact amount to this account. Your payment is confirmed automatically once the transfer arrives."
+              : offlineData.bankAccount
+                ? "Transfer the exact amount to this account and use the reference as the payment narration. The bursary confirms the payment once it arrives."
+                : "Get the university's official account details from the bursary, and use this reference as the payment narration. The bursary confirms the payment once it arrives."}
+          </p>
         </div>
       ) : (
         <div className="space-y-5">

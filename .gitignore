@@ -43,3 +43,15 @@ bruno
 /bruno
 /bruno/
 test.txt
+
+# synced from run.online 2026-10
+*.log
+.claude/
+.env*
+.zip*
+
+# smoke tests (tests/smoke)
+/tests/smoke/.output/
+/test-results/
+/playwright-report/
+!tests/smoke/.env.example

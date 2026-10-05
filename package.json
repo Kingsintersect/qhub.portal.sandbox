@@ -4,10 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3030 --turbopack",
+    "kill-port": "kill-port 3031",
+    "predev": "npm run kill-port",
+    "dev": "next dev -p 3031 --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:smoke": "node tests/smoke/run.mjs",
+    "test:smoke:public": "node tests/smoke/run.mjs --public",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "prepare": "husky || true"
@@ -69,6 +73,7 @@
     "imagemin": "^9.0.1",
     "imagemin-mozjpeg": "^10.0.0",
     "imagemin-pngquant": "^10.0.0",
+    "kill-port": "^2.0.1",
     "playwright": "^1.62.1",
     "postcss": "^8",
     "prettier": "^3.8.1",

@@ -2,6 +2,7 @@
 
 import React from "react"
 import { AlertTriangle, RefreshCw } from "lucide-react"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
 import { useDirectorFinancial } from "@/modules/director/hooks/useDirectorData"
 import {
   Column,
@@ -82,6 +83,7 @@ export default function FinancialReportsPage() {
     filter,
     isLoading,
     error,
+    paymentsError,
     setFilter,
     resetFilter,
     setPagination,
@@ -124,22 +126,34 @@ export default function FinancialReportsPage() {
         {[
           {
             label: "Total Expected",
-            value: summary ? formatNgn(summary.totalExpected) : "—",
+            value:
+              summary && !summary.hasLoadErrors
+                ? formatNgn(summary.totalExpected)
+                : "—",
             color: "var(--foreground)",
           },
           {
             label: "Total Collected",
-            value: summary ? formatNgn(summary.totalCollected) : "—",
+            value:
+              summary && !summary.hasLoadErrors
+                ? formatNgn(summary.totalCollected)
+                : "—",
             color: "oklch(0.45 0.18 145)",
           },
           {
             label: "Outstanding",
-            value: summary ? formatNgn(summary.totalOutstanding) : "—",
+            value:
+              summary && !summary.hasLoadErrors
+                ? formatNgn(summary.totalOutstanding)
+                : "—",
             color: "var(--destructive)",
           },
           {
             label: "Collection Rate",
-            value: summary ? `${summary.collectionRate}%` : "—",
+            value:
+              summary && !summary.hasLoadErrors
+                ? `${summary.collectionRate}%`
+                : "—",
             color: "var(--primary)",
           },
         ].map((k) => (
@@ -177,6 +191,19 @@ export default function FinancialReportsPage() {
       <div className="section-divider">
         <h2>Payment Records</h2>
       </div>
+      {/* Major-Program Scoping — A33. Payment Records below is backed by
+          GET /fees/invoices (the same A4-scoped endpoint the admin Invoices
+          list uses), so this genuinely filters server-side, not just sent
+          ahead of the backend. The KPI cards/charts above stay unscoped —
+          they're pure aggregates with no per-program breakdown to filter. */}
+      <MajorProgramFilterTabs
+        value={filter.majorProgramId ?? null}
+        onChange={(id) => {
+          const next = { ...filter, majorProgramId: id ?? undefined }
+          setFilter(next)
+          refetch(next)
+        }}
+      />
       <DirectorFilterBar
         filter={filter}
         onFilter={(f) => {
@@ -206,7 +233,11 @@ export default function FinancialReportsPage() {
         }}
         isLoading={isLoading}
         rowKey={(r) => r.id}
-        emptyMessage="No payment records match the selected filters."
+        emptyMessage={
+          paymentsError
+            ? "Payment records couldn't be loaded (permission-restricted for your role, or the request failed)."
+            : "No payment records match the selected filters."
+        }
       />
 
       <style jsx>{`

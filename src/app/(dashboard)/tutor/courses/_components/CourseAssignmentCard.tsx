@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
+import { toast } from "sonner"
 import {
   BookOpen,
   Users,
@@ -10,10 +11,16 @@ import {
   Edit3,
   CheckCircle2,
   AlertCircle,
+  ExternalLink,
+  Loader2,
 } from "lucide-react"
 import { ScheduleEditorModal } from "./ScheduleEditorModal"
+import { describeMoodleLaunchError } from "@/lib/moodle/launch-error"
 import { useMyLecturerId } from "@/hooks/use-my-lecturer-id"
-import { useSyncSchedule } from "@/modules/tutor-courses/hooks/use-tutor-courses"
+import {
+  useSyncSchedule,
+  useLaunchMoodleCourse,
+} from "@/modules/tutor-courses/hooks/use-tutor-courses"
 import type {
   AssignedCourse,
   ScheduleSlotDraft,
@@ -67,6 +74,7 @@ export function CourseAssignmentCard({
   const [modalOpen, setModalOpen] = useState(false)
   const { lecturerId } = useMyLecturerId()
   const syncMutation = useSyncSchedule()
+  const launchMoodle = useLaunchMoodleCourse()
 
   const handleSave = async (slots: ScheduleSlotDraft[]) => {
     if (lecturerId === null) return
@@ -77,6 +85,21 @@ export function CourseAssignmentCard({
       next: slots,
     })
     setModalOpen(false)
+  }
+
+  const handleLaunchMoodle = () => {
+    if (launchMoodle.isPending) return
+    launchMoodle.mutate(course.id, {
+      onSuccess: (result) => {
+        window.open(result.redirectUrl, "_blank", "noopener,noreferrer")
+      },
+      // Explains which set-up step is missing (or what else went wrong)
+      // instead of one generic message for every failure.
+      onError: (error) => {
+        const { title, description } = describeMoodleLaunchError(error, "tutor")
+        toast.error(title, { description })
+      },
+    })
   }
 
   return (
@@ -206,8 +229,20 @@ export function CourseAssignmentCard({
           </p>
         )}
 
-        {/* Footer action */}
-        <div className="flex justify-end border-t border-border/50 pt-1">
+        {/* Footer actions */}
+        <div className="flex items-center justify-between border-t border-border/50 pt-1">
+          <button
+            onClick={handleLaunchMoodle}
+            disabled={launchMoodle.isPending}
+            className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {launchMoodle.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ExternalLink className="h-3.5 w-3.5" />
+            )}
+            {launchMoodle.isPending ? "Opening…" : "Open in Moodle"}
+          </button>
           <button
             onClick={() => setModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"

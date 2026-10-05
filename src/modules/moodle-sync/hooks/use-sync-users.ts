@@ -37,14 +37,15 @@ async function fetchAllPortalUsers(): Promise<User[]> {
 // practice they come back empty. `userId` (the portal user FK) is always
 // present, so join client-side against the confirmed-live `GET /users` list
 // to fill the display fields until the backend adds them natively.
-function derivePortalRole(
-  roles: { slug: string; name: string }[] | undefined
-): PortalRole {
-  // Neither `roles` itself nor each row's `slug` is reliably populated by
-  // the backend — fall back to `name`, and to an empty list, rather than
-  // crashing on `undefined.map`/`undefined.trim`.
+function derivePortalRole(roles: string[] | undefined): PortalRole {
+  // CORRECTION (2026-09-12): `roles` was typed as `{slug,name}[]` — the
+  // comment above ("neither is reliably populated") was explaining away a
+  // symptom of the real bug rather than the cause: GET /users actually
+  // sends bare role-name strings (confirmed live), so `r.slug`/`r.name`
+  // were always undefined and this always fell through to "STAFF". See
+  // the matching correction on User.roles in @/types/users.
   const normalized = (roles ?? [])
-    .map((r) => (r.slug || r.name || "").trim().toUpperCase())
+    .map((r) => r.trim().toUpperCase())
     .filter(Boolean)
   if (normalized.includes("STUDENT")) return "STUDENT"
   if (normalized.includes("TUTOR")) return "TUTOR"
@@ -109,8 +110,8 @@ export function useSyncUserMapping(id: number) {
 
 // Standing list of Moodle accounts with no matching portal user — the
 // read-only equivalent of the `unmatched[]` a pull returns, so the admin
-// can review them any time without re-running a pull. 404s gracefully to an
-// empty list until the backend ships the endpoint.
+// can review them any time without re-running a pull. Degrades to an empty
+// list on error.
 export function useUnmatchedMoodleUsers(enabled = true) {
   return useQuery({
     queryKey: moodleSyncKeys.unmatchedUsers(),

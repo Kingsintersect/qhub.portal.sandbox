@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import StatusBadge from "@/components/custom/StatusBadge"
 import {
   useAcademicUnits,
@@ -35,7 +36,10 @@ export function UnitNode({
   onEdit,
 }: UnitNodeProps) {
   const [expanded, setExpanded] = useState(false)
-  const hasChildren = unit.childCount > 0
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // childCount is null on some live rows (unknown): stay expandable so the
+  // children query can answer, and let the server decide on delete.
+  const hasChildren = (unit.childCount ?? 1) > 0
   const { data, isLoading } = useAcademicUnits(
     { parentId: unit.id },
     { enabled: expanded }
@@ -43,17 +47,15 @@ export function UnitNode({
   const deleteUnit = useDeleteAcademicUnit()
   const children = data?.data ?? []
 
-  const handleDelete = async () => {
-    if (unit.childCount > 0) {
+  const handleDeleteClick = () => {
+    if ((unit.childCount ?? 0) > 0) {
       toast.error("Remove or move this node's children first.")
       return
     }
-    if (
-      !window.confirm(
-        `Delete "${unit.name}"? This won't affect any linked record or Moodle data.`
-      )
-    )
-      return
+    setConfirmingDelete(true)
+  }
+
+  const handleDeleteConfirm = async () => {
     try {
       await deleteUnit.mutateAsync(unit.id)
       toast.success("Unit deleted")
@@ -120,7 +122,7 @@ export function UnitNode({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               disabled={deleteUnit.isPending}
               title="Delete node"
             >
@@ -160,6 +162,16 @@ export function UnitNode({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        onConfirm={handleDeleteConfirm}
+        title={`Delete "${unit.name}"?`}
+        description="This won't affect any linked record or Moodle data."
+        confirmLabel={deleteUnit.isPending ? "Deleting…" : "Delete"}
+        variant="destructive"
+      />
     </div>
   )
 }

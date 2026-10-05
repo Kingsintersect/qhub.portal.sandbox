@@ -12,7 +12,6 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { Eye, ExternalLink, FileText, Trash2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn, getFileKind } from "@/lib/utils"
 import {

@@ -11,6 +11,40 @@ export type AuditAction =
   | "ENROLL"
   | "PAYMENT"
   | "SYNC"
+  // Added 2026-09-12: confirmed live via GET /audit/logs (SUPER_ADMIN token)
+  // that the real backend also emits these four — none were in this union,
+  // so any log row using one crashed ActionBadge (`ACTION_CONFIG[action]`
+  // came back undefined, then `.icon` threw). "PAYMENT" above is dead code
+  // in practice — every live payment-related log uses one of the two below,
+  // never the bare "PAYMENT" value.
+  | "PAYMENT_INITIATE"
+  | "PAYMENT_VERIFY"
+  | "BULK_IMPORT"
+  | "DEACTIVATE"
+  // Live on production (probed 2026-09-25) but missing from this union until
+  // now: FeeType ACTIVATE/GENERATE, Invoice CANCEL, Lecturer RESEND_INVITE.
+  | "ACTIVATE"
+  | "GENERATE"
+  | "CANCEL"
+  | "RESEND_INVITE"
+  // Results and session migration actions the backend is asked to log
+  // (sandbox/session-promotion/README.md, "Audit logging requirements").
+  // None of these is written yet; they are here so filters and badges are
+  // ready the day they are.
+  | "SUBMIT"
+  | "REOPEN"
+  | "PUBLISH"
+  | "AMEND"
+  | "REVERT"
+  | "LOCK"
+  | "REFRESH"
+  | "COMMIT"
+  | "REVERSE"
+  | "DISCARD"
+  | "OVERRIDE"
+  | "WAIVE"
+  | "DEBT_OVERRIDE"
+  | "DEBT_OVERRIDE_REMOVE"
 
 export type AuditEntityType =
   | "Student"
@@ -27,6 +61,23 @@ export type AuditEntityType =
   | "User"
   | "Setting"
   | "StudentEnrollment"
+  // Results (labels and grouping: lib/audit-catalog.ts)
+  | "ResultSheet"
+  | "GradeAdjustmentBatch"
+  | "GradeAdjustment"
+  | "GradePullJob"
+  | "MoodleGradeItemMapping"
+  | "MoodleSyncGrade"
+  | "GradingScheme"
+  | "GradeScale"
+  | "ResultPolicy"
+  // Session migration
+  | "AcademicSession"
+  | "Semester"
+  | "PromotionPolicy"
+  | "PromotionRun"
+  | "PromotionRunItem"
+  | "StudentSessionStanding"
 
 export interface AuditUser {
   firstName: string | null

@@ -21,7 +21,7 @@ import { dedupeAsync } from "@/lib/utils/dedupe-async"
 import { canAny } from "@/lib/permissions/can"
 import { offeringsApi } from "@/services/courseOfferingApi"
 import { usersApi } from "@/services/usersApi"
-import { timetableService } from "@/modules/timetable/services/timetable.service"
+import { schedulesApi } from "@/services/courseOfferingApi"
 import type { CourseOffering } from "@/types/school"
 import type { Student } from "@/types/users"
 import type {
@@ -42,8 +42,15 @@ import type {
   MoodleLaunchResult,
   MyCourseSummary,
   RecordAttendanceDto,
+  RegistrationContext,
   UpdateAttendanceDto,
 } from "../types"
+import {
+  BulkEnrollSchema,
+  CreateEnrollmentSchema,
+  RegistrationContextSchema,
+} from "../schemas"
+import { enrollmentErrorCodeOf } from "../lib/enrollment-errors"
 
 const BASE = "/enrollments"
 const AUTH = { access_token: true } as const
@@ -52,12 +59,26 @@ const AUTH = { access_token: true } as const
 
 interface RawEnrollment {
   id: number
-  studentId: number
-  offeringId: number
-  semesterId: number
+  // Absent on GET /enrollments/student/:id rows (confirmed live 2026-10-06) —
+  // the caller passes the id it asked for instead.
+  studentId?: number
+  offeringId?: number
+  semesterId?: number
   status: EnrollmentStatus
-  enrolledAt: string
-  droppedAt: string | null
+  enrolledAt?: string
+  droppedAt?: string | null
+  // Confirmed live 2026-09-24 (GET /enrollments/offering/:id): the real
+  // response is flat — {id, studentId, matricNumber, name, status}, no
+  // `offeringId`/`semesterId`/`enrolledAt`/`droppedAt`, and no nested
+  // `student` object at all. The nested-`student.user` shape this file's own
+  // header called "best-effort — By-Offering nests `student`" was wrong;
+  // that assumption silently produced blank names/matric numbers on every
+  // screen using this endpoint (Attendance, and Submit Results' roster).
+  // Kept as a fallback below in case a richer/nested shape shows up on a
+  // different endpoint that shares this type, per this file's own defensive
+  // multi-shape convention.
+  name?: string
+  matricNumber?: string
   offering?: {
     course?: { code?: string; title?: string; creditUnits?: number }
     lecturers?: {
@@ -79,7 +100,7 @@ interface RawAttendance {
   attendanceDate: string
   status: AttendanceStatus
   remarks: string | null
-  createdAt: string
+  createdAt?: string
   student?: {
     matricNumber?: string
     user?: { firstName?: string | null; lastName?: string | null }
@@ -138,23 +159,37 @@ function fullName(
 function mapEnrollment(
   raw: RawEnrollment,
   offeringsById: Map<number, CourseOffering>,
-  studentsById: Map<number, Student>
+  studentsById: Map<number, Student>,
+  // The real By-Offering response doesn't echo `offeringId` back on each row
+  // (see RawEnrollment's own note) — the caller already knows it, since it's
+  // what was passed to the request in the first place.
+  fallbackOfferingId?: number,
+  // Same for By-Student, whose rows omit `studentId`.
+  fallbackStudentId?: number
 ): EnrollmentRecord {
-  const offering = offeringsById.get(raw.offeringId)
-  const student = studentsById.get(raw.studentId)
+  const offeringId = raw.offeringId ?? fallbackOfferingId ?? 0
+  const studentId = raw.studentId ?? fallbackStudentId ?? 0
+  const offering = offeringsById.get(offeringId)
+  const student = studentsById.get(studentId)
   const lecturerUser = raw.offering?.lecturers?.[0]?.lecturer?.user
   return {
     id: raw.id,
-    studentId: raw.studentId,
-    offeringId: raw.offeringId,
-    semesterId: raw.semesterId,
+    studentId,
+    offeringId,
+    semesterId: raw.semesterId ?? offering?.semester_id ?? 0,
     status: raw.status,
-    enrolledAt: raw.enrolledAt,
-    droppedAt: raw.droppedAt,
-    studentName: raw.student?.user
-      ? fullName(raw.student.user)
-      : fullName(student?.user),
-    studentMatric: raw.student?.matricNumber ?? student?.matric_number ?? "—",
+    enrolledAt: raw.enrolledAt ?? "",
+    droppedAt: raw.droppedAt ?? null,
+    studentName:
+      raw.name ??
+      (raw.student?.user
+        ? fullName(raw.student.user)
+        : fullName(student?.user)),
+    studentMatric:
+      raw.matricNumber ??
+      raw.student?.matricNumber ??
+      student?.matric_number ??
+      "—",
     courseCode: raw.offering?.course?.code ?? offering?.course_code ?? "—",
     courseTitle: raw.offering?.course?.title ?? offering?.course_title ?? "—",
     creditUnits:
@@ -175,7 +210,7 @@ function mapAttendance(
     attendanceDate: raw.attendanceDate,
     status: raw.status,
     remarks: raw.remarks,
-    createdAt: raw.createdAt,
+    createdAt: raw.createdAt ?? "",
     studentName: raw.student?.user
       ? fullName(raw.student.user)
       : fullName(student?.user),
@@ -197,6 +232,7 @@ export const enrollmentApi = {
           semesterId: filters.semesterId,
           studentId: filters.studentId,
           offeringId: filters.offeringId,
+          majorProgramId: filters.majorProgramId,
           limit: filters.limit,
         },
       }),
@@ -227,7 +263,9 @@ export const enrollmentApi = {
       }),
       buildLookups(),
     ])
-    return res.data.map((r) => mapEnrollment(r, offeringsById, studentsById))
+    return res.data.map((r) =>
+      mapEnrollment(r, offeringsById, studentsById, undefined, studentId)
+    )
   },
 
   async getByOffering(offeringId: number): Promise<EnrollmentRecord[]> {
@@ -238,21 +276,43 @@ export const enrollmentApi = {
       ),
       buildLookups(),
     ])
-    return res.data.map((r) => mapEnrollment(r, offeringsById, studentsById))
+    return res.data.map((r) =>
+      mapEnrollment(r, offeringsById, studentsById, offeringId)
+    )
   },
 
-  // Rejects on duplicate enrollment, closed offering, capacity, registration
-  // window, or unmet prerequisites — all enforced server-side (409/400).
+  // Every rejection carries `{ message, code }` (bruno/enrollment/Enrollment
+  // - Create.bru, 2026-09-28): 409 ALREADY_ENROLLED, 400 STANDING_NOT_ELIGIBLE,
+  // 403 COURSE_OUTSIDE_PROGRAM, 422 OFFERING_NOT_OPEN, 422 REGISTRATION_CLOSED,
+  // 400 OFFERING_FULL, 422 PREREQUISITE_NOT_MET, plus the Progression
+  // registration-gate codes. See lib/enrollment-errors.ts.
   async create(dto: CreateEnrollmentDto): Promise<EnrollmentRecord> {
+    const body = CreateEnrollmentSchema.parse(dto)
     const [res, { offeringsById, studentsById }] = await Promise.all([
-      apiClient.post<{ data: RawEnrollment }>(BASE, dto, AUTH),
+      apiClient.post<{ data: RawEnrollment }>(BASE, body, AUTH),
       buildLookups(),
     ])
     return mapEnrollment(res.data, offeringsById, studentsById)
   },
 
+  // Per-offering failures come back in `errors` as `{ offeringId, code,
+  // message }` (code added 2026-09-28). The body is `{ data: { enrolled,
+  // errors } }` (bruno/enrollment/Enrollment - Bulk Create.bru, corrected
+  // 2026-09-29, B30 item 18); a bare body is still accepted.
   async bulkCreate(dto: BulkEnrollDto): Promise<BulkEnrollResult> {
-    return apiClient.post<BulkEnrollResult>(`${BASE}/bulk`, dto, AUTH)
+    const body = BulkEnrollSchema.parse(dto)
+    const res = await apiClient.post<
+      BulkEnrollResult | { data: BulkEnrollResult }
+    >(`${BASE}/bulk`, body, AUTH)
+    const result = "data" in res ? res.data : res
+    return {
+      enrolled: result.enrolled ?? [],
+      errors: (result.errors ?? []).map((e) => ({
+        offeringId: e.offeringId,
+        message: e.message,
+        code: e.code ?? null,
+      })),
+    }
   },
 
   // Student-facing multi-course registration. `POST /enrollments/bulk` is
@@ -288,6 +348,7 @@ export const enrollmentApi = {
         errors.push({
           offeringId: items[i].offeringId,
           message: reason?.message ?? "Enrollment failed.",
+          code: enrollmentErrorCodeOf(r.reason),
         })
       }
     })
@@ -301,11 +362,13 @@ export const enrollmentApi = {
     id: number,
     dto: DropEnrollmentDto = {}
   ): Promise<DropEnrollmentResult> {
-    return apiClient.patch<DropEnrollmentResult, DropEnrollmentDto>(
-      `${BASE}/${id}/drop`,
-      dto,
-      AUTH
-    )
+    // The controller returns `{id, status, droppedAt}` bare (not `{data}`);
+    // an envelope is accepted too in case it is added later.
+    const res = await apiClient.patch<
+      DropEnrollmentResult | { data: DropEnrollmentResult },
+      DropEnrollmentDto
+    >(`${BASE}/${id}/drop`, dto, AUTH)
+    return "data" in res ? res.data : res
   },
 
   // Mints a one-time Moodle SSO login URL for this enrolled course offering
@@ -348,6 +411,24 @@ export const enrollmentApi = {
     }))
   },
 
+  // GET /me/registration-context?semester_id= — Student, own records only.
+  // Session-promotion contract (sandbox/accademic-session-semester-migration/
+  // session-promotion-frontend-prompt.md). Omitting `semester_id` lets the
+  // backend pick the current registration semester. Validated against the
+  // contract schema so a shape drift surfaces as an error, not a wrong page.
+  async getRegistrationContext(
+    semesterId?: number
+  ): Promise<RegistrationContext> {
+    const res = await apiClient.get<
+      { data: RegistrationContext } | RegistrationContext
+    >("/me/registration-context", {
+      ...AUTH,
+      params: { semester_id: semesterId },
+    })
+    const body = "data" in res ? res.data : res
+    return RegistrationContextSchema.parse(body)
+  },
+
   // ── Attendance ──────────────────────────────────────────────────────────
 
   async recordAttendance(dto: RecordAttendanceDto): Promise<AttendanceRecord> {
@@ -361,11 +442,14 @@ export const enrollmentApi = {
   async bulkRecordAttendance(
     dto: BulkAttendanceDto
   ): Promise<BulkAttendanceResult> {
-    return apiClient.post<BulkAttendanceResult>(
-      `${BASE}/attendance/bulk`,
-      dto,
-      AUTH
-    )
+    // `{ data: { recorded, errors } }` — wrapped, like every other write in
+    // this controller (AttendanceController::bulkStore()). The .bru prose
+    // shows the inner object only; a bare body is still accepted.
+    const res = await apiClient.post<
+      BulkAttendanceResult | { data: BulkAttendanceResult }
+    >(`${BASE}/attendance/bulk`, dto, AUTH)
+    const body = "data" in res ? res.data : res
+    return { recorded: body.recorded ?? 0, errors: body.errors ?? [] }
   },
 
   async getAttendanceBySchedule(
@@ -414,7 +498,10 @@ export const enrollmentApi = {
   // No dedicated aggregate/percentage endpoint exists (see
   // sandbox/enrollment/enrollment_workflow.md §6 for the formula this
   // mirrors) — composed client-side from three already-real sources: this
-  // student's enrollments, this offering's weekly schedules (Timetable),
+  // student's enrollments, each offering's weekly schedules (GET
+  // /courses/offerings/:id/schedules — any authenticated user; the
+  // /timetable/schedules/offering/:id twin is Admin/Staff/Tutor only, so a
+  // student got a 403 there and every course read 0 sessions),
   // and this student's attendance rows, matching present+late as "attended"
   // over every session recorded.
   async getAttendanceSummary(studentId: number): Promise<AttendanceSummary[]> {
@@ -425,7 +512,12 @@ export const enrollmentApi = {
 
     const schedulesByOffering = await Promise.all(
       enrollments.map((e) =>
-        timetableService.getSchedulesByOffering(e.offeringId).catch(() => [])
+        e.offeringId > 0
+          ? schedulesApi
+              .listByOffering(e.offeringId)
+              .then((r) => r.data)
+              .catch(() => [])
+          : Promise.resolve([])
       )
     )
 
@@ -509,8 +601,8 @@ export const enrollmentQueryOptions = {
     createApiQueryOptions({
       queryKey: enrollmentKeys.myCourses(),
       queryFn: () => enrollmentApi.getMyCourses(),
-      // Speculative — 404s until the backend ships it; the page falls back
-      // to the studentId-scoped list, so don't hammer on failure.
+      // The page falls back to the studentId-scoped list on failure, so
+      // don't hammer on failure.
       retry: false,
       staleTime: 5 * 60 * 1000,
     }),
