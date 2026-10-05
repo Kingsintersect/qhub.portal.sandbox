@@ -11,7 +11,7 @@
     {
       "id": 2,
       "key": "university_logo",
-      "value": "/logo/logo.png",
+      "value": "/logo/logo.jpg",
       "group": "university",
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-01T00:00:00Z"
@@ -27,7 +27,7 @@
     {
       "id": 4,
       "key": "university_email",
-      "value": "info@odl.edu.ng",
+      "value": "info@qhub.example",
       "group": "university",
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-01T00:00:00Z"
@@ -51,7 +51,7 @@
     {
       "id": 7,
       "key": "university_website",
-      "value": "https://odl.edu.ng",
+      "value": "https://qhub.example",
       "group": "university",
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-01T00:00:00Z"
@@ -145,7 +145,7 @@
     {
       "id": 18,
       "key": "moodle_base_url",
-      "value": "https://lms.odl.edu.ng",
+      "value": "https://lms.qhub.example",
       "group": "moodle",
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-01T00:00:00Z"
@@ -219,7 +219,7 @@
     {
       "id": 27,
       "key": "system_support_email",
-      "value": "support@odl.edu.ng",
+      "value": "support@qhub.example",
       "group": "system",
       "createdAt": "2024-01-01T00:00:00Z",
       "updatedAt": "2024-01-01T00:00:00Z"

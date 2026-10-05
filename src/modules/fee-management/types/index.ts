@@ -7,6 +7,9 @@ export type FeeCategory = z.infer<typeof Common.FeeCategorySchema>
 export type InvoiceStatus = z.infer<typeof Common.InvoiceStatusSchema>
 export type StudentType = z.infer<typeof Common.StudentTypeSchema>
 export type PaymentMethod = z.infer<typeof Common.PaymentMethodSchema>
+export type RecordedPaymentMethod = z.infer<
+  typeof Common.RecordedPaymentMethodSchema
+>
 export type PaymentStatus = z.infer<typeof Common.PaymentStatusSchema>
 
 // ── Fee Types ──────────────────────────────────────────────────────────────────
@@ -32,6 +35,9 @@ export type ResolveInvoicesResponse = z.infer<
   typeof Invoice.ResolveInvoicesResponseSchema
 >
 export type WaiveInvoiceDto = z.infer<typeof Invoice.WaiveInvoiceDtoSchema>
+export type InvoiceWaiverActor = z.infer<
+  typeof Invoice.InvoiceWaiverActorSchema
+>
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 import type * as Payment from "../schemas/payment.schema"
@@ -39,6 +45,7 @@ import type * as Payment from "../schemas/payment.schema"
 export type InitiatePaymentDto = z.infer<
   typeof Payment.InitiatePaymentDtoSchema
 >
+export type VirtualAccount = z.infer<typeof Payment.VirtualAccountSchema>
 export type InitiatePaymentResponse = z.infer<
   typeof Payment.InitiatePaymentResponseSchema
 >
@@ -55,12 +62,19 @@ export type PaymentDetail = z.infer<typeof Payment.PaymentDetailSchema>
 export type PaymentDetailResponse = z.infer<
   typeof Payment.PaymentDetailResponseSchema
 >
+export type GatewayLogEvent = z.infer<typeof Payment.GatewayLogEventSchema>
+export type PaymentGatewayLogs = z.infer<
+  typeof Payment.PaymentGatewayLogsSchema
+>
+export type PaymentGatewayLogsResponse = z.infer<
+  typeof Payment.PaymentGatewayLogsResponseSchema
+>
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 import type * as Reports from "../schemas/reports.schema"
 
-export type CollectionsSummaryRow = z.infer<
-  typeof Reports.CollectionsSummaryRowSchema
+export type CollectionsSummary = z.infer<
+  typeof Reports.CollectionsSummarySchema
 >
 export type CollectionsSummaryResponse = z.infer<
   typeof Reports.CollectionsSummaryResponseSchema

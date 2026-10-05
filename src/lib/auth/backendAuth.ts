@@ -1,3 +1,4 @@
+import type { MajorProgramScope } from "@/types/school"
 import { UserRole } from "@/config/nav.config"
 import apiClient from "@/lib/clients/apiClient"
 import { clearAllDedupeCaches } from "@/lib/utils/dedupe-async"
@@ -73,6 +74,8 @@ export type NormalizedBackendAuthUser = {
   roles: UserRole[]
   permissions: string[]
   avatar: string | null
+  // From GET /auth/me — see useMajorProgramScope().
+  majorProgramScope?: MajorProgramScope
 }
 
 const normalizeRole = (value: BackendRoleValue): UserRole | null => {
@@ -92,6 +95,36 @@ const normalizeRoleList = (
   return values
     .map((value) => normalizeRole(value))
     .filter((value): value is UserRole => Boolean(value))
+}
+
+// The backend's `roles` array is in grant/creation order, not seniority order
+// — a self-registered account starts as APPLICANT, and any staff-type role
+// added later (e.g. TUTOR) is simply appended. Picking `roles[0]` as the
+// "primary" role therefore sends a now-tutor account straight back into the
+// admission flow, since APPLICANT was granted first. Pick the most senior
+// functional role instead so a multi-role account lands on the dashboard
+// that actually matters. APPLICANT/GUEST are deliberately last — they're
+// pre-account-proper states, never the intended destination once a real
+// role exists alongside them.
+const ROLE_SENIORITY: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.DIRECTOR,
+  UserRole.BURSARY,
+  UserRole.DEAN,
+  UserRole.HOD,
+  UserRole.STAFF,
+  UserRole.TUTOR,
+  UserRole.STUDENT,
+  UserRole.GUEST,
+  UserRole.APPLICANT,
+]
+
+export const pickPrimaryRole = (roles: UserRole[]): UserRole | null => {
+  for (const candidate of ROLE_SENIORITY) {
+    if (roles.includes(candidate)) return candidate
+  }
+  return roles[0] ?? null
 }
 
 const pickToken = (payload: BackendAuthTokens): string | null => {
@@ -134,6 +167,17 @@ export const storeRefreshToken = (token: string | null): void => {
   }
 }
 
+/** The access token persisted in localStorage (shared by every tab). */
+const readStoredAccessToken = (): string | null => {
+  if (typeof window === "undefined") return null
+
+  try {
+    return localStorage.getItem("access_token")
+  } catch {
+    return null
+  }
+}
+
 export const storeAccessToken = (token: string | null): void => {
   apiClient.setAccessToken(token, "local")
 }
@@ -168,7 +212,8 @@ export const normalizeBackendAuthUser = (
   if (!user) return null
 
   const roles = normalizeRoleList(user.roles)
-  const primaryRole = normalizeRole(user.role) ?? roles[0] ?? UserRole.STUDENT
+  const primaryRole =
+    normalizeRole(user.role) ?? pickPrimaryRole(roles) ?? UserRole.STUDENT
   const availableRoles = roles.length > 0 ? roles : [primaryRole]
   const email = String(user.email ?? "").trim()
   const username = String(user.username ?? "").trim()
@@ -209,14 +254,26 @@ export const normalizeBackendAuthUser = (
 // active, so a multi-role user (e.g. TUTOR + HOD) sees the union of both
 // regardless of which role they're switched to. That's a backend modeling
 // choice, not something the frontend works around.
-const fetchMyPermissions = async (accessToken: string): Promise<string[]> => {
+// Also carries `majorProgramScope` ("ALL" or the scoped major programs).
+const fetchMyPermissions = async (
+  accessToken: string
+): Promise<{
+  permissions: string[]
+  majorProgramScope?: MajorProgramScope
+}> => {
   try {
-    const me = await apiClient.get<{ permissions?: string[] }>("/auth/me", {
+    const me = await apiClient.get<{
+      permissions?: string[]
+      majorProgramScope?: MajorProgramScope
+    }>("/auth/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
-    return me.permissions ?? []
+    return {
+      permissions: me.permissions ?? [],
+      majorProgramScope: me.majorProgramScope,
+    }
   } catch {
-    return []
+    return { permissions: [] }
   }
 }
 
@@ -225,6 +282,7 @@ export type RefreshedSessionRoles = {
   availableRoles: UserRole[]
   roles: UserRole[]
   permissions: string[]
+  majorProgramScope?: MajorProgramScope
 }
 
 // Real API: GET /auth/me — Bruno: auth/Me.bru. Called after a backend action
@@ -249,6 +307,7 @@ export const fetchRefreshedSessionRoles = async (
     const me = await apiClient.get<{
       roles?: { name?: string | null }[]
       permissions?: string[]
+      majorProgramScope?: MajorProgramScope
     }>("/auth/me", { access_token: true })
 
     const roles = normalizeRoleList((me.roles ?? []).map((r) => r.name))
@@ -258,10 +317,11 @@ export const fetchRefreshedSessionRoles = async (
       role:
         currentActiveRole && roles.includes(currentActiveRole)
           ? currentActiveRole
-          : roles[0],
+          : (pickPrimaryRole(roles) ?? roles[0]),
       availableRoles: roles,
       roles,
       permissions: me.permissions ?? [],
+      majorProgramScope: me.majorProgramScope,
     }
   } catch {
     return null
@@ -286,11 +346,13 @@ export const loginWithBackend = async (
     throw new Error("Invalid authentication response from backend.")
   }
 
-  const permissions = await fetchMyPermissions(accessToken)
+  const { permissions, majorProgramScope } =
+    await fetchMyPermissions(accessToken)
 
   return {
     ...normalizedUser,
     permissions,
+    majorProgramScope,
     accessToken,
     refreshToken,
   }
@@ -341,6 +403,23 @@ const refreshWithBackend = async (): Promise<string | null> => {
 
       return nextAccessToken
     } catch (error) {
+      // POST /auth/refresh rotates: the token just sent is revoked the moment
+      // it's used (Bruno auth/Refresh Token.bru). Another tab sharing this
+      // localStorage can win that race and store the new pair while this
+      // request is in flight; this one then gets 401 "revoked". Wiping
+      // storage here would sign out the tab that just refreshed too, so
+      // adopt the pair it stored instead.
+      const rotatedElsewhere = getStoredRefreshToken()
+      const adoptedAccessToken = readStoredAccessToken()
+      if (
+        rotatedElsewhere &&
+        rotatedElsewhere !== refreshToken &&
+        adoptedAccessToken
+      ) {
+        logRefreshDebug("adopted-token-rotated-by-another-tab")
+        apiClient.setAccessToken(adoptedAccessToken, "memory")
+        return adoptedAccessToken
+      }
       logRefreshDebug("failed", {
         error: error instanceof Error ? error.message : "unknown",
       })
@@ -401,6 +480,17 @@ export type AdminCreateUserPayload = {
   lastName?: string
   phoneNumber?: string
   roleIds: number[]
+  // Major-Program Scoping — corrected 2026-09-19 against a real live 422
+  // (`bruno/auth/Users - Create (Admin).bru` was right all along): the real
+  // field is `majorProgramIds`, a plural array, not the singular
+  // `majorProgramId` this file previously sent per the design doc's
+  // "revised 2026-09-16" proposal — that revision was never actually built
+  // backend-side. Required (non-empty) when `roleIds` includes any of
+  // Tutor/Admin/Dean/Director/HOD/Bursary/Staff; omitted for
+  // Student/Applicant/Super Admin. The frontend still enforces "exactly one
+  // program" for those seven roles via a single-select UI — it just sends
+  // that one value wrapped in a one-element array on the wire.
+  majorProgramIds?: number[]
 }
 
 // Real API: POST /auth/users — Bruno: auth/Users - Create (Admin).bru.

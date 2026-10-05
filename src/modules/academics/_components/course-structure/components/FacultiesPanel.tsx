@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
 import { toast } from "sonner"
 import {
@@ -20,17 +21,26 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import StatusBadge from "@/components/custom/StatusBadge"
+import { MajorProgramTabs } from "@/components/custom/MajorProgramTabs"
+import { cn } from "@/lib/utils"
 import {
   useFaculties,
   useFaculty,
   useDepartment,
+  useAllDepartments,
   useAllPrograms,
-  useDeactivateFaculty,
-  useDeactivateDepartment,
-  useDeactivateProgram,
+  useMajorPrograms,
+  useUpdateFaculty,
+  useUpdateDepartment,
+  useUpdateProgram,
+  useDepartments,
+  useEligibleHods,
 } from "@/hooks/useCourseStructure"
+import { AuditTrailLink } from "@/components/audit-trail-link"
 import { useAcademicUnits } from "@/hooks/useAcademicStructure"
+import { courseStructureKeys } from "@/services/courseStructureApi"
 import { EmptyState } from "./EmptyState"
 import { FacultyFormDialog } from "./FacultyFormDialog"
 import { DepartmentFormDialog } from "./DepartmentFormDialog"
@@ -90,19 +100,98 @@ function FacultiesList({
   onOpenFaculty: (id: number) => void
 }) {
   const { data, isLoading } = useFaculties()
-  const deactivate = useDeactivateFaculty()
+  const updateFaculty = useUpdateFaculty()
+  const queryClient = useQueryClient()
+  const [togglingId, setTogglingId] = useState<number | null>(null)
   const [editing, setEditing] = useState<Faculty | null | undefined>(undefined)
 
-  const faculties = data?.data ?? []
+  const allFaculties = data?.data ?? []
 
-  const handleDeactivate = async (id: number) => {
+  // Major-Program Scoping — Faculty.majorProgramId (BACKEND_DEVIATIONS A17)
+  // lets a faculty be tagged with its own major program directly, but the
+  // real backend doesn't return that field yet, so it's always null/
+  // undefined today. Fall back to deriving membership bottom-up from the
+  // already-fetched flat lists (Faculty -> Department -> Program.
+  // majorProgramId) — same derived-scope pattern as Fee Types and Admission
+  // Cycles used before their own direct fields shipped. The day A17 ships
+  // and a faculty actually carries a real majorProgramId, the direct value
+  // below takes over automatically — no rewrite needed.
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const { data: departmentsRes } = useAllDepartments()
+  const { data: programsRes } = useAllPrograms()
+  const majorPrograms = useMemo(
+    () => (majorProgramsRes?.data ?? []).filter((mp) => mp.isActive),
+    [majorProgramsRes]
+  )
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  const facultyIdsByMajorProgram = useMemo(() => {
+    const facultyIdByDeptId = new Map(
+      (departmentsRes?.data ?? []).map((d) => [d.id, d.facultyId])
+    )
+    const map = new Map<number, Set<number>>()
+    for (const program of programsRes?.data ?? []) {
+      if (program.majorProgramId == null || !program.departmentId) continue
+      const facultyId = facultyIdByDeptId.get(program.departmentId)
+      if (!facultyId) continue
+      if (!map.has(program.majorProgramId)) {
+        map.set(program.majorProgramId, new Set())
+      }
+      map.get(program.majorProgramId)!.add(facultyId)
+    }
+    return map
+  }, [departmentsRes, programsRes])
+  const facultyMatchesMajorProgram = (
+    faculty: Faculty,
+    majorProgramId: number
+  ) =>
+    faculty.majorProgramId != null
+      ? faculty.majorProgramId === majorProgramId
+      : (facultyIdsByMajorProgram.get(majorProgramId)?.has(faculty.id) ?? false)
+
+  const faculties = majorProgramFilter
+    ? allFaculties.filter((f) =>
+        facultyMatchesMajorProgram(f, majorProgramFilter)
+      )
+    : allFaculties
+
+  // PATCH `{isActive}` — a reversible on/off toggle. DELETE only ever
+  // deactivates, so it can't back this button.
+  const handleToggleActive = async (faculty: Faculty) => {
+    const nextActive = !faculty.isActive
+    setTogglingId(faculty.id)
     try {
-      await deactivate.mutateAsync(id)
-      toast.success("Faculty deactivated")
+      const res = await updateFaculty.mutateAsync({
+        id: faculty.id,
+        payload: { isActive: nextActive },
+      })
+      // Patch the list cache with the mutation's own response immediately
+      // — the badge must reflect what the server just confirmed without
+      // waiting on a second round-trip (invalidateQueries below still runs,
+      // as a safety net for any other screen reading this same faculty).
+      queryClient.setQueryData<{ data: Faculty[] } | undefined>(
+        courseStructureKeys.faculties.list(),
+        (old) =>
+          old
+            ? {
+                data: old.data.map((f) =>
+                  f.id === faculty.id ? { ...f, ...res.data } : f
+                ),
+              }
+            : old
+      )
+      toast.success(
+        `${faculty.name} ${nextActive ? "activated" : "deactivated"}`
+      )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to deactivate faculty"
+        err instanceof Error
+          ? err.message
+          : `Failed to ${nextActive ? "activate" : "deactivate"} faculty`
       )
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -131,7 +220,21 @@ function FacultiesList({
         )}
       </div>
 
-      {faculties.length === 0 ? (
+      <MajorProgramTabs
+        programs={majorPrograms}
+        value={majorProgramFilter}
+        onChange={setMajorProgramFilter}
+      />
+
+      {faculties.length === 0 &&
+      majorProgramFilter &&
+      allFaculties.length > 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="No faculties under this major program"
+          description="No program here has been assigned to this major program yet, so no faculty qualifies. Switch tabs, or assign a program to it under Programs."
+        />
+      ) : faculties.length === 0 ? (
         <EmptyState
           icon={Building2}
           title="No faculties yet"
@@ -157,7 +260,7 @@ function FacultiesList({
               <Card>
                 <CardContent className="pt-6">
                   <div className="mb-3 flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <Building2 size={16} />
                       </div>
@@ -174,8 +277,27 @@ function FacultiesList({
                       label={faculty.isActive ? "Active" : "Inactive"}
                       variant={faculty.isActive ? "success" : "destructive"}
                       dot
+                      className="shrink-0"
                     />
                   </div>
+                  {/* Only shown for a directly-tagged faculty (A17) — a
+                      derived-only faculty can straddle several major
+                      programs at once via different departments, which
+                      doesn't reduce to one badge. */}
+                  {majorPrograms.length > 1 &&
+                    faculty.majorProgramId != null && (
+                      <Badge
+                        variant="outline"
+                        className="mb-2 gap-1.5 text-[11px] font-normal text-muted-foreground"
+                      >
+                        <Building2 className="size-3" />
+                        {faculty.majorProgram?.name ??
+                          majorPrograms.find(
+                            (mp) => mp.id === faculty.majorProgramId
+                          )?.name ??
+                          "Major program"}
+                      </Badge>
+                    )}
                   <div className="flex items-center gap-2">
                     <Button
                       className="flex-1"
@@ -195,17 +317,36 @@ function FacultiesList({
                         >
                           <Pencil className="size-3.5" />
                         </Button>
-                        {faculty.isActive && (
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => handleDeactivate(faculty.id)}
-                            disabled={deactivate.isPending}
-                            title="Deactivate faculty"
-                          >
-                            <Power className="size-3.5 text-destructive" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => handleToggleActive(faculty)}
+                          disabled={togglingId === faculty.id}
+                          title={
+                            faculty.isActive
+                              ? "Deactivate faculty"
+                              : "Activate faculty"
+                          }
+                          aria-label={
+                            faculty.isActive
+                              ? `Deactivate ${faculty.name}`
+                              : `Activate ${faculty.name}`
+                          }
+                          aria-pressed={faculty.isActive}
+                        >
+                          {togglingId === faculty.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Power
+                              className={cn(
+                                "size-3.5",
+                                faculty.isActive
+                                  ? "text-destructive"
+                                  : "text-emerald-600 dark:text-emerald-400"
+                              )}
+                            />
+                          )}
+                        </Button>
                       </>
                     )}
                   </div>
@@ -239,8 +380,10 @@ function FacultyDetail({
   onOpenDepartment: (departmentId: number) => void
 }) {
   const { data, isLoading } = useFaculty(facultyId)
-  const deactivateDept = useDeactivateDepartment()
-  const deactivateProgram = useDeactivateProgram()
+  const updateDept = useUpdateDepartment()
+  const updateProgram = useUpdateProgram()
+  const queryClient = useQueryClient()
+  const [togglingKey, setTogglingKey] = useState<string | null>(null)
   const [editingFaculty, setEditingFaculty] = useState(false)
   const [editingDept, setEditingDept] = useState<Department | null | undefined>(
     undefined
@@ -251,43 +394,107 @@ function FacultyDetail({
   const [reassigning, setReassigning] = useState<Program | null>(null)
 
   const faculty = data?.data
-  const departments = faculty?.departments ?? []
+  // The faculty detail nests its departments without `isActive` (id, name,
+  // code only), which read as "Inactive" on every card. Use the full records
+  // from the departments list, falling back to the nested ones while loading.
+  const { data: facultyDepartmentsRes } = useDepartments(facultyId)
+  const departments = facultyDepartmentsRes?.data ?? faculty?.departments ?? []
 
   // Programs attached straight to this faculty, no department in between.
   // Program has no facultyId of its own — this link only exists via the
   // AcademicUnit tree's parentAcademicUnitId, so it has to be cross-referenced
   // client-side rather than filtered server-side.
-  const { data: unitsData } = useAcademicUnits({ rootsOnly: true })
+  // The faculty's node can sit at any depth (inside a major program's node
+  // since the multi-program restructure), and one faculty can appear under
+  // several major programs, so every node linked to it counts.
+  const { data: unitsData } = useAcademicUnits()
   const { data: allProgramsData } = useAllPrograms()
-  const facultyUnit = (unitsData?.data ?? []).find(
-    (u) => u.linkedEntity?.type === "faculty" && u.linkedEntity.id === facultyId
+  const facultyUnitIds = new Set(
+    (unitsData?.data ?? [])
+      .filter(
+        (u) =>
+          u.linkedEntity?.type === "faculty" && u.linkedEntity.id === facultyId
+      )
+      .map((u) => u.id)
   )
   const directPrograms = (allProgramsData?.data ?? []).filter(
     (p) =>
       p.departmentId === null &&
-      facultyUnit !== undefined &&
-      p.parentAcademicUnitId === facultyUnit.id
+      p.parentAcademicUnitId != null &&
+      facultyUnitIds.has(p.parentAcademicUnitId)
   )
 
-  const handleDeactivateDept = async (id: number) => {
+  // PATCH `{isActive}` — reversible on/off toggles (bruno/academic/
+  // Departments - Update.bru, Programs - Update.bru). The backend doesn't
+  // document a cascade, so none is assumed here.
+  const handleToggleDept = async (dept: Department) => {
+    const nextActive = !dept.isActive
+    setTogglingKey(`dept-${dept.id}`)
     try {
-      await deactivateDept.mutateAsync(id)
-      toast.success("Department deactivated")
+      const res = await updateDept.mutateAsync({
+        id: dept.id,
+        payload: { isActive: nextActive },
+      })
+      // Patch this faculty's cached nested departments directly with the
+      // mutation's own response — this screen reads a department's
+      // isActive only from here, so it must reflect what the server just
+      // confirmed without waiting on a second round-trip.
+      queryClient.setQueryData<{ data: Faculty } | undefined>(
+        courseStructureKeys.faculties.detail(facultyId),
+        (old) =>
+          old
+            ? {
+                data: {
+                  ...old.data,
+                  departments: (old.data.departments ?? []).map((d) =>
+                    d.id === dept.id ? { ...d, ...res.data } : d
+                  ),
+                },
+              }
+            : old
+      )
+      toast.success(`${dept.name} ${nextActive ? "activated" : "deactivated"}`)
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to deactivate department"
+        err instanceof Error
+          ? err.message
+          : `Failed to ${nextActive ? "activate" : "deactivate"} department`
       )
+    } finally {
+      setTogglingKey(null)
     }
   }
 
-  const handleDeactivateDirectProgram = async (id: number) => {
+  const handleToggleDirectProgram = async (program: Program) => {
+    const nextActive = !program.isActive
+    setTogglingKey(`program-${program.id}`)
     try {
-      await deactivateProgram.mutateAsync(id)
-      toast.success("Program deactivated")
+      const res = await updateProgram.mutateAsync({
+        id: program.id,
+        payload: { isActive: nextActive },
+      })
+      queryClient.setQueryData<{ data: Program[] } | undefined>(
+        courseStructureKeys.programs.list(),
+        (old) =>
+          old
+            ? {
+                data: old.data.map((p) =>
+                  p.id === program.id ? { ...p, ...res.data } : p
+                ),
+              }
+            : old
+      )
+      toast.success(
+        `${program.name} ${nextActive ? "activated" : "deactivated"}`
+      )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to deactivate program"
+        err instanceof Error
+          ? err.message
+          : `Failed to ${nextActive ? "activate" : "deactivate"} program`
       )
+    } finally {
+      setTogglingKey(null)
     }
   }
 
@@ -325,6 +532,7 @@ function FacultyDetail({
             />
           </div>
         </div>
+        <AuditTrailLink entityType="Faculty" entityId={facultyId} />
         {canManage && (
           <Button
             variant="outline"
@@ -398,7 +606,7 @@ function FacultyDetail({
               <Card>
                 <CardContent className="pt-6">
                   <div className="mb-3 flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <GitBranch size={16} />
                       </div>
@@ -415,6 +623,7 @@ function FacultyDetail({
                       label={dept.isActive ? "Active" : "Inactive"}
                       variant={dept.isActive ? "success" : "destructive"}
                       dot
+                      className="shrink-0"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -436,17 +645,36 @@ function FacultyDetail({
                         >
                           <Pencil className="size-3.5" />
                         </Button>
-                        {dept.isActive && (
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => handleDeactivateDept(dept.id)}
-                            disabled={deactivateDept.isPending}
-                            title="Deactivate department"
-                          >
-                            <Power className="size-3.5 text-destructive" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => handleToggleDept(dept)}
+                          disabled={togglingKey === `dept-${dept.id}`}
+                          title={
+                            dept.isActive
+                              ? "Deactivate department"
+                              : "Activate department"
+                          }
+                          aria-label={
+                            dept.isActive
+                              ? `Deactivate ${dept.name}`
+                              : `Activate ${dept.name}`
+                          }
+                          aria-pressed={dept.isActive}
+                        >
+                          {togglingKey === `dept-${dept.id}` ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Power
+                              className={cn(
+                                "size-3.5",
+                                dept.isActive
+                                  ? "text-destructive"
+                                  : "text-emerald-600 dark:text-emerald-400"
+                              )}
+                            />
+                          )}
+                        </Button>
                       </>
                     )}
                   </div>
@@ -513,12 +741,17 @@ function FacultyDetail({
                 {canManage && (
                   <>
                     <Button
-                      variant="ghost"
-                      size="icon-sm"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setReassigning(program)}
-                      title="Reassign faculty/department"
+                      title="Move this program to another faculty or department"
+                      aria-label={`Move ${program.name} to another faculty or department`}
                     >
-                      <ArrowRightLeft className="size-3.5" />
+                      <ArrowRightLeft
+                        className="size-3.5"
+                        data-icon="inline-start"
+                      />
+                      Move
                     </Button>
                     <Button
                       variant="ghost"
@@ -528,19 +761,36 @@ function FacultyDetail({
                     >
                       <Pencil className="size-3.5" />
                     </Button>
-                    {program.isActive && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          handleDeactivateDirectProgram(program.id)
-                        }
-                        disabled={deactivateProgram.isPending}
-                        title="Deactivate program"
-                      >
-                        <Power className="size-3.5 text-destructive" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleToggleDirectProgram(program)}
+                      disabled={togglingKey === `program-${program.id}`}
+                      title={
+                        program.isActive
+                          ? "Deactivate program"
+                          : "Activate program"
+                      }
+                      aria-label={
+                        program.isActive
+                          ? `Deactivate ${program.name}`
+                          : `Activate ${program.name}`
+                      }
+                      aria-pressed={program.isActive}
+                    >
+                      {togglingKey === `program-${program.id}` ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Power
+                          className={cn(
+                            "size-3.5",
+                            program.isActive
+                              ? "text-destructive"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          )}
+                        />
+                      )}
+                    </Button>
                   </>
                 )}
               </div>
@@ -589,7 +839,11 @@ function DepartmentDetail({
   onBack: () => void
 }) {
   const { data, isLoading } = useDepartment(departmentId)
-  const deactivateProgram = useDeactivateProgram()
+  const updateProgram = useUpdateProgram()
+  const queryClient = useQueryClient()
+  const [togglingProgramId, setTogglingProgramId] = useState<number | null>(
+    null
+  )
   const [editingDept, setEditingDept] = useState(false)
   const [editingProgram, setEditingProgram] = useState<
     Program | null | undefined
@@ -597,18 +851,59 @@ function DepartmentDetail({
   const [reassigning, setReassigning] = useState<Program | null>(null)
 
   const department = data?.data
-  const programs = department?.programs ?? []
+  // The department detail nests its programs as {id, name, code} only, which
+  // showed every one as "Inactive" with blank details. Use the full program
+  // records, falling back to the nested ones while they load.
+  const { data: allProgramsRes } = useAllPrograms()
+  const fullPrograms = (allProgramsRes?.data ?? []).filter(
+    (p) => p.departmentId === department?.id
+  )
+  const programs = allProgramsRes ? fullPrograms : (department?.programs ?? [])
   const lecturers = department?.lecturers ?? []
-  const hod = lecturers.find((l) => l.userId === department?.hodUserId)
+  // The head is a user with the hod role, not necessarily one of these
+  // lecturers (whose entries carry no user id), so the name comes from the
+  // HOD-role users.
+  const { data: hodUsers = [] } = useEligibleHods()
+  const hodUser = hodUsers.find((u) => u.id === department?.hodUserId)
 
-  const handleDeactivateProgram = async (id: number) => {
+  // PATCH `{isActive}` — reversible on/off toggle (bruno/academic/Programs -
+  // Update.bru).
+  const handleToggleProgram = async (program: Program) => {
+    const nextActive = !program.isActive
+    setTogglingProgramId(program.id)
     try {
-      await deactivateProgram.mutateAsync(id)
-      toast.success("Program deactivated")
+      const res = await updateProgram.mutateAsync({
+        id: program.id,
+        payload: { isActive: nextActive },
+      })
+      // Patch this department's cached nested programs directly with the
+      // mutation's own response — see the same note on handleToggleDept
+      // above.
+      queryClient.setQueryData<{ data: Department } | undefined>(
+        courseStructureKeys.departments.detail(departmentId),
+        (old) =>
+          old
+            ? {
+                data: {
+                  ...old.data,
+                  programs: (old.data.programs ?? []).map((p) =>
+                    p.id === program.id ? { ...p, ...res.data } : p
+                  ),
+                },
+              }
+            : old
+      )
+      toast.success(
+        `${program.name} ${nextActive ? "activated" : "deactivated"}`
+      )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to deactivate program"
+        err instanceof Error
+          ? err.message
+          : `Failed to ${nextActive ? "activate" : "deactivate"} program`
       )
+    } finally {
+      setTogglingProgramId(null)
     }
   }
 
@@ -646,6 +941,7 @@ function DepartmentDetail({
             />
           </div>
         </div>
+        <AuditTrailLink entityType="Department" entityId={department.id} />
         {canManage && (
           <Button
             variant="outline"
@@ -677,8 +973,10 @@ function DepartmentDetail({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users size={13} />
             HOD:{" "}
-            {hod
-              ? `${hod.user ? `${hod.user.firstName ?? ""} ${hod.user.lastName ?? ""}`.trim() : hod.staffNumber}`
+            {hodUser
+              ? [hodUser.first_name, hodUser.last_name]
+                  .filter(Boolean)
+                  .join(" ") || hodUser.email
               : department.hodUserId
                 ? `User #${department.hodUserId}`
                 : "Not assigned"}
@@ -736,12 +1034,17 @@ function DepartmentDetail({
                     {canManage && (
                       <>
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
+                          variant="outline"
+                          size="sm"
                           onClick={() => setReassigning(program)}
-                          title="Reassign faculty/department"
+                          title="Move this program to another faculty or department"
+                          aria-label={`Move ${program.name} to another faculty or department`}
                         >
-                          <ArrowRightLeft className="size-3.5" />
+                          <ArrowRightLeft
+                            className="size-3.5"
+                            data-icon="inline-start"
+                          />
+                          Move
                         </Button>
                         <Button
                           variant="ghost"
@@ -751,17 +1054,36 @@ function DepartmentDetail({
                         >
                           <Pencil className="size-3.5" />
                         </Button>
-                        {program.isActive && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleDeactivateProgram(program.id)}
-                            disabled={deactivateProgram.isPending}
-                            title="Deactivate program"
-                          >
-                            <Power className="size-3.5 text-destructive" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleToggleProgram(program)}
+                          disabled={togglingProgramId === program.id}
+                          title={
+                            program.isActive
+                              ? "Deactivate program"
+                              : "Activate program"
+                          }
+                          aria-label={
+                            program.isActive
+                              ? `Deactivate ${program.name}`
+                              : `Activate ${program.name}`
+                          }
+                          aria-pressed={program.isActive}
+                        >
+                          {togglingProgramId === program.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Power
+                              className={cn(
+                                "size-3.5",
+                                program.isActive
+                                  ? "text-destructive"
+                                  : "text-emerald-600 dark:text-emerald-400"
+                              )}
+                            />
+                          )}
+                        </Button>
                       </>
                     )}
                   </div>
@@ -790,13 +1112,13 @@ function DepartmentDetail({
                     <p className="truncate text-sm font-medium text-foreground">
                       {l.user
                         ? `${l.user.firstName ?? ""} ${l.user.lastName ?? ""}`.trim()
-                        : `Staff #${l.staffNumber}`}
+                        : (l.name ?? `Staff #${l.staffNumber}`)}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {l.designation}
+                      {l.designation ?? l.staffNumber}
                     </p>
                   </div>
-                  {l.userId === department.hodUserId && (
+                  {l.userId != null && l.userId === department.hodUserId && (
                     <StatusBadge label="HOD" variant="purple" />
                   )}
                 </div>

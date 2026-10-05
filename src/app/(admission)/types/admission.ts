@@ -50,9 +50,9 @@ export interface AdmissionStudent {
   offer_expiry_date: string | null
   /**
    * Pre-application program choice — set once the applicant completes the
-   * "Choice Program" process step, before they've paid or applied. Not part
-   * of the live backend contract yet; see sandbox/MISSING_BACKEND_APIS.md
-   * §2.5 for the proposed GET /admission/student field additions.
+   * "Choice Program" process step, before they've paid or applied. Live on
+   * GET /admission/student (bruno/admission/Admission - Student Aggregate.bru,
+   * confirmed 2026-10-05); still defaulted defensively in admissionService.
    */
   has_selected_program: boolean
   program_id: number | null
@@ -60,6 +60,14 @@ export interface AdmissionStudent {
   entry_mode: EntryMode | null
   study_mode: StudyMode | null
   start_term: string | null
+  /**
+   * Major-Program Scoping — picked at the "Major Program Choice" process
+   * stage, before the program itself (A16). Live on GET /admission/student
+   * (confirmed 2026-10-05, null until chosen); optional only so an older
+   * backend without it still type-checks.
+   */
+  major_program_id?: number | null
+  major_program_name?: string | null
 }
 
 /** Payment initiation response from the backend */
@@ -68,6 +76,19 @@ export interface PaymentInitiationResponse {
   reference: string
   gateway_url: string
   message?: string
+  /**
+   * The gateway answered the charge with an OTP challenge instead of a
+   * checkout link (FCMB's direct-card channel — bruno/fee/Payments - OTP
+   * Authenticate.bru). The OTP is then submitted via
+   * POST /fees/payments/:reference/otp/authenticate.
+   */
+  otp_required?: boolean
+}
+
+/** Body of POST /fees/payments/:reference/otp/authenticate, plus its path reference. */
+export interface PaymentOtpPayload {
+  reference: string
+  otp: string
 }
 
 /** Payment verification response from the backend */

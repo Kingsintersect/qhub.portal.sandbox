@@ -105,7 +105,7 @@ export function TranscriptModal({
                   CGPA
                 </p>
                 <p className="font-mono text-2xl font-bold text-primary">
-                  {transcript.currentCGPA.toFixed(2)}
+                  {transcript.currentCGPA?.toFixed(2) ?? "—"}
                 </p>
               </div>
               <div className="text-center">

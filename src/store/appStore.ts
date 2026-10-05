@@ -4,7 +4,9 @@ import { useSyncExternalStore } from "react"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { UserRole } from "@/config/nav.config"
+import { pickPrimaryRole } from "@/lib/auth/backendAuth"
 import type { Permission } from "@/types/roles"
+import type { MajorProgramScope } from "@/types/school"
 
 export interface AppUser {
   id: string
@@ -21,6 +23,10 @@ export interface AppUser {
   staffId?: string
   level?: string
   avatar?: string
+  // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+  // §1. `undefined` is treated identically to "ALL" — see
+  // useMajorProgramScope.ts.
+  majorProgramScope?: MajorProgramScope
 }
 
 const ts = "2024-09-01T00:00:00Z"
@@ -193,7 +199,7 @@ export const useAppStore = create<AppState>()(
 
           const nextActiveRole = nextAvailableRoles.includes(state.user.role)
             ? state.user.role
-            : nextAvailableRoles[0]
+            : (pickPrimaryRole(nextAvailableRoles) ?? nextAvailableRoles[0])
 
           return {
             availableRoles: nextAvailableRoles,

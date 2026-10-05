@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { LayoutGrid, List, Search, GraduationCap, Filter } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { QueryErrorState } from "@/components/query-error-state"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -14,7 +15,7 @@ import {
 import { TimetableGrid } from "@/modules/timetable/components/TimetableGrid"
 import { TimetableList } from "@/modules/timetable/components/TimetableList"
 import { useMyTimetable } from "@/modules/timetable/hooks/useTimetable"
-import { useAcademicCalendar } from "@/modules/timetable/hooks/useAcademicCalendar"
+import { useMyActiveSession } from "@/hooks/use-my-active-session"
 import { useTimetableUIStore } from "@/modules/timetable/store/useTimetableUIStore"
 import type {
   DayOfWeek,
@@ -52,11 +53,15 @@ export default function MyTimetablePage() {
 
   const [searchTerm, setSearchTerm] = useState("")
 
-  const { data: calendarMeta } = useAcademicCalendar()
-  const activeSemester = calendarMeta?.currentSemester
+  // Major-Program Scoping — resolves the active session/semester through
+  // THIS student's own program's major program, not a single
+  // institution-wide row (sandbox/major-program-scoping/
+  // FRONTEND_IMPLEMENTATION_PLAN.md §3). See use-my-active-session.ts for
+  // why this replaced the old, non-scoped `useAcademicCalendar()`.
+  const { currentSemester: activeSemester } = useMyActiveSession()
   const effectiveSemesterId = selectedSemesterId ?? activeSemester?.id
 
-  const { data, isLoading } = useMyTimetable({
+  const { data, isLoading, isError, error, refetch } = useMyTimetable({
     semesterId: effectiveSemesterId,
   })
 
@@ -91,6 +96,10 @@ export default function MyTimetablePage() {
     return sum + Math.max(0, end - start)
   }, 0)
   const totalHoursLabel = `${Math.floor(totalHours / 60)}h ${totalHours % 60}m`
+  // A refused (403) or failed load is unknown, not zero: the KPI cards show
+  // "—" until a real (possibly empty) timetable has come back.
+  const hasData = data !== undefined && !isError
+  const kpi = (value: string | number) => (hasData ? value : "—")
 
   return (
     <PermissionGate
@@ -135,13 +144,13 @@ export default function MyTimetablePage() {
             <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
               <p className="text-xs text-muted-foreground">Scheduled Slots</p>
               <p className="mt-1 text-2xl font-bold text-foreground">
-                {filteredSlots.length}
+                {kpi(filteredSlots.length)}
               </p>
             </div>
             <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
               <p className="text-xs text-muted-foreground">Distinct Courses</p>
               <p className="mt-1 text-2xl font-bold text-foreground">
-                {uniqueCoursesCount}
+                {kpi(uniqueCoursesCount)}
               </p>
             </div>
             <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
@@ -149,7 +158,7 @@ export default function MyTimetablePage() {
                 Weekly Contact Time
               </p>
               <p className="mt-1 text-2xl font-bold text-foreground">
-                {totalHoursLabel}
+                {kpi(totalHoursLabel)}
               </p>
             </div>
           </div>
@@ -230,7 +239,11 @@ export default function MyTimetablePage() {
           <div className="mt-4 flex items-center justify-between">
             <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <GraduationCap size={14} />
-              Showing {filteredSlots.length} slots
+              {hasData
+                ? `Showing ${filteredSlots.length} slots`
+                : isLoading
+                  ? "Loading slots…"
+                  : "Slots unavailable"}
             </p>
             <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
               <Button
@@ -255,7 +268,15 @@ export default function MyTimetablePage() {
           </div>
         </section>
 
-        {viewMode === "grid" ? (
+        {/* A refused (403) or failed request isn't an empty week — only a
+            successful empty response may show "No schedule found". */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="your timetable"
+            onRetry={() => void refetch()}
+          />
+        ) : viewMode === "grid" ? (
           <TimetableGrid slots={filteredSlots} isLoading={isLoading} />
         ) : (
           <TimetableList slots={filteredSlots} isLoading={isLoading} />

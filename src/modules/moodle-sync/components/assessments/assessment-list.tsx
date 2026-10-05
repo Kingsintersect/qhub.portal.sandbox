@@ -8,7 +8,10 @@ import EmptyState from "@/components/custom/EmptyState"
 import { useSyncAssessments } from "../../hooks/use-sync-assessments"
 import { usePullAllAssessments } from "../../hooks/use-sync-mutations"
 import { PushPullToolbar } from "../shared/push-pull-toolbar"
+import { ResetSyncButton } from "../shared/reset-sync-dialog"
+import { stripHtmlToText } from "../../lib/strip-html"
 import type { AssessmentType } from "../../types"
+import { describeSyncError } from "../../lib/sync-error"
 
 const TYPES: { value: AssessmentType | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -29,7 +32,7 @@ function formatDue(dueDate: string | null): string {
 
 export function AssessmentList() {
   const [type, setType] = useState<AssessmentType | "all">("all")
-  const { data, isLoading, isError } = useSyncAssessments(
+  const { data, isLoading, isError, error } = useSyncAssessments(
     type === "all" ? undefined : { type }
   )
   const pullAll = usePullAllAssessments()
@@ -57,6 +60,9 @@ export function AssessmentList() {
         onPull={handlePullAll}
         pullLabel="Pull All"
         pullPending={pullAll.isPending}
+        extraActions={
+          <ResetSyncButton module="assessments" moduleLabel="assessments" />
+        }
       />
 
       <div className="flex gap-1.5">
@@ -88,7 +94,7 @@ export function AssessmentList() {
       ) : isError ? (
         <EmptyState
           title="Couldn't load assessments"
-          description="Please try again."
+          description={describeSyncError(error).description}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -117,7 +123,7 @@ export function AssessmentList() {
                 </p>
                 {item.description && (
                   <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                    {item.description}
+                    {stripHtmlToText(item.description)}
                   </p>
                 )}
               </div>

@@ -10,6 +10,17 @@ export interface AcademicSession {
   startDate: string
   endDate: string
   isActive: boolean
+  // Major-Program Scoping — sandbox/major-program-scoping/SCHEMA_CHANGES.md
+  // §2: null = institution-wide shared session. A non-null value scopes this
+  // session to one MajorProgram, letting e.g. Undergraduate and Postgraduate
+  // run independent calendars.
+  majorProgramId?: number | null
+  // B24.4 (bruno/academic/Sessions - List.bru, 2026-09-28): set once the
+  // session is locked via the Progression module's
+  // POST /academic-sessions/:id/lock; null/absent = not locked. Optional
+  // because older responses omitted the keys entirely.
+  lockedAt?: string | null
+  lockedBy?: number | null
 }
 
 export interface Semester {
@@ -21,6 +32,10 @@ export interface Semester {
   endDate: string
   registrationStart?: string
   registrationEnd?: string
+  // B24.4 (bruno/academic/Semesters - List.bru, 2026-09-28): set when the
+  // semester itself, or its parent session, is locked. null/absent = open.
+  lockedAt?: string | null
+  lockedBy?: number | null
 }
 
 // Legacy mock-only shape used by the admissions "Requirements" screen
@@ -64,13 +79,28 @@ export interface Faculty {
   createdAt: string
   updatedAt: string
   departments?: Department[]
+  // Major-Program Scoping — sandbox/major-program-scoping/SCHEMA_CHANGES.md
+  // §2b (new capability, BACKEND_DEVIATIONS A17). Not derived — set directly
+  // at Faculty creation, so a Faculty is grouped under its major program
+  // immediately, without needing a Program underneath it first. Nullable:
+  // null/undefined = institution-wide, shared by every major program.
+  // Optional (not just nullable) because the real backend doesn't return
+  // this field yet — until A17 ships, always treat a missing key the same
+  // as null, and fall back to deriving membership from the faculty's own
+  // departments/programs (Faculty -> Department -> Program.majorProgramId).
+  majorProgramId?: number | null
+  majorProgram?: { id: number; name: string } | null
 }
 
+// Live (2026-09-28) GET /academic/departments/:id sends each lecturer as
+// {id, staffNumber, name}: the lecturer id, no user id or designation. The
+// older nested shape is kept optional for compatibility.
 export interface DepartmentLecturer {
   id: number
-  userId: number
   staffNumber: string
-  designation: string
+  name?: string
+  userId?: number
+  designation?: string
   user?: {
     firstName: string | null
     lastName: string | null
@@ -92,18 +122,27 @@ export interface Department {
   updatedAt: string
   programs?: Program[]
   lecturers?: DepartmentLecturer[]
+  // A25 (bruno/academic/Departments - *.bru, 2026-09-25): a Department can
+  // attach directly under a Major Program with no Faculty. When facultyId is
+  // set, the server derives majorProgramId from that faculty.
+  majorProgramId?: number | null
+  parentAcademicUnitId?: number | null
 }
 
 // Multi-structure refactor — see sandbox/schema-moodel-sync-refactor/README.md
 // §2. `DEGREE` is the default and preserves every existing Program's
-// behavior unchanged; the other four values let the same schema serve
+// behavior unchanged; the other values let the same schema serve
 // postgraduate schools, certificate/diploma tracks, and secondary schools.
+// FOUNDATIONAL/PART_TIME added by the Multi-Program Platform — see
+// sandbox/multi-program-platform/SCHEMA_CHANGES.md §1.
 export type ProgramCategory =
   | "DEGREE"
   | "POSTGRADUATE"
   | "CERTIFICATE"
   | "DIPLOMA"
   | "SECONDARY_SCHOOL"
+  | "FOUNDATIONAL"
+  | "PART_TIME"
 
 export interface Program {
   id: number
@@ -123,12 +162,123 @@ export interface Program {
   programCategory: ProgramCategory
   parentAcademicUnitId: number | null
   gradingSchemeId: number | null
+  // Major-Program Scoping — sandbox/major-program-scoping/SCHEMA_CHANGES.md §1.
+  // UI that reads it must treat `undefined` the same as `null` ("not
+  // assigned to a major program").
+  majorProgramId?: number | null
+  // sandbox/program-structure-depth/SCHEMA_CHANGES.md §5. Lowest
+  // Level a fresh admission offer into this program can target (e.g. 200 for
+  // a Part-Time direct-entry program). Null/undefined = no restriction,
+  // today's exact behavior.
+  entryLevelId?: number | null
 }
+
+// ── Major Programs — sandbox/major-program-scoping/ ─────────────────────────
+// See bruno/academic/Major Programs - *.bru and
+// sandbox/major-program-scoping/API_CONTRACTS.md §6. Distinct from
+// `ProgramCategory`: a MajorProgram is an administrative/scoping boundary
+// (who manages it, which calendar/fees/RBAC it scopes), not a structural
+// shape — see sandbox/major-program-scoping/README.md §2.1.
+
+// B25 (bruno/academic/Major Programs - *.bru, 2026-09-28). "SEMESTER" (the
+// default, every existing major program) or "SESSION" — a
+// Certificate/Foundational-style major program whose offerings run per
+// academic session with no semesters; the server manages one "Full Session"
+// semester per session behind the scenes.
+export type MajorProgramTermStructure = "SEMESTER" | "SESSION"
+
+export interface MajorProgram {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  isActive: boolean
+  // Optional: a missing key reads the same as "SEMESTER" (the server default).
+  termStructure?: MajorProgramTermStructure
+  moodleRootCategoryId: number | null
+  programCount?: number
+  activeSessionId?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateMajorProgramPayload {
+  code: string
+  name: string
+  description?: string
+  termStructure?: MajorProgramTermStructure
+}
+
+export type UpdateMajorProgramPayload = Partial<CreateMajorProgramPayload> & {
+  isActive?: boolean
+}
+
+// The caller's resolved major-program authorization scope — carried on the
+// session/`me` response (§C of the same
+// design doc). "ALL" = SUPER_ADMIN (or any other deliberately unscoped
+// grant); an array = the specific major programs this user's role grants are
+// scoped to. When absent, `useMajorProgramScope()`
+// treats that the same as "ALL" so the single-major-program deployment stays
+// the degenerate, unaffected case (see README.md §0's governing rule).
+export type MajorProgramScopeEntry = Pick<MajorProgram, "id" | "code" | "name">
+export type MajorProgramScope = MajorProgramScopeEntry[] | "ALL"
 
 export interface CurriculumLevel {
   id: number
   name: string
   numericValue: number
+}
+
+// ── Cohorts — sandbox/program-structure-depth/ ──────────────────────────────
+// Certificate programs' replacement
+// for Session/Semester/Level — see SCHEMA_CHANGES.md §3. A Cohort is scoped
+// to one CERTIFICATE-category Program, independent of AcademicSession, so
+// multiple sittings (e.g. an ICAN May cohort and a CIB November cohort) can
+// run concurrently with their own dates — something the institution-wide
+// single-active-session model can't represent.
+
+export type CohortStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "EXAM_WINDOW"
+  | "CLOSED"
+  | "CERTIFIED"
+  | "CANCELLED"
+
+export interface Cohort {
+  id: number
+  programId: number
+  code: string
+  name: string
+  startDate: string
+  endDate: string
+  examWindowStart: string | null
+  examWindowEnd: string | null
+  capacity: number | null
+  status: CohortStatus
+  enrolledCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateCohortPayload {
+  programId: number
+  code: string
+  name: string
+  startDate: string
+  endDate: string
+  examWindowStart?: string
+  examWindowEnd?: string
+  capacity?: number
+}
+
+export type UpdateCohortPayload = Partial<
+  Omit<CreateCohortPayload, "programId">
+>
+
+export interface TransitionCohortPayload {
+  status: CohortStatus
+  reason?: string
 }
 
 // ── Academic Structure (generic AcademicUnit tree) ──────────────────────────
@@ -147,6 +297,14 @@ export type AcademicUnitLinkKind =
   | "program"
   | "level"
   | "semester"
+  // sandbox/major-program-scoping/README.md §4.E. Lets a
+  // MajorProgram get a real mirror root node in the tree (same pattern as
+  // "faculty" via resolveFacultyAcademicUnit), so Moodle sync can push one
+  // root category per major program (matching the "CERTIFICATE PROGRAMS" /
+  // "FOUNDATIONAL/JUPEB PROGRAMS" / "PART-TIME PROGRAMS" top-level Moodle
+  // categories the university already organizes courses under). Live on the
+  // backend since A18 (Bruno re-alignment, 2026-10-06).
+  | "major_program"
 
 export interface AcademicUnitType {
   id: number
@@ -168,7 +326,7 @@ export interface AcademicUnit {
   sortOrder: number
   linkedEntity: AcademicUnitLinkedEntity | null
   isActive: boolean
-  childCount: number
+  childCount: number | null
 }
 
 export interface AcademicUnitDetail extends AcademicUnit {
@@ -199,9 +357,16 @@ export interface CreateFacultyPayload {
   deanUserId?: number
   email?: string
   phoneNumber?: string
+  // See Faculty.majorProgramId above — sent ahead of the backend field
+  // existing (A17); harmless no-op today, takes effect the day it ships.
+  majorProgramId?: number | null
 }
 
-export type UpdateFacultyPayload = Partial<CreateFacultyPayload>
+// `isActive` reactivates/deactivates through the same PATCH
+// (bruno/academic/Faculties - Update.bru). Same on Department and Program.
+export type UpdateFacultyPayload = Partial<CreateFacultyPayload> & {
+  isActive?: boolean
+}
 
 export interface CreateDepartmentPayload {
   // Nullable so a Department can anchor a non-degree structure (e.g. a
@@ -214,9 +379,15 @@ export interface CreateDepartmentPayload {
   hodUserId?: number
   email?: string
   phoneNumber?: string
+  // A25 — see Department.majorProgramId. parentAcademicUnitId is mutually
+  // exclusive with facultyId (422 if both are sent).
+  majorProgramId?: number | null
+  parentAcademicUnitId?: number | null
 }
 
-export type UpdateDepartmentPayload = Partial<CreateDepartmentPayload>
+export type UpdateDepartmentPayload = Partial<CreateDepartmentPayload> & {
+  isActive?: boolean
+}
 
 export interface CreateProgramPayload {
   // Nullable for the same reason as Department.facultyId above — a
@@ -233,9 +404,15 @@ export interface CreateProgramPayload {
   programCategory?: ProgramCategory
   parentAcademicUnitId?: number | null
   gradingSchemeId?: number | null
+  // See MajorProgram note above.
+  majorProgramId?: number | null
+  // See Program.entryLevelId (bruno/academic/Programs - Create.bru).
+  entryLevelId?: number | null
 }
 
-export type UpdateProgramPayload = Partial<CreateProgramPayload>
+export type UpdateProgramPayload = Partial<CreateProgramPayload> & {
+  isActive?: boolean
+}
 
 export interface CreateCurriculumLevelPayload {
   name: string
@@ -274,7 +451,12 @@ export interface Course {
   description: string | null
   credit_units: number
   course_type: CourseType
-  level_id: number
+  // Nullable — sandbox/program-structure-depth/SCHEMA_CHANGES.md
+  // §1: null for a course that only ever attaches to a FOUNDATIONAL or
+  // CERTIFICATE program (neither uses the Level layer). Still required in
+  // practice for every DEGREE/PART_TIME/POSTGRADUATE/DIPLOMA/
+  // SECONDARY_SCHOOL course — see courseSchema's superRefine.
+  level_id: number | null
   owning_department_id: number | null
   syllabus: string | null
   curriculum_semester: number | null
@@ -293,7 +475,8 @@ export interface CreateCoursePayload {
   description?: string
   credit_units: number
   course_type: CourseType
-  level_id: number
+  // Nullable — see Course.level_id note above.
+  level_id: number | null
   owning_department_id?: number | null
   syllabus?: string
 }
@@ -366,7 +549,11 @@ export interface CourseOfferingDetail extends CourseOffering {
 export interface CreateOfferingPayload {
   course_id: number
   academic_session_id: number
-  semester_id: number
+  // B25 (bruno/course/Offering - Create.bru, 2026-09-28): required only when
+  // the session belongs to a SEMESTER-structured major program. Omit it for a
+  // SESSION-structured one; the server resolves the session's auto-managed
+  // "Full Session" semester itself.
+  semester_id?: number
   max_capacity?: number
   status?: CourseOfferingStatus
 }
@@ -504,6 +691,48 @@ export interface AdmissionApplication {
   denial_reason: string | null
   created_at: string
   updated_at: string
+  /** Dynamic Admission — answers as the applicant saw the form. Absent until the backend ships it. */
+  form?: ApplicationFormSheet | null
+  /** Answers to program-specific questions, by field key. */
+  custom_fields?: Record<string, ApplicationAnswerValue> | null
+}
+
+// ── Application answer sheet — sandbox/dynamic-admission/API_CONTRACTS.md §3.6 ──
+export interface ApplicationFormFile {
+  documentId: number
+  fileName: string
+  url: string
+}
+
+export type ApplicationAnswerValue =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | ApplicationFormFile
+  | ApplicationFormFile[]
+  | Record<string, string | number | boolean | null>[]
+
+export interface ApplicationFormSheetField {
+  key: string
+  label: string
+  type: import("./admissionConfig").FormFieldType
+  systemKey: string | null
+  value: ApplicationAnswerValue
+  displayValue: string | null
+  visible: boolean
+}
+
+export interface ApplicationFormSheetStep {
+  key: string
+  label: string
+  fields: ApplicationFormSheetField[]
+}
+
+export interface ApplicationFormSheet {
+  version: number
+  steps: ApplicationFormSheetStep[]
 }
 
 export type UpdateApplicationPayload = {

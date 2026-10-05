@@ -25,6 +25,10 @@ import { formatOfferingMeta } from "@/lib/academic/course-offering-enrichment"
 import { useEnrollmentsByStudent } from "../hooks/use-enrollments"
 import { useSelfEnrollMany } from "../hooks/use-enrollment-mutations"
 import { DropEnrollmentDialog } from "./drop-enrollment-dialog"
+import {
+  REGISTRATION_FEES_NOTE,
+  registrationErrorMessage,
+} from "../lib/registration-copy"
 import type { EnrollmentRecord, EnrollmentStatus } from "../types"
 import type { CourseOffering } from "@/types/school"
 
@@ -48,8 +52,10 @@ function capacityLabel(o: CourseOffering): string {
 export function CourseRegistration() {
   const {
     studentId,
+    programId,
     isLoading: resolvingStudentId,
     isError: studentIdErrored,
+    notFound: studentRecordMissing,
     refetch: retryStudentId,
   } = useMyStudentId()
 
@@ -74,12 +80,21 @@ export function CourseRegistration() {
     [active]
   )
 
+  // The backend only enrolls a student in a course on their own programme's
+  // curriculum (403 COURSE_OUTSIDE_PROGRAM, 2026-09-28), so offerings whose
+  // course is linked to other programmes only are left out. An offering with
+  // no programme links in the response is kept — the server still decides.
   const available = useMemo(
     () =>
       (offeringsQuery.data?.data ?? []).filter(
-        (o) => o.status === "OPEN" && !activeOfferingIds.has(o.id)
+        (o) =>
+          o.status === "OPEN" &&
+          !activeOfferingIds.has(o.id) &&
+          (programId === null ||
+            o.programs.length === 0 ||
+            o.programs.some((p) => p.id === programId))
       ),
-    [offeringsQuery.data, activeOfferingIds]
+    [offeringsQuery.data, activeOfferingIds, programId]
   )
 
   const allSelected = available.length > 0 && selected.size === available.length
@@ -115,12 +130,15 @@ export function CourseRegistration() {
         toast.success(
           `Enrolled in ${result.enrolled.length} course${
             result.enrolled.length !== 1 ? "s" : ""
-          }.`
+          }.`,
+          { description: REGISTRATION_FEES_NOTE }
         )
       }
       for (const err of result.errors) {
         const offering = picked.find((o) => o.id === err.offeringId)
-        toast.error(`${offering?.course_code ?? "Course"}: ${err.message}`)
+        toast.error(
+          `${offering?.course_code ?? "Course"}: ${registrationErrorMessage(err.code, err.message)}`
+        )
       }
       setSelected((prev) => {
         const next = new Set(prev)
@@ -137,17 +155,21 @@ export function CourseRegistration() {
       <EmptyState
         icon={GraduationCap}
         title={
-          studentIdErrored
-            ? "Couldn't resolve your student record"
-            : "Your student record couldn't be resolved"
+          studentRecordMissing
+            ? "Your student record isn't set up yet"
+            : studentIdErrored
+              ? "Couldn't resolve your student record"
+              : "Your student record couldn't be resolved"
         }
         description={
-          studentIdErrored
-            ? "This is usually a passing hiccup — try again."
-            : "This page needs the backend to support resolving your own student profile — check back once that's available."
+          studentRecordMissing
+            ? "Course registration opens once the registry has created your student record. Contact the registry if you've already been admitted."
+            : studentIdErrored
+              ? "This is usually a passing hiccup — try again."
+              : "This page needs the backend to support resolving your own student profile — check back once that's available."
         }
         action={
-          studentIdErrored ? (
+          studentIdErrored && !studentRecordMissing ? (
             <Button size="sm" onClick={() => retryStudentId()}>
               Try again
             </Button>

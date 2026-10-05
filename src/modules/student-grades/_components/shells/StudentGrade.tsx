@@ -1,6 +1,10 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import {
+  QueryErrorNotice,
+  QueryErrorState,
+} from "@/components/query-error-state"
+import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import gsap from "gsap"
 import { Medal, Trophy, TrendingUp, Hash } from "lucide-react"
@@ -9,6 +13,8 @@ import { GradeDistributionChart } from "../charts/grade-distribution-chart"
 import { ProgramPerformanceChart } from "../charts/program-performance-chart"
 import { CgpaTrendChart } from "../charts/cgpa-trend-chart"
 import SectionCard from "@/components/custom/SectionCard"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { useAllPrograms } from "@/hooks/useCourseStructure"
 import {
   useGradesSummary,
   useGradeDistributionData,
@@ -34,20 +40,63 @@ const fadeUp = {
 }
 
 interface GradesSummaryPageProps {
-  canViewOwn?: boolean
+  canView?: boolean
 }
 
 export default function GradesSummaryPage({
-  canViewOwn = true,
+  canView = true,
 }: GradesSummaryPageProps) {
-  const { data: stats, isLoading: statsLoading } = useGradesSummary()
-  const { data: gradeDistribution = [] } = useGradeDistributionData()
-  const { data: programPerformance = [] } = useProgramPerformanceData()
-  const { data: cgpaTrends = [] } = useCgpaTrendsData()
-  const { data: topPerformers = [] } = useTopPerformersData()
+  // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+  // A35. Sent ahead of the backend per CLAUDE.md §14.
+  const [majorProgramId, setMajorProgramId] = useState<number | null>(null)
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsFailed,
+    error: statsError,
+    refetch: refetchStats,
+  } = useGradesSummary(majorProgramId)
+  const distributionQ = useGradeDistributionData(majorProgramId)
+  const gradeDistribution = distributionQ.data ?? []
+  const performanceQ = useProgramPerformanceData(majorProgramId)
+  const programPerformanceRaw = performanceQ.data ?? []
+  const trendsQ = useCgpaTrendsData(majorProgramId)
+  const cgpaTrends = trendsQ.data ?? []
+  const { data: topPerformersRaw = [] } = useTopPerformersData(
+    10,
+    majorProgramId
+  )
   const { scales } = useGradeScales()
   const headerRef = useRef<HTMLDivElement>(null)
   const loading = statsLoading
+
+  // Major-Program Scoping — unlike gradeDistribution/cgpaTrends (pure
+  // aggregates with no program breakdown — see grades.service.ts, no working
+  // client filter possible for those), programPerformance carries a real
+  // per-record programId and topPerformers a programName, so both get a
+  // genuine best-effort client-side narrow here too, same pattern as
+  // director/grades/page.tsx's byProgram name-matching — in case the backend
+  // hasn't wired server-side enforcement yet.
+  const { data: programsRes } = useAllPrograms()
+  const programsInMajorProgram = (programsRes?.data ?? []).filter(
+    (p) => p.majorProgramId === majorProgramId
+  )
+  const programIdsInMajorProgram = new Set(
+    programsInMajorProgram.map((p) => p.id)
+  )
+  const programNamesInMajorProgram = new Set(
+    programsInMajorProgram.map((p) => p.name)
+  )
+  const programPerformance = majorProgramId
+    ? programPerformanceRaw.filter((p) =>
+        programIdsInMajorProgram.has(Number(p.programId))
+      )
+    : programPerformanceRaw
+  const topPerformers = majorProgramId
+    ? topPerformersRaw.filter((p) =>
+        programNamesInMajorProgram.has(p.programName)
+      )
+    : topPerformersRaw
 
   useEffect(() => {
     if (!headerRef.current) return
@@ -55,11 +104,33 @@ export default function GradesSummaryPage({
   }, [])
 
   // If user doesn't have permission, show nothing
-  if (!canViewOwn) return null
+  if (!canView) return null
 
   return (
     <div className="space-y-5">
-      {/* Rest of your component remains the same */}
+      <MajorProgramFilterTabs
+        value={majorProgramId}
+        onChange={setMajorProgramId}
+      />
+
+      {/* Contract C2.9: every figure here except the draft/pending workflow
+          counters is computed from PUBLISHED results only. */}
+      <p className="text-xs text-muted-foreground">
+        Based on published results only. Draft and pending counts reflect
+        results still in the approval workflow.
+      </p>
+
+      {/* A refused (403) or failed summary used to leave this page blank;
+          say so instead. Each chart below likewise shows its own failure
+          rather than an empty chart. */}
+      {!loading && statsFailed && (
+        <QueryErrorState
+          error={statsError}
+          subject="the grades summary"
+          onRetry={() => void refetchStats()}
+        />
+      )}
+
       {!loading && stats && (
         <motion.div
           ref={headerRef as unknown as React.RefObject<HTMLDivElement>}
@@ -83,26 +154,50 @@ export default function GradesSummaryPage({
               icon={Hash}
               className="lg:col-span-1"
             >
-              <GradeDistributionChart data={gradeDistribution} />
+              {distributionQ.isError ? (
+                <QueryErrorNotice
+                  error={distributionQ.error}
+                  subject="the grade distribution"
+                  onRetry={() => void distributionQ.refetch()}
+                />
+              ) : (
+                <GradeDistributionChart data={gradeDistribution} />
+              )}
             </SectionCard>
             <SectionCard
               title="Program Performance"
               icon={TrendingUp}
               className="lg:col-span-1"
             >
-              <ProgramPerformanceChart data={programPerformance} />
+              {performanceQ.isError ? (
+                <QueryErrorNotice
+                  error={performanceQ.error}
+                  subject="program performance"
+                  onRetry={() => void performanceQ.refetch()}
+                />
+              ) : (
+                <ProgramPerformanceChart data={programPerformance} />
+              )}
             </SectionCard>
             <SectionCard
               title="GPA Trend by Semester"
               icon={TrendingUp}
               className="lg:col-span-1"
             >
-              <CgpaTrendChart data={cgpaTrends} />
+              {trendsQ.isError ? (
+                <QueryErrorNotice
+                  error={trendsQ.error}
+                  subject="the GPA trend"
+                  onRetry={() => void trendsQ.refetch()}
+                />
+              ) : (
+                <CgpaTrendChart data={cgpaTrends} />
+              )}
             </SectionCard>
           </motion.div>
 
           {/* Top performers + Grade scale - only show for staff/tutors */}
-          {canViewOwn && topPerformers.length > 0 && (
+          {canView && topPerformers.length > 0 && (
             <motion.div
               variants={fadeUp}
               className="grid grid-cols-1 gap-4 lg:grid-cols-2"

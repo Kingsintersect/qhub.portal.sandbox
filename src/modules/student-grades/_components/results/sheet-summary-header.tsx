@@ -1,0 +1,215 @@
+import { AlertOctagon, Layers, Lock, Scale } from "lucide-react"
+import { SEMESTER_LOCKED_MESSAGE } from "../../lib/results-errors"
+import { ResultStatusBadge } from "./result-status-badge"
+import { SemesterLockBadge } from "./semester-lock-badge"
+import { formatDateTime } from "./offerings-table"
+import { fmtScore } from "./format"
+import type { ResultSheet } from "../../types"
+
+// The Moodle setup convention (C3) tutors follow so items map themselves.
+export const MOODLE_SETUP_NOTE =
+  "In the Moodle gradebook, create two categories with ID numbers CA and EXAM and put every activity inside one of them (or give each item an ID number starting with CA or EXAM). Course-total and category-total items are ignored."
+
+const COMPOSITION_LABEL = {
+  CA: "CA",
+  EXAM: "Exam",
+  EXCLUDED: "Excluded",
+  UNMAPPED: "Unmapped",
+} as const
+
+// Which Moodle items feed CA and Exam, straight from the server's per-row
+// `items` (every row of an offering carries the same item list). Display
+// grouping only: no weight or score is derived here.
+function ComponentComposition({ sheet }: { sheet: ResultSheet }) {
+  const items = sheet.rows.find((r) => r.items && r.items.length > 0)?.items
+  if (!items) return null
+  const groups = (
+    Object.keys(COMPOSITION_LABEL) as (keyof typeof COMPOSITION_LABEL)[]
+  )
+    .map((component) => ({
+      component,
+      list: items.filter((i) => i.component === component),
+    }))
+    .filter((g) => g.list.length > 0)
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      {groups.map((g, idx) => (
+        <span key={g.component}>
+          {idx > 0 && " · "}
+          <span className="font-medium text-foreground">
+            {COMPOSITION_LABEL[g.component]}:
+          </span>{" "}
+          {g.list
+            .map((i) => `${i.name} (out of ${fmtScore(i.max)})`)
+            .join(", ")}
+        </span>
+      ))}
+    </p>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-foreground tabular-nums">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+interface SheetSummaryHeaderProps {
+  sheet: ResultSheet
+  /** The offering's semester is locked (B30 item 13). */
+  locked?: boolean
+  lockedAt?: string | null
+}
+
+export function SheetSummaryHeader({
+  sheet,
+  locked = false,
+  lockedAt = null,
+}: SheetSummaryHeaderProps) {
+  const s = sheet.summary
+  const schemeIds = new Set(
+    sheet.rows
+      .map((r) => r.gradingSchemeId)
+      .filter((id): id is number => id != null)
+  )
+
+  return (
+    <div className="sticky top-0 z-10 space-y-3 rounded-2xl border border-border bg-card/95 p-4 backdrop-blur supports-backdrop-filter:bg-card/80">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">
+              {s.courseCode}
+            </h2>
+            <ResultStatusBadge status={s.status} />
+            {locked && <SemesterLockBadge lockedAt={lockedAt} />}
+            {schemeIds.size > 1 && (
+              <span
+                title="Students in this offering come from programs with different grading schemes; each row is graded on its own scheme."
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                <Layers className="size-3" aria-hidden />
+                {schemeIds.size} grading schemes
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {s.courseTitle} · {s.creditUnits} units · {s.semesterName},{" "}
+            {s.academicSession}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Last pulled from Moodle: {formatDateTime(s.lastPulledAt)}
+            {s.lecturers.length > 0 &&
+              ` · ${s.lecturers.map((l) => l.name).join(", ")}`}
+          </p>
+          {/* Contract v1.1 (A46). Shown only when the backend sends a
+              source — never inferred from the scheme or the scores. */}
+          {(s.weightSource === "MOODLE" || s.weightSource === "SCHEME") && (
+            <p
+              className="text-xs font-medium text-foreground"
+              title={
+                s.weightSource === "MOODLE"
+                  ? "The CA and exam items' combined weights in this course's Moodle gradebook (its course total). To change the split, change the item or category weights in Moodle and pull again."
+                  : undefined
+              }
+            >
+              CA {fmtScore(s.caWeight)} / Exam {fmtScore(s.examWeight)}
+              <span className="font-normal text-muted-foreground">
+                {s.weightSource === "MOODLE"
+                  ? " · from the Moodle gradebook"
+                  : " · from the grading scheme (Moodle has no weights)"}
+              </span>
+            </p>
+          )}
+          <ComponentComposition sheet={sheet} />
+        </div>
+        <div className="grid grid-cols-3 gap-x-6 gap-y-2 sm:grid-cols-6">
+          <Stat label="Students" value={s.studentCount} />
+          <Stat label="Missing" value={s.missingCount} />
+          <Stat label="Drift" value={s.driftCount} />
+          <Stat label="Unmapped" value={s.unmappedItemCount} />
+          <Stat label="Pending adj." value={s.pendingAdjustmentBatches} />
+          <Stat label="Withheld" value={s.withheldCount} />
+        </div>
+      </div>
+
+      {locked && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/50"
+        >
+          <Lock
+            className="mt-0.5 size-4 shrink-0 text-zinc-700 dark:text-zinc-200"
+            aria-hidden
+          />
+          <p className="text-xs text-zinc-800 dark:text-zinc-100">
+            <span className="font-semibold">
+              Semester locked
+              {lockedAt ? ` on ${formatDateTime(lockedAt)}` : ""}.
+            </span>{" "}
+            {SEMESTER_LOCKED_MESSAGE}
+          </p>
+        </div>
+      )}
+
+      {/* Before the first pull the backend reports NONE for every sheet
+          (nothing has been read from Moodle yet), so the blocking alert only
+          appears once the sheet has been pulled. Open question in A46:
+          confirm NONE-before-pull means "not known yet". */}
+      {s.weightSource === "NONE" && s.lastPulledAt != null && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5"
+        >
+          <Scale
+            className="mt-0.5 size-4 shrink-0 text-destructive"
+            aria-hidden
+          />
+          <div className="text-xs">
+            <p className="font-semibold text-destructive">
+              No CA/exam weights for this course. Scores can&apos;t be computed
+              or submitted until there are.
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              Weight the CA and EXAM categories in this course&apos;s Moodle
+              gradebook, or give the grading scheme fallback weights in Result
+              configuration.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {s.unmappedItemCount > 0 && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5"
+        >
+          <AlertOctagon
+            className="mt-0.5 size-4 shrink-0 text-destructive"
+            aria-hidden
+          />
+          <div className="text-xs">
+            <p className="font-semibold text-destructive">
+              {s.unmappedItemCount} Moodle grade item
+              {s.unmappedItemCount === 1 ? " isn't" : "s aren't"} mapped to CA
+              or EXAM. This sheet can&apos;t be computed or submitted until they
+              are.
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              Map them in the Grade items tab, or fix them in Moodle:{" "}
+              {MOODLE_SETUP_NOTE}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

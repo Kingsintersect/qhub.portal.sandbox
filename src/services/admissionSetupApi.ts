@@ -97,11 +97,23 @@ const mapRequirement = (
 
 export const admissionSetupApi = {
   listCyclesBySession: async (
-    sessionId: number
+    sessionId: number,
+    // Major-Program Scoping — live since A36 (2026-09-26, bruno/admission/
+    // Cycles - List.bru): ?majorProgramId= narrows by the cycle's session's
+    // major program and a scoped caller is confined to their scope
+    // (GET by id outside it 403s OUT_OF_SCOPE). Cycles still inherit scope
+    // through their session, so with sessionId pinned this only narrows.
+    majorProgramId?: number | null
   ): Promise<{ data: AdmissionCycle[] }> => {
     const res = await apiClient.get<{ data: WireAdmissionCycle[] }>(
       "/admissions/cycles",
-      { ...AUTH, params: { sessionId } }
+      {
+        ...AUTH,
+        params: {
+          sessionId,
+          ...(majorProgramId != null ? { majorProgramId } : {}),
+        },
+      }
     )
     return { data: res.data.map(mapCycle) }
   },
@@ -226,8 +238,18 @@ export const admissionSetupApi = {
 
 export const admissionSetupKeys = {
   all: ["admission-setup"] as const,
-  cyclesBySession: (sessionId: number) =>
+  // Prefix (no majorProgramId) — use for invalidation, so a mutation
+  // invalidates every majorProgramId-filtered variant of this session's
+  // cycles list at once, not just the unfiltered ("null") one.
+  cyclesBySessionPrefix: (sessionId: number) =>
     [...admissionSetupKeys.all, "cycles", sessionId] as const,
+  cyclesBySession: (sessionId: number, majorProgramId?: number | null) =>
+    [
+      ...admissionSetupKeys.all,
+      "cycles",
+      sessionId,
+      majorProgramId ?? null,
+    ] as const,
   cycleDetail: (id: number) =>
     [...admissionSetupKeys.all, "cycles", id] as const,
   requirementsByCycle: (cycleId: number) =>
@@ -235,11 +257,12 @@ export const admissionSetupKeys = {
 }
 
 export const admissionSetupQueryOptions = {
-  cyclesBySession: (sessionId: number) =>
+  cyclesBySession: (sessionId: number, majorProgramId?: number | null) =>
     createApiQueryOptions({
-      queryKey: admissionSetupKeys.cyclesBySession(sessionId),
+      queryKey: admissionSetupKeys.cyclesBySession(sessionId, majorProgramId),
       queryFn: async () =>
-        (await admissionSetupApi.listCyclesBySession(sessionId)).data,
+        (await admissionSetupApi.listCyclesBySession(sessionId, majorProgramId))
+          .data,
     }),
 
   cycleDetail: (id: number) =>

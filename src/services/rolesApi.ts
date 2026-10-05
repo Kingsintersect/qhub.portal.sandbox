@@ -10,6 +10,7 @@ import type {
   CreatePermissionPayload,
   UpdatePermissionPayload,
   AssignRolesPayload,
+  AssignRolesResponse,
   RevokeRolePayload,
   UserWithRoles,
   UserRoleSummary,
@@ -20,57 +21,105 @@ const AUTH = { access_token: true } as const
 
 // ── Roles ───────────────────────────────────
 
+// The roles table has no `slug` column (bruno/user/Users - List.bru: "there is
+// no `slug` column anywhere in this API's roles table"), so the UI's `slug`
+// is filled from `name` wherever a role comes back from the API.
+const withSlug = (role: Role): Role => ({
+  ...role,
+  slug: role.slug || role.name,
+})
+
 export const rolesApi = {
+  // GET /auth/roles is paginated (`{data, meta}`, default limit 15 —
+  // bruno/auth/Roles - List.bru). Page through so pickers and the Roles
+  // screen see every role, not just the first 15.
   list: async (): Promise<ApiListResponse<Role>> => {
-    return apiClient.get<ApiListResponse<Role>>("/auth/roles", AUTH)
+    const limit = 100
+    let page = 1
+    let all: Role[] = []
+    for (;;) {
+      const res = await apiClient.get<{
+        data: Role[]
+        meta?: { total?: number }
+      }>("/auth/roles", { ...AUTH, params: { page, limit } })
+      all = all.concat(res.data)
+      const total = res.meta?.total ?? all.length
+      if (all.length >= total || res.data.length === 0) break
+      page += 1
+    }
+    const data = all.map(withSlug)
+    return { data, total: data.length }
   },
 
   getById: async (id: number): Promise<ApiSingleResponse<Role>> => {
-    return apiClient.get<ApiSingleResponse<Role>>(`/auth/roles/${id}`, AUTH)
+    const res = await apiClient.get<ApiSingleResponse<Role>>(
+      `/auth/roles/${id}`,
+      AUTH
+    )
+    return { ...res, data: withSlug(res.data) }
   },
 
+  // CreateRoleRequest accepts only `name` + optional `description` (bruno/auth/
+  // Roles - Create.bru), so the selected permissions are attached with a
+  // second call — a fresh role has nothing to detach, so `sync` is enough.
   create: async (
     payload: CreateRolePayload
   ): Promise<ApiSingleResponse<Role>> => {
-    return apiClient.post<ApiSingleResponse<Role>>("/auth/roles", payload, AUTH)
+    const created = await apiClient.post<ApiSingleResponse<Role>>(
+      "/auth/roles",
+      {
+        name: payload.name,
+        ...(payload.description ? { description: payload.description } : {}),
+      },
+      AUTH
+    )
+    if (!payload.permission_ids?.length) return created
+    await rolePermissionsApi.sync(created.data.id, payload.permission_ids)
+    return rolesApi.getById(created.data.id)
   },
 
+  // The role PATCH doesn't take permissions, so a provided `permission_ids`
+  // is applied with a full reconcile (adds + detaches) after the update.
+  // UpdateRoleRequest accepts only `name` and `description` (bruno/auth/
+  // Roles - Update.bru); `slug`/`is_default` are UI-only and not sent.
   update: async (
     id: number,
     payload: UpdateRolePayload
   ): Promise<ApiSingleResponse<Role>> => {
-    const { permission_ids: _permission_ids, ...rolePayload } = payload
-    return apiClient.patch<ApiSingleResponse<Role>>(
+    const { permission_ids, name, description } = payload
+    const updated = await apiClient.patch<ApiSingleResponse<Role>>(
       `/auth/roles/${id}`,
-      rolePayload,
+      {
+        ...(name !== undefined ? { name } : {}),
+        ...(description !== undefined ? { description } : {}),
+      },
       AUTH
     )
+    if (permission_ids === undefined) return updated
+    return rolePermissionsApi.reconcile(id, permission_ids)
   },
 
   delete: async (id: number): Promise<{ message: string }> => {
     return apiClient.delete<{ message: string }>(`/auth/roles/${id}`, AUTH)
   },
 
-  // No `POST /auth/roles/:id/duplicate` endpoint exists (verified 404,
-  // 2026-09-10 — the earlier "now shipped" note was wrong). Composed from the
-  // real Create + permission-sync endpoints: read the source role with its
-  // permissions, create a new one, copy the permission set across.
+  // Real endpoint per bruno/auth/Roles - Duplicate.bru (added 2026-09,
+  // closing the gap flagged in STILL_MISSING_AFTER_HANDOFF_2026-09.md §2) —
+  // clones the source role's entire permission set server-side in one call.
+  // `name` is required by the backend; the UI doesn't currently prompt for
+  // one (see RolesPanel.tsx's duplicateRole(role.id)), so this preserves the
+  // same auto-generated `${name}_copy` convention the old client-side
+  // composition used, keeping today's UX unchanged.
   duplicate: async (id: number): Promise<ApiSingleResponse<Role>> => {
     const source = (await rolesApi.getById(id)).data
-    const created = await apiClient.post<ApiSingleResponse<Role>>(
-      "/auth/roles",
+    return apiClient.post<ApiSingleResponse<Role>>(
+      `/auth/roles/${id}/duplicate`,
       {
         name: `${source.name}_copy`,
         description: source.description ?? undefined,
       },
       AUTH
     )
-    const permissionIds = (source.permissions ?? []).map((p) => p.id)
-    if (permissionIds.length && created.data?.id) {
-      await rolePermissionsApi.sync(created.data.id, permissionIds)
-      return rolesApi.getById(created.data.id)
-    }
-    return created
   },
 }
 
@@ -206,26 +255,53 @@ export const rolePermissionsApi = {
 // listForUser/assign/revoke are real, bruno-documented endpoints
 // (Users - {List Roles, Assign Roles, Remove Role}.bru) with no prior
 // frontend caller. getUsersWithRole is the reverse lookup ("which users
-// hold this role") needed by RoleDetailView's Users tab — `GET
-// /auth/roles/:roleId/users` does NOT exist (verified 404, 2026-09-10) and
-// `/users` carries no role data to filter on. Kept wired against the
-// designed contract (sandbox/API_GAPS_2026-09.md §9); returns [] on 404 so
-// the Users tab renders an empty state instead of an error screen.
+// hold this role") needed by RoleDetailView's Users tab, per
+// sandbox/API_GAPS_2026-09.md §9. Returns [] on error so the Users tab
+// renders an empty state instead of an error screen.
+
+/**
+ * One row of GET /auth/users/:userId/roles. Live (QHUB, 2026-10-05) every row
+ * carries its grant's major-program scope; a role scoped to two major programs
+ * comes back as two rows with the same `id`. Null scope = unscoped grant.
+ */
+export type UserRoleGrant = UserRoleSummary & {
+  majorProgramId: number | null
+  majorProgramName: string | null
+}
 
 export const userRolesApi = {
   listForUser: async (
     userId: number
-  ): Promise<ApiListResponse<UserRoleSummary>> => {
-    return apiClient.get<ApiListResponse<UserRoleSummary>>(
-      `/auth/users/${userId}/roles`,
-      AUTH
+  ): Promise<ApiListResponse<UserRoleGrant>> => {
+    const res = await apiClient.get<{
+      data: (UserRoleSummary & {
+        majorProgramId?: number | null
+        majorProgramName?: string | null
+      })[]
+    }>(`/auth/users/${userId}/roles`, AUTH)
+    const data = res.data.map(
+      (r): UserRoleGrant => ({
+        id: r.id,
+        name: r.name,
+        majorProgramId: r.majorProgramId ?? null,
+        majorProgramName: r.majorProgramName ?? null,
+      })
     )
+    return { data, total: data.length }
   },
 
-  assign: async (payload: AssignRolesPayload): Promise<{ message: string }> => {
-    return apiClient.post<{ message: string }>(
+  assign: async (payload: AssignRolesPayload): Promise<AssignRolesResponse> => {
+    return apiClient.post<AssignRolesResponse>(
       `/auth/users/${payload.user_id}/roles`,
-      { roleIds: payload.role_ids },
+      {
+        roleIds: payload.role_ids,
+        // Major-Program Scoping — see AssignRolesPayload's note.
+        // Omitted (not sent) rather than `undefined` when absent, matching
+        // how every other optional field on this call already behaves.
+        ...(payload.major_program_ids?.length
+          ? { majorProgramIds: payload.major_program_ids }
+          : {}),
+      },
       AUTH
     )
   },
@@ -241,10 +317,49 @@ export const userRolesApi = {
     roleId: number
   ): Promise<ApiListResponse<UserWithRoles>> => {
     try {
-      return await apiClient.get<ApiListResponse<UserWithRoles>>(
-        `/auth/roles/${roleId}/users`,
-        AUTH
-      )
+      // Live shape (verified 2026-09-14): `{ data, meta }` with camelCase
+      // user fields — mapped to the snake_case UserWithRoles the UI renders.
+      // Paginated with a default limit of 15 (bruno/auth/Roles - List
+      // Users.bru), so every page is read.
+      type WireRoleUser = {
+        id: number
+        email: string
+        username: string
+        firstName: string | null
+        lastName: string | null
+        phoneNumber: string | null
+        isActive: boolean
+        roles?: (string | { id: number; name: string; slug?: string })[]
+      }
+      const limit = 100
+      let page = 1
+      let rows: WireRoleUser[] = []
+      let total = 0
+      for (;;) {
+        const res = await apiClient.get<{
+          data: WireRoleUser[]
+          meta?: { total?: number }
+        }>(`/auth/roles/${roleId}/users`, { ...AUTH, params: { page, limit } })
+        rows = rows.concat(res.data)
+        total = res.meta?.total ?? rows.length
+        if (rows.length >= total || res.data.length === 0) break
+        page += 1
+      }
+      const data: UserWithRoles[] = rows.map((u) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        first_name: u.firstName,
+        last_name: u.lastName,
+        phone_number: u.phoneNumber,
+        is_active: u.isActive,
+        roles: (u.roles ?? []).map((r, i) =>
+          typeof r === "string"
+            ? { id: i, name: r, slug: r }
+            : { id: r.id, name: r.name, slug: r.slug ?? r.name }
+        ),
+      }))
+      return { data, total: Math.max(total, data.length) }
     } catch {
       return { data: [], total: 0 }
     }
@@ -412,7 +527,7 @@ export const permissionsMutationOptions = {
 
 export const userRolesMutationOptions = {
   assign: () =>
-    createApiMutationOptions<{ message: string }, AssignRolesPayload>({
+    createApiMutationOptions<AssignRolesResponse, AssignRolesPayload>({
       mutationKey: [...userRolesKeys.all, "assign"],
       mutationFn: userRolesApi.assign,
     }),

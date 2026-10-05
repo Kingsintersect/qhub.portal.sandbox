@@ -6,8 +6,10 @@ import {
   AlertTriangle,
   ArrowRight,
   Ban,
+  BadgeCheck,
   Calendar,
   Hash,
+  ListChecks,
   Loader2,
   Receipt,
   ShieldOff,
@@ -21,8 +23,12 @@ import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { InvoiceStatusBadge } from "../shared/invoice-status-badge"
 import { FeeCategoryBadge } from "../shared/fee-category-badge"
 import { CurrencyDisplay } from "../shared/currency-display"
+import { PaymentHistory } from "../shared/payment-history"
 import { WaiveInvoiceDialog } from "./waive-invoice-dialog"
 import { useCancelInvoice } from "../../hooks/use-fee-mutations"
+import { getInvoiceWaiver } from "../../lib/invoice-waiver"
+import { studentDisplayName } from "../../lib/invoice-student"
+import { StandingSummaryCompact } from "@/modules/progression/components/standing-summary-compact"
 import type { InvoiceResponse, FeeCategory } from "../../types"
 
 interface InvoiceDetailDrawerProps {
@@ -47,6 +53,8 @@ export function InvoiceDetailDrawer({
   const balance = invoice
     ? Math.max(0, Number(invoice.amount) - Number(invoice.amountPaid))
     : 0
+
+  const waiver = invoice ? getInvoiceWaiver(invoice) : null
 
   return (
     <>
@@ -149,7 +157,7 @@ export function InvoiceDetailDrawer({
                           Student
                         </dt>
                         <dd className="font-medium text-foreground">
-                          {invoice.student.fullName}
+                          {studentDisplayName(invoice.student) ?? "—"}
                         </dd>
                         <dd className="font-mono text-xs text-muted-foreground">
                           {invoice.student.matricNumber}
@@ -210,6 +218,69 @@ export function InvoiceDetailDrawer({
                   </div>
                 </dl>
 
+                {/* Read-only academic standing (standings.view) — BURSARY's
+                    only view of a student is this drawer. */}
+                {invoice.student && (
+                  <StandingSummaryCompact studentId={invoice.student.id} />
+                )}
+
+                {/* Waiver record — who, when and why (screen 7). */}
+                {waiver && (
+                  <section
+                    aria-labelledby="invoice-waiver-heading"
+                    className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm dark:border-teal-900/40 dark:bg-teal-900/10"
+                  >
+                    <h3
+                      id="invoice-waiver-heading"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-teal-800 dark:text-teal-300"
+                    >
+                      <BadgeCheck size={13} aria-hidden="true" />
+                      Waived
+                    </h3>
+                    {waiver.by || waiver.at || waiver.reason ? (
+                      <dl className="mt-2 space-y-1.5 text-xs">
+                        <div className="flex gap-2">
+                          <dt className="w-16 shrink-0 text-muted-foreground">
+                            By
+                          </dt>
+                          <dd className="font-medium text-foreground">
+                            {waiver.by ?? "Not recorded"}
+                          </dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="w-16 shrink-0 text-muted-foreground">
+                            On
+                          </dt>
+                          <dd className="font-medium text-foreground">
+                            {waiver.at
+                              ? new Date(waiver.at).toLocaleString("en-NG", {
+                                  day: "2-digit",
+                                  month: "long",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "Not recorded"}
+                          </dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="w-16 shrink-0 text-muted-foreground">
+                            Reason
+                          </dt>
+                          <dd className="whitespace-pre-wrap text-foreground">
+                            {waiver.reason ?? "Not recorded"}
+                          </dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        The server didn&apos;t return who waived this invoice,
+                        when, or why.
+                      </p>
+                    )}
+                  </section>
+                )}
+
                 {/* Overdue warning */}
                 {invoice.status === "OVERDUE" && (
                   <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-destructive dark:border-red-900/40 dark:bg-red-900/10">
@@ -218,19 +289,46 @@ export function InvoiceDetailDrawer({
                     deadline.
                   </div>
                 )}
+
+                <Separator />
+
+                {/* Payment log — the admin side had no way to see an
+                    invoice's payment/transaction history at all before this;
+                    reuses the same component the student self-service page
+                    already uses (moved to components/shared/ for this). */}
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <ListChecks size={14} className="text-muted-foreground" />
+                    <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Payment Log
+                    </h3>
+                  </div>
+                  <PaymentHistory
+                    invoiceId={invoice.id}
+                    invoiceNumber={invoice.invoiceNumber}
+                    feeTypeName={invoice.feeType.name}
+                  />
+                </div>
               </div>
 
               {/* Footer — admin actions */}
               <div className="space-y-3 border-t border-border px-5 py-4">
                 {canActOn && (
                   <>
-                    {/* Waive — restricted to fee-management:waive */}
+                    {/* Waive. The contract names the permission
+                        invoices.waive; live sessions carry the older
+                        fee-management.waive, which the backend prompt says
+                        to reuse. Either one grants it. */}
                     <PermissionGate
-                      require={{ resource: "fee-management", action: "waive" }}
+                      require={[
+                        { resource: "invoices", action: "waive" },
+                        { resource: "fee-management", action: "waive" },
+                      ]}
+                      mode="any"
                       fallback={
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <ShieldOff size={12} />
-                          Waiving requires Bursary role
+                          <ShieldOff size={12} aria-hidden="true" />
+                          You don&apos;t have permission to waive invoices.
                         </div>
                       }
                     >
@@ -240,8 +338,8 @@ export function InvoiceDetailDrawer({
                         className="w-full gap-1.5"
                         onClick={() => setWaiveOpen(true)}
                       >
-                        <ArrowRight size={13} />
-                        Waive Remaining Balance
+                        <ArrowRight size={13} aria-hidden="true" />
+                        Waive invoice
                       </Button>
                     </PermissionGate>
 
@@ -314,10 +412,10 @@ export function InvoiceDetailDrawer({
         <WaiveInvoiceDialog
           invoice={invoice}
           open={waiveOpen}
-          onClose={() => {
-            setWaiveOpen(false)
-            onClose()
-          }}
+          onClose={() => setWaiveOpen(false)}
+          // The drawer holds a snapshot of the invoice; close it so the
+          // refetched list (now WAIVED) is what the admin sees next.
+          onWaived={onClose}
         />
       )}
     </>

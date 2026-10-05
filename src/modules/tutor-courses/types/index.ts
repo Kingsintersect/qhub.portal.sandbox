@@ -38,7 +38,16 @@ export interface AssignedCourse {
   departmentName: string | null
   facultyName: string | null
   programmes: CourseProgramme[]
+  // The offering's owning major programs. A tutor can teach in several
+  // (cross-program teaching, 2026-09-26), so My Courses groups by these.
+  majorProgramIds: number[]
   categoryPath: string[]
   registeredStudents: number | null
   schedule: TimetableSlot[]
+}
+
+// One-time-use Moodle SSO redirect, minted fresh per click — mirrors
+// src/modules/enrollment/types/index.ts's student-facing equivalent.
+export interface MoodleLaunchResult {
+  redirectUrl: string
 }

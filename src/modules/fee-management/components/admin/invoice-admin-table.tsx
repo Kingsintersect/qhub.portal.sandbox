@@ -20,11 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { QueryErrorState } from "@/components/query-error-state"
+import { useLevels } from "@/hooks/useCourseStructure"
 import { InvoiceStatusBadge } from "../shared/invoice-status-badge"
 import { FeeCategoryBadge } from "../shared/fee-category-badge"
 import { CurrencyDisplay } from "../shared/currency-display"
 import { useInvoices } from "../../hooks/use-invoices"
 import { useFeeManagementUiStore } from "../../store/fee-management-ui.store"
+import { studentDisplayName } from "../../lib/invoice-student"
 import type { InvoiceResponse, InvoiceStatus, FeeCategory } from "../../types"
 
 interface InvoiceAdminTableProps {
@@ -51,12 +55,18 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("dueDate")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
+  const { data: levelsData } = useLevels()
+  const levels = levelsData?.data ?? []
 
-  const { data, isLoading, refetch } = useInvoices({
+  const { data, isLoading, error, refetch } = useInvoices({
     status: invoiceTableFilters.status,
     feeTypeId: invoiceTableFilters.feeTypeId,
     sessionId: invoiceTableFilters.sessionId,
     studentId: invoiceTableFilters.studentId,
+    majorProgramId: invoiceTableFilters.majorProgramId,
+    facultyName: invoiceTableFilters.facultyName,
+    departmentName: invoiceTableFilters.departmentName,
+    level: invoiceTableFilters.level,
   })
 
   const invoices = data?.data ?? []
@@ -64,12 +74,14 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
   const filtered = invoices.filter((inv) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return (
-      inv.invoiceNumber.toLowerCase().includes(q) ||
-      inv.student?.fullName.toLowerCase().includes(q) ||
-      inv.student?.matricNumber.toLowerCase().includes(q) ||
-      inv.feeType.name.toLowerCase().includes(q)
-    )
+    // Live invoices can come back without a student name or fee-type name
+    // (e.g. a waived invoice's feeType {name: null}); treat those as empty.
+    return [
+      inv.invoiceNumber,
+      studentDisplayName(inv.student),
+      inv.student?.matricNumber,
+      inv.feeType?.name,
+    ].some((v) => (v ?? "").toLowerCase().includes(q))
   })
 
   const sorted = [...filtered].sort((a, b) => {
@@ -108,6 +120,9 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
     invoiceTableFilters.status ||
     invoiceTableFilters.feeTypeId ||
     invoiceTableFilters.sessionId ||
+    invoiceTableFilters.facultyName ||
+    invoiceTableFilters.departmentName ||
+    invoiceTableFilters.level ||
     search
 
   if (isLoading) {
@@ -122,6 +137,16 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
 
   return (
     <div className="space-y-4">
+      <MajorProgramFilterTabs
+        value={invoiceTableFilters.majorProgramId ?? null}
+        onChange={(id) =>
+          setInvoiceTableFilters({
+            ...invoiceTableFilters,
+            majorProgramId: id ?? undefined,
+          })
+        }
+      />
+
       {/* ── Filter bar ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-48 flex-1">
@@ -163,6 +188,55 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
           </SelectContent>
         </Select>
 
+        {/* sandbox/MISSING_BACKEND_APIS.md §2.8. */}
+        <Input
+          placeholder="Faculty…"
+          value={invoiceTableFilters.facultyName ?? ""}
+          onChange={(e) =>
+            setInvoiceTableFilters({
+              ...invoiceTableFilters,
+              facultyName: e.target.value || undefined,
+            })
+          }
+          className="h-9 w-36 rounded-xl border-transparent bg-muted text-sm"
+        />
+        <Input
+          placeholder="Department…"
+          value={invoiceTableFilters.departmentName ?? ""}
+          onChange={(e) =>
+            setInvoiceTableFilters({
+              ...invoiceTableFilters,
+              departmentName: e.target.value || undefined,
+            })
+          }
+          className="h-9 w-36 rounded-xl border-transparent bg-muted text-sm"
+        />
+        <Select
+          value={
+            invoiceTableFilters.level
+              ? String(invoiceTableFilters.level)
+              : "ALL"
+          }
+          onValueChange={(v) =>
+            setInvoiceTableFilters({
+              ...invoiceTableFilters,
+              level: v === "ALL" ? undefined : Number(v),
+            })
+          }
+        >
+          <SelectTrigger className="h-9 w-32 rounded-xl border-transparent bg-muted text-sm">
+            <SelectValue placeholder="All levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All levels</SelectItem>
+            {levels.map((l) => (
+              <SelectItem key={l.id} value={String(l.numericValue)}>
+                {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {hasFilters && (
           <Button
             variant="ghost"
@@ -191,14 +265,23 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
       </div>
 
       {/* ── Summary counts ─────────────────────────────────────────── */}
-      <p className="text-xs text-muted-foreground">
-        {sorted.length.toLocaleString("en-NG")} invoice
-        {sorted.length !== 1 ? "s" : ""}
-        {hasFilters ? " (filtered)" : ""}
-      </p>
+      {!error && (
+        <p className="text-xs text-muted-foreground">
+          {sorted.length.toLocaleString("en-NG")} invoice
+          {sorted.length !== 1 ? "s" : ""}
+          {hasFilters ? " (filtered)" : ""}
+        </p>
+      )}
 
       {/* ── Table ──────────────────────────────────────────────────── */}
-      {sorted.length === 0 ? (
+      {/* A refused/failed request is not "No invoices found." */}
+      {error ? (
+        <QueryErrorState
+          error={error}
+          subject="invoices"
+          onRetry={() => refetch()}
+        />
+      ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Search size={36} className="mb-2 opacity-30" />
           <p className="text-sm">
@@ -285,11 +368,27 @@ export function InvoiceAdminTable({ onViewDetail }: InvoiceAdminTableProps) {
                       {inv.student ? (
                         <div>
                           <p className="text-xs font-medium">
-                            {inv.student.fullName}
+                            {studentDisplayName(inv.student) ?? "—"}
                           </p>
                           <p className="font-mono text-xs text-muted-foreground">
                             {inv.student.matricNumber}
                           </p>
+                          {/* sandbox/MISSING_BACKEND_APIS.md §2.8. */}
+                          {(inv.student.facultyName ||
+                            inv.student.departmentName ||
+                            inv.student.level) && (
+                            <p className="text-[11px] text-muted-foreground">
+                              {[
+                                inv.student.facultyName,
+                                inv.student.departmentName,
+                                inv.student.level
+                                  ? `${inv.student.level}L`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">

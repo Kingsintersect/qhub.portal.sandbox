@@ -22,6 +22,8 @@ import EmptyState from "@/components/custom/EmptyState"
 import Modal from "@/components/custom/Modal"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { getErrorMessage } from "@/lib/errors"
 import {
   applicationReviewApi,
   applicationReviewKeys,
@@ -71,6 +73,9 @@ export default function ReviewApplicationsPage() {
   const router = useRouter()
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState("all")
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [denyOpen, setDenyOpen] = useState(false)
   const [denyReason, setDenyReason] = useState("")
@@ -82,9 +87,15 @@ export default function ReviewApplicationsPage() {
     isError,
     error,
   } = useQuery(
-    applicationReviewQueryOptions.list(
-      statusFilter !== "all" ? { status: statusFilter } : undefined
-    )
+    applicationReviewQueryOptions.list({
+      ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+      // Major-Program Scoping — no-op filter until the backend enforces
+      // scope; see MajorProgramFilterTabs (renders nothing for a
+      // single-scoped/unscoped caller).
+      ...(majorProgramFilter !== null
+        ? { majorProgramId: majorProgramFilter }
+        : {}),
+    })
   )
 
   const bulkReview = useMutation({
@@ -110,8 +121,7 @@ export default function ReviewApplicationsPage() {
       setDenyReason("")
       qc.invalidateQueries({ queryKey: applicationReviewKeys.all })
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Bulk review failed"),
+    onError: (e) => toast.error(getErrorMessage(e, "Bulk review failed")),
   })
 
   const toggle = (id: string) =>
@@ -306,6 +316,11 @@ export default function ReviewApplicationsPage() {
           Review and manage student admission applications
         </p>
       </motion.div>
+
+      <MajorProgramFilterTabs
+        value={majorProgramFilter}
+        onChange={setMajorProgramFilter}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

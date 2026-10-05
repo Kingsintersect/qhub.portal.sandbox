@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
-import { useForm, Controller } from "react-hook-form"
+import { useEffect, useMemo, useState } from "react"
+import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Loader2 } from "lucide-react"
@@ -24,10 +24,20 @@ import {
   getStepIcon,
 } from "@/lib/admissionStepIcons"
 import { DEFAULT_ADMISSION_STEPS } from "@/lib/admissionConfig"
+import { STAGE_TYPES, STAGE_TYPE_CATALOG } from "@/lib/admission-catalog"
 import type {
   AdmissionStepDefinition,
   AdmissionStepGroup,
+  StageType,
 } from "@/types/admissionConfig"
+import { StageConfigEditor } from "./StageConfigEditor"
+import {
+  makeStageDraft,
+  stageDraftForBuiltInKey,
+  stageDraftForStep,
+  validateStageDraft,
+  type StageDraft,
+} from "./stage-draft"
 
 /** Sentinel `stepType` value meaning "not one of the built-in types — free-text label/key". */
 export const CUSTOM_STEP_TYPE = "CUSTOM"
@@ -54,10 +64,27 @@ interface StepFormModalProps {
   onClose: () => void
   groupLabel: string
   group: AdmissionStepGroup
-  /** Keys already used in this group — built-in types already taken are excluded from the picker. */
+  /** Keys already used in this scope — built-in types already taken are excluded from the picker. */
   existingKeys: string[]
+  /** Stage types already active in this scope (excluding the step being edited). */
+  stageTypesInUse: StageType[]
+  /** The scope this step belongs to, e.g. "Certificate programs". Set by the page tab. */
+  scopeName: string
+  /**
+   * True only for the "All major programs" tab. MAJOR_PROGRAM_CHOICE can
+   * only ever make sense there — it's the stage that decides which major
+   * program's own steps apply, so scoping one to a specific major program
+   * (or category/program) would mean it can never actually be reached.
+   * Unlike a `pendingBackend` type, this is a real structural impossibility
+   * the frontend's own design enforces, not a guess about the backend.
+   */
+  isDefaultScope: boolean
   editing: AdmissionStepDefinition | null
-  onSubmit: (values: StepFormValues) => Promise<void> | void
+  /** `stage` is null for FORM steps. */
+  onSubmit: (
+    values: StepFormValues,
+    stage: StageDraft | null
+  ) => Promise<void> | void
   isSubmitting: boolean
 }
 
@@ -72,12 +99,23 @@ function toDefaults(step: AdmissionStepDefinition | null): StepFormValues {
   }
 }
 
+function initialStage(
+  group: AdmissionStepGroup,
+  editing: AdmissionStepDefinition | null
+): StageDraft | null {
+  if (group !== "PROCESS") return null
+  return (editing && stageDraftForStep(editing)) ?? makeStageDraft("CONTENT")
+}
+
 export default function StepFormModal({
   open,
   onClose,
   groupLabel,
   group,
   existingKeys,
+  stageTypesInUse,
+  scopeName,
+  isDefaultScope,
   editing,
   onSubmit,
   isSubmitting,
@@ -86,14 +124,26 @@ export default function StepFormModal({
     resolver: zodResolver(stepFormSchema),
     defaultValues: toDefaults(editing),
   })
+  const [stage, setStage] = useState<StageDraft | null>(() =>
+    initialStage(group, editing)
+  )
+  const [stageErrors, setStageErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (open) form.reset(toDefaults(editing))
+    if (!open) return
+    form.reset(toDefaults(editing))
+    setStage(initialStage(group, editing))
+    setStageErrors({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing])
+  }, [open, editing, group])
 
-  const required = form.watch("required")
-  const stepType = form.watch("stepType")
+  const required = useWatch({ control: form.control, name: "required" })
+  const stepType = useWatch({ control: form.control, name: "stepType" })
+  const isProcess = group === "PROCESS"
+  // An existing step's type never changes; a built-in step's type is fixed by its key.
+  const stageTypeLocked = !!editing || stepType !== CUSTOM_STEP_TYPE
+  // The step being edited was only just marked "untyped" if it had no type.
+  const editingUntyped = !!editing && isProcess && !stageDraftForStep(editing)
 
   const knownOptions = useMemo(
     () =>
@@ -105,6 +155,10 @@ export default function StepFormModal({
 
   const handleStepTypeChange = (value: string) => {
     form.setValue("stepType", value)
+    if (isProcess) {
+      setStage(stageDraftForBuiltInKey(value) ?? makeStageDraft("CONTENT"))
+      setStageErrors({})
+    }
     if (value === CUSTOM_STEP_TYPE) return
     const known = knownOptions.find((s) => s.key === value)
     if (!known) return
@@ -115,8 +169,25 @@ export default function StepFormModal({
     form.setValue("icon", known.icon)
   }
 
+  const handleStageTypeChange = (value: string) => {
+    const type = STAGE_TYPES.find((t) => t === value)
+    if (!type) return
+    setStage(makeStageDraft(type))
+    setStageErrors({})
+    if (!editing) form.setValue("icon", STAGE_TYPE_CATALOG[type].icon)
+  }
+
   const submit = form.handleSubmit(async (values) => {
-    await onSubmit(required ? { ...values, enabled: true } : values)
+    if (isProcess) {
+      if (!stage) return
+      const errors = validateStageDraft(stage)
+      setStageErrors(errors)
+      if (Object.keys(errors).length > 0) return
+    }
+    await onSubmit(
+      required ? { ...values, enabled: true } : values,
+      isProcess ? stage : null
+    )
   })
 
   return (
@@ -127,7 +198,9 @@ export default function StepFormModal({
       subtitle={
         editing
           ? `Key: ${editing.key} (fixed)`
-          : "Custom steps are saved and visible here, but only show on the live student pages once matching UI exists — see the workflow doc."
+          : isProcess
+            ? "A stage's type decides what the applicant does at that point in the admission process."
+            : "A form step asks the questions you add to it with Manage fields."
       }
       size="lg"
       footer={
@@ -148,12 +221,22 @@ export default function StepFormModal({
       }
     >
       <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+          <p className="text-xs text-muted-foreground">Applies to</p>
+          <p className="text-sm font-medium text-foreground">{scopeName}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {editing
+              ? "A step's scope can't be changed after it's created."
+              : "Set by the tab you're on. Switch tabs to add a step somewhere else."}
+          </p>
+        </div>
+
         {!editing && (
           <div className="space-y-1.5">
-            <Label>Step Type</Label>
+            <Label htmlFor="step-type">Step</Label>
             <Select value={stepType} onValueChange={handleStepTypeChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a step type" />
+              <SelectTrigger id="step-type" className="w-full">
+                <SelectValue placeholder="Choose a step" />
               </SelectTrigger>
               <SelectContent>
                 {knownOptions.map((opt) => (
@@ -162,14 +245,16 @@ export default function StepFormModal({
                   </SelectItem>
                 ))}
                 <SelectItem value={CUSTOM_STEP_TYPE}>
-                  Custom (no matching page yet)
+                  {isProcess ? "New stage" : "New form step"}
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               {stepType === CUSTOM_STEP_TYPE
-                ? "A custom step is saved and shown here, but has no real page/behavior on the student side yet."
-                : "This type has real behavior already built — its key is fixed, so you can freely edit the label below without breaking it."}
+                ? isProcess
+                  ? "Pick its stage type below."
+                  : "Add its questions afterwards with Manage fields."
+                : "A built-in step — its key is fixed, so you can freely edit the label below."}
             </p>
           </div>
         )}
@@ -198,6 +283,83 @@ export default function StepFormModal({
           />
         </div>
 
+        {isProcess && stage && (
+          <div className="space-y-3 rounded-xl border border-border p-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="stage-type">Stage type</Label>
+              {stageTypeLocked && !editingUntyped ? (
+                <p
+                  id="stage-type"
+                  className="text-sm font-medium text-foreground"
+                >
+                  {STAGE_TYPE_CATALOG[stage.type].label}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {editing
+                      ? "can't be changed after creation"
+                      : "set by the built-in step"}
+                  </span>
+                </p>
+              ) : (
+                <Select
+                  value={stage.type}
+                  onValueChange={handleStageTypeChange}
+                >
+                  <SelectTrigger id="stage-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STAGE_TYPES.map((type) => {
+                      const def = STAGE_TYPE_CATALOG[type]
+                      const taken =
+                        !def.multiple && stageTypesInUse.includes(type)
+                      const wrongScope =
+                        type === "MAJOR_PROGRAM_CHOICE" && !isDefaultScope
+                      // Only "already in use" and "wrong scope" actually
+                      // block selection — both are real structural
+                      // impossibilities this form itself knows about, not a
+                      // guess about the backend. A pending-backend type is
+                      // still the admin's call to make: surface the risk,
+                      // don't decide for them — try it, and the backend's
+                      // own 422 (if it's still not recognized) shows up as a
+                      // normal error on save.
+                      return (
+                        <SelectItem
+                          key={type}
+                          value={type}
+                          disabled={taken || wrongScope}
+                        >
+                          {def.label}
+                          {taken
+                            ? " (already in use)"
+                            : wrongScope
+                              ? " (only allowed in the Catalog)"
+                              : def.pendingBackend
+                                ? " (may 422 — pending backend support)"
+                                : ""}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {STAGE_TYPE_CATALOG[stage.type].description}
+              </p>
+            </div>
+            <StageConfigEditor
+              draft={stage}
+              onChange={(next) => {
+                setStage(next)
+                if (Object.keys(stageErrors).length) {
+                  setStageErrors(validateStageDraft(next))
+                }
+              }}
+              errors={stageErrors}
+              disabled={isSubmitting}
+            />
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label>Icon</Label>
           <Controller
@@ -214,6 +376,8 @@ export default function StepFormModal({
                       type="button"
                       onClick={() => field.onChange(name)}
                       title={name}
+                      aria-label={name}
+                      aria-pressed={selected}
                       className={cn(
                         "flex size-8 items-center justify-center rounded-lg border transition-colors",
                         selected
@@ -241,7 +405,11 @@ export default function StepFormModal({
             control={form.control}
             name="required"
             render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                aria-label="Required"
+              />
             )}
           />
         </div>
@@ -264,6 +432,7 @@ export default function StepFormModal({
                 disabled={required}
                 onCheckedChange={field.onChange}
                 className="data-checked:bg-success"
+                aria-label="Enabled"
               />
             )}
           />

@@ -3,22 +3,35 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { moodleSyncService } from "../services/moodle-sync.service"
 import { moodleSyncKeys } from "./query-keys"
+import { academicStructureKeys } from "@/services/academicStructureApi"
 import type {
   CoursesBulkPushPayload,
   PushCategoryDto,
   ResolveCategoryMappingDto,
   UsersBulkPushPayload,
   UpdateVisibilityPayload,
+  ReconcileModule,
+  ResetModule,
 } from "../types"
 
 // ---------- Category mutations ----------
+
+/** Run the category-mapping check now (sandbox/automation §6). */
+export function useRunCategoryHealthCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => moodleSyncService.runCategoryHealthCheck(),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoryHealth() }),
+  })
+}
 
 export function usePushCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (dto: PushCategoryDto) => moodleSyncService.pushCategory(dto),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
   })
 }
 
@@ -30,7 +43,7 @@ export function usePushSubtree() {
     mutationFn: (rootUnitId: number) =>
       moodleSyncService.pushSubtree(rootUnitId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
   })
 }
 
@@ -39,7 +52,7 @@ export function usePullCategories() {
   return useMutation({
     mutationFn: moodleSyncService.pullCategories,
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
   })
 }
 
@@ -49,7 +62,7 @@ export function usePullCategory() {
     mutationFn: (moodleCategoryId: number) =>
       moodleSyncService.pullCategory(moodleCategoryId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
   })
 }
 
@@ -59,7 +72,20 @@ export function useResolveCategoryMapping() {
     mutationFn: ({ id, dto }: { id: number; dto: ResolveCategoryMappingDto }) =>
       moodleSyncService.resolveCategoryMapping(id, dto),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
+  })
+}
+
+export function useRepairCategoryHierarchy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => moodleSyncService.repairCategoryHierarchy(),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
+        qc.invalidateQueries({ queryKey: academicStructureKeys.units.all }),
+      ])
+    },
   })
 }
 
@@ -68,7 +94,7 @@ export function useDeleteCategoryMapping() {
   return useMutation({
     mutationFn: (id: number) => moodleSyncService.deleteCategoryMapping(id),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.categories() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.categoriesAll() }),
   })
 }
 
@@ -116,7 +142,7 @@ export function usePushCourse() {
     mutationFn: (courseOfferingId: number) =>
       moodleSyncService.pushCourse(courseOfferingId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.courses() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.coursesAll() }),
   })
 }
 
@@ -126,7 +152,7 @@ export function usePushCoursesBulk() {
     mutationFn: (payload: CoursesBulkPushPayload) =>
       moodleSyncService.pushCoursesBulk(payload),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.courses() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.coursesAll() }),
   })
 }
 
@@ -135,7 +161,7 @@ export function usePullCourses() {
   return useMutation({
     mutationFn: moodleSyncService.pullCourses,
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.courses() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.coursesAll() }),
   })
 }
 
@@ -145,7 +171,7 @@ export function usePullCourse() {
     mutationFn: (moodleCourseId: number) =>
       moodleSyncService.pullCourse(moodleCourseId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: moodleSyncKeys.courses() }),
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.coursesAll() }),
   })
 }
 
@@ -287,5 +313,122 @@ export function usePullCalendarForCourse() {
       moodleSyncService.pullCalendarForCourse(moodleCourseId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: [...moodleSyncKeys.all, "calendar"] }),
+  })
+}
+
+// ---------- Reconcile & Reset — sandbox/moodle-sync-reconciliation/ ----------
+
+const RECONCILE_INVALIDATION: Record<ReconcileModule, readonly unknown[]> = {
+  categories: moodleSyncKeys.categoriesAll(),
+  courses: moodleSyncKeys.coursesAll(),
+  users: [...moodleSyncKeys.all, "users"],
+}
+
+const RESET_INVALIDATION: Record<ResetModule, readonly unknown[]> = {
+  assessments: [...moodleSyncKeys.all, "assessments"],
+  calendar: moodleSyncKeys.calendar(),
+  grades: [...moodleSyncKeys.all, "grades"],
+}
+
+// A POST that writes nothing — modelled as a mutation, not a query, because it
+// hits live Moodle and each run is a fresh point-in-time snapshot.
+export function usePreviewReconcile() {
+  return useMutation({
+    mutationFn: (module: ReconcileModule) =>
+      moodleSyncService.previewReconcile(module),
+  })
+}
+
+export function useApplyReconcile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      module,
+      previewId,
+    }: {
+      module: ReconcileModule
+      previewId: string
+    }) => moodleSyncService.applyReconcile(module, previewId),
+    onSuccess: (_data, { module }) =>
+      qc.invalidateQueries({ queryKey: RECONCILE_INVALIDATION[module] }),
+  })
+}
+
+export function useResetModule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      module,
+      repull,
+    }: {
+      module: ResetModule
+      repull: boolean
+    }) => moodleSyncService.resetModule(module, repull),
+    onSuccess: (_data, { module }) =>
+      qc.invalidateQueries({ queryKey: RESET_INVALIDATION[module] }),
+  })
+}
+
+// ---------- Enrollment drift — sandbox/moodle-sync-reconciliation/ENROLLMENT_DRIFT.md ----------
+
+export function useCheckCourseEnrollments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (moodleCourseId: number) =>
+      moodleSyncService.checkCourseEnrollments(moodleCourseId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.enrollmentDriftAll() }),
+  })
+}
+
+export function useStartDriftScan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: moodleSyncService.startDriftScan,
+    // Seeding the RUNNING status starts useDriftScanStatus polling immediately.
+    onSuccess: (status) =>
+      qc.setQueryData(moodleSyncKeys.enrollmentDriftScan(), status),
+  })
+}
+
+export function useReEnrollDrift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => moodleSyncService.reEnrollDrift(id),
+    // Re-enrolling pushes the portal enrollment, so the sync rows and the
+    // errors list change too — refresh the whole enrollments tree.
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: [...moodleSyncKeys.all, "enrollments"],
+      }),
+  })
+}
+
+export function useUnenrolDrift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      moodleSyncService.unenrolDrift(id, reason),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.enrollmentDriftAll() }),
+  })
+}
+
+export function useDismissDrift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      moodleSyncService.dismissDrift(id, reason),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.enrollmentDriftAll() }),
+  })
+}
+
+export function useReopenDrift() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => moodleSyncService.reopenDrift(id),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: moodleSyncKeys.enrollmentDriftAll() }),
   })
 }

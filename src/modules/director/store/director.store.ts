@@ -6,7 +6,9 @@ import { directorService } from "../services/director.service"
 const DEFAULT_FILTER: DirectorFilter = {
   faculty: "all",
   department: "all",
-  academicYear: "2024/2025",
+  // "all" until DirectorFilterBar resolves the real active session
+  // (useDirectorSessionOptions) — never a hardcoded year.
+  academicYear: "all",
   semester: "all",
   level: "all",
   status: "all",
@@ -84,6 +86,16 @@ export const useDirectorStore = create<DirectorStore>()(
               ? overviewResult.reason.message
               : "Failed to load overview"
           )
+        } else if (overviewResult.value.hasLoadErrors) {
+          // fetchOverview() itself never rejects (it's already an inner
+          // allSettled) — hasLoadErrors is how it reports that some of its
+          // own sub-fetches failed, so the page's existing error banner
+          // shows up instead of the dashboard silently looking complete
+          // with fabricated zeros. See DashboardOverview.hasLoadErrors.
+          setError(
+            "overview",
+            "Some figures on this dashboard couldn't be loaded (permission-restricted for your role) and show as —."
+          )
         }
         setLoading("overview", false)
       },
@@ -95,6 +107,7 @@ export const useDirectorStore = create<DirectorStore>()(
         const { setLoading, setError } = get()
         setLoading("financial", true)
         setError("financial", null)
+        setError("payments", null)
         const f = filter ?? get().filter
         const [summaryResult, paymentResult] = await Promise.allSettled([
           directorService.fetchFinancialSummary(f),
@@ -113,12 +126,31 @@ export const useDirectorStore = create<DirectorStore>()(
           })
         } else {
           set({ paymentRecords: [] })
+          // Recorded separately so the records table says the list failed
+          // instead of "No payment records match the selected filters."
+          setError(
+            "payments",
+            paymentResult.reason instanceof Error
+              ? paymentResult.reason.message
+              : "Failed to load payment records"
+          )
         }
         if (
           summaryResult.status === "rejected" &&
           paymentResult.status === "rejected"
         ) {
           setError("financial", "Failed to load financial data")
+        } else if (
+          summaryResult.status === "fulfilled" &&
+          summaryResult.value.hasLoadErrors
+        ) {
+          // fetchFinancialSummary() never rejects (its own inner
+          // allSettled) — hasLoadErrors is how it reports that some of its
+          // sub-fetches 403'd. See DashboardOverview.hasLoadErrors.
+          setError(
+            "financial",
+            "Some figures on this page couldn't be loaded (permission-restricted for your role) and show as —."
+          )
         }
         setLoading("financial", false)
       },
@@ -131,6 +163,15 @@ export const useDirectorStore = create<DirectorStore>()(
           const f = filter ?? get().filter
           const report = await directorService.fetchStatisticalReport(f)
           set({ statisticalReport: report })
+          // fetchStatisticalReport() never rejects (its own inner
+          // allSettled) — hasLoadErrors is how it reports that some of its
+          // sub-fetches 403'd. See DashboardOverview.hasLoadErrors.
+          if (report.hasLoadErrors) {
+            setError(
+              "statistical",
+              "Some figures on this page couldn't be loaded (permission-restricted for your role)."
+            )
+          }
         } catch (err: unknown) {
           setError(
             "statistical",

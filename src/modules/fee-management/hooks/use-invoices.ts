@@ -1,6 +1,7 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { feeManagementService } from "../services/fee-management.service"
 import { feeKeys } from "./query-keys"
 
@@ -11,11 +12,37 @@ export function useMyInvoices() {
   })
 }
 
+// POST /fees/invoices/resolve — the student's self-healing "generate any
+// invoices I'm missing" check, run once when their fee list mounts. Its
+// outcome is exposed (not swallowed) so an empty list after a failed resolve
+// isn't presented as "No invoices yet". On success the list is refetched so
+// newly created invoices appear.
+export function useResolveMyInvoices() {
+  const qc = useQueryClient()
+  const resolve = useMutation({
+    mutationFn: () => feeManagementService.resolveInvoices(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: feeKeys.myInvoices() })
+    },
+  })
+  const { mutate } = resolve
+  useEffect(() => {
+    mutate()
+  }, [mutate])
+  return resolve
+}
+
 export function useInvoices(filters?: {
   status?: string
   feeTypeId?: number
   sessionId?: number
   studentId?: number
+  // Major-Program Scoping — see fee-management-ui.store.ts's note.
+  majorProgramId?: number
+  // See fee-management.service.ts's note.
+  facultyName?: string
+  departmentName?: string
+  level?: number
 }) {
   return useQuery({
     queryKey: feeKeys.invoices(filters as Record<string, unknown>),
@@ -32,11 +59,20 @@ export function useInvoice(id: number) {
   })
 }
 
-export function useOverdueInvoices() {
+// `enabled` added 2026-09-12 — see the matching note on useCollectionsSummary
+// in use-fee-reports.ts. GET /fees/invoices/overdue 403ing for DEAN and
+// BURSARY (sandbox/fee-management/bursary_403_bug_report.md) was confirmed
+// fixed live 2026-09-22 (A37) — this param is kept as a general mechanism,
+// not because this endpoint needs it anymore.
+export function useOverdueInvoices(
+  filters?: { majorProgramId?: number },
+  enabled = true
+) {
   return useQuery({
-    queryKey: feeKeys.overdueInvoices(),
-    queryFn: feeManagementService.getOverdueInvoices,
+    queryKey: feeKeys.overdueInvoices(filters as Record<string, unknown>),
+    queryFn: () => feeManagementService.getOverdueInvoices(filters),
     staleTime: 1000 * 60 * 2,
+    enabled,
   })
 }
 

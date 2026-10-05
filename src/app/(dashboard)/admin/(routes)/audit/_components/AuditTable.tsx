@@ -1,5 +1,6 @@
 "use client"
 
+import { QueryErrorState } from "@/components/query-error-state"
 import { useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -21,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ActionBadge } from "./ActionBadge"
 import { ExportMenu } from "./ExportMenu"
 import { AuditFilters } from "./AuditFilters"
+import { categoryForEntityType, entityTypeLabel } from "../lib/audit-catalog"
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
@@ -91,8 +93,12 @@ function AuditRow({ log, index, isSelected, onToggle, onView }: AuditRowProps) {
       {/* Entity */}
       <td className="px-3 py-3">
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className="border-border text-[10px]">
-            {log.entityType}
+          <Badge
+            variant="outline"
+            title={log.entityType}
+            className="border-border text-[10px]"
+          >
+            {entityTypeLabel(log.entityType)}
           </Badge>
           <span className="text-xs text-muted-foreground">#{log.entityId}</span>
         </div>
@@ -137,7 +143,8 @@ export function AuditTable() {
     setDetailModalOpen,
   } = useAuditStore()
 
-  const { data, isLoading, isFetching } = useAuditLogs(filters)
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useAuditLogs(filters)
 
   const logs = data?.data ?? []
   const meta = data?.meta ?? { total: 0, page: 1, limit: 10 }
@@ -243,6 +250,17 @@ export function AuditTable() {
                     </p>
                   </td>
                 </tr>
+              ) : isError ? (
+                // A refused (403) or failed load isn't "No audit logs found".
+                <tr>
+                  <td colSpan={8} className="p-4">
+                    <QueryErrorState
+                      error={error}
+                      subject="audit logs"
+                      onRetry={() => void refetch()}
+                    />
+                  </td>
+                </tr>
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-20 text-center">
@@ -250,6 +268,14 @@ export function AuditTable() {
                     <p className="mt-2 text-sm text-muted-foreground">
                       No audit logs found
                     </p>
+                    {categoryForEntityType(filters.entityType) && (
+                      <p className="mx-auto mt-1 max-w-md px-4 text-xs text-muted-foreground">
+                        {
+                          categoryForEntityType(filters.entityType)
+                            ?.notYetLogged
+                        }
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (

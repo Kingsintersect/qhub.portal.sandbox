@@ -35,7 +35,6 @@ import {
   StudentRecord,
   TutorRecord,
   GradeReport,
-  StudentGradeRecord,
   DirectorFilter,
 } from "../types/director.types"
 
@@ -123,28 +122,42 @@ function departmentNameParam(filter?: DirectorFilter): string | undefined {
 
 // ─── Fees composition (shared by Overview + Financial) ──────────────────────
 // Real: GET /fees/reports/outstanding (confirmed shape, grouped by fee type —
-// see payment_README.md). Unconfirmed: GET /fees/reports/summary's response
-// body has no documented shape anywhere (bruno/fee/Reports - Summary.bru has
-// no example). Both are queried in parallel so an unconfirmed/failing summary
-// call doesn't sink the whole tab — totalExpected/totalCollected fall back to
-// summing the fully-real Outstanding data if summary is unavailable or comes
-// back in an unexpected shape.
+// see payment_README.md). GET /fees/reports/summary's response body has no
+// documented example in bruno. Both are queried in parallel so a failing/
+// malformed summary call doesn't sink the whole tab — totalExpected/
+// totalCollected fall back to summing the fully-real Outstanding data if
+// summary is unavailable or comes back in an unexpected shape.
 
 async function fetchFeesSummaryData(filter?: DirectorFilter): Promise<{
   totalExpected: number
   totalCollected: number
   totalOutstanding: number
   byFeeType: FinancialSummary["byFeeType"]
+  // The 403 both of these used to return for DIRECTOR/BURSARY/DEAN
+  // (sandbox/fee-management/bursary_403_bug_report.md) was confirmed fixed
+  // live 2026-09-22 (BACKEND_DEVIATIONS_2026-09-14.md A37) — the backend's
+  // role allow-list was replaced with a permission check. `hasErrors` stays
+  // as general resilience against any other transient failure.
+  hasErrors: boolean
 }> {
   const params: Record<string, unknown> = {
     facultyName: facultyNameParam(filter),
     departmentName: departmentNameParam(filter),
+    // Major-Program Scoping — A33. Sent ahead of the backend (CLAUDE.md
+    // §14); both responses are pure aggregates with no per-program
+    // breakdown, so unlike fetchPaymentRecords above there's no client-side
+    // fallback possible here — stays unscoped in the UI until this ships.
+    majorProgramId: filter?.majorProgramId,
   }
 
   const [summaryRes, outstandingRes] = await Promise.allSettled([
+    // Real response per bruno/fee/Reports - Summary.bru is flat:
+    // {data: {invoiceCount, totalInvoiced, totalCollected}} — no `totals`
+    // wrapper, and the invoiced-amount field is `totalInvoiced`, not
+    // `totalExpected`. See sandbox/TRIPLE_AUDIT_2026-09-13.md §1b.
     apiClient.get<{
       data?: {
-        totalExpected?: string | number
+        totalInvoiced?: string | number
         totalCollected?: string | number
       }
     }>("/fees/reports/summary", { ...AUTH, params }),
@@ -176,15 +189,24 @@ async function fetchFeesSummaryData(filter?: DirectorFilter): Promise<{
   const summaryData =
     summaryRes.status === "fulfilled" ? summaryRes.value.data : undefined
   const totalExpected =
-    summaryData?.totalExpected != null
-      ? Number(summaryData.totalExpected)
+    summaryData?.totalInvoiced != null
+      ? Number(summaryData.totalInvoiced)
       : byFeeType.reduce((a, f) => a + f.invoiced, 0)
   const totalCollected =
     summaryData?.totalCollected != null
       ? Number(summaryData.totalCollected)
       : byFeeType.reduce((a, f) => a + f.paid, 0)
 
-  return { totalExpected, totalCollected, totalOutstanding, byFeeType }
+  const hasErrors =
+    summaryRes.status !== "fulfilled" || outstandingRes.status !== "fulfilled"
+
+  return {
+    totalExpected,
+    totalCollected,
+    totalOutstanding,
+    byFeeType,
+    hasErrors,
+  }
 }
 
 export const directorService = {
@@ -222,20 +244,41 @@ export const directorService = {
     const pendingPayments =
       feesRes.status === "fulfilled" ? feesRes.value.totalOutstanding : 0
 
+    // Distinguish "the underlying fetch failed" from "the real value is
+    // zero" — see DashboardOverview.hasLoadErrors's comment. A card whose
+    // source data 403'd shows "—", not a fabricated 0/₦0.0M.
+    // fetchFeesSummaryData() never rejects (its own inner allSettled) —
+    // check its `hasErrors` flag, not feesRes.status, which is always
+    // "fulfilled" regardless of what happened inside it.
+    const statsFailed = statsRes.status !== "fulfilled"
+    const feesFailed = feesRes.status !== "fulfilled" || feesRes.value.hasErrors
+    const graduationFailed = statsFailed || graduatedRes.status !== "fulfilled"
+    const hasLoadErrors = statsFailed || feesFailed || graduationFailed
+
     // No historical snapshot exists anywhere for any of these KPIs (see
     // DashboardMetric's comment) — cards show the real current value only,
     // no fabricated "vs last period" trend.
     const metrics: DashboardMetric[] = [
-      { label: "Total Students", value: totalStudents, icon: "users" },
-      { label: "Total Tutors", value: totalTutors, icon: "book-open" },
+      {
+        label: "Total Students",
+        value: statsFailed ? "—" : totalStudents,
+        icon: "users",
+      },
+      {
+        label: "Total Tutors",
+        value: statsFailed ? "—" : totalTutors,
+        icon: "book-open",
+      },
       {
         label: "Total Revenue",
-        value: `₦${(totalRevenue / 1_000_000).toFixed(1)}M`,
+        value: feesFailed ? "—" : `₦${(totalRevenue / 1_000_000).toFixed(1)}M`,
         icon: "banknote",
       },
       {
         label: "Outstanding Fees",
-        value: `₦${(pendingPayments / 1_000_000).toFixed(1)}M`,
+        value: feesFailed
+          ? "—"
+          : `₦${(pendingPayments / 1_000_000).toFixed(1)}M`,
         icon: "alert-circle",
       },
       {
@@ -245,7 +288,7 @@ export const directorService = {
       },
       {
         label: "Graduation Rate",
-        value: `${graduationRate}%`,
+        value: graduationFailed ? "—" : `${graduationRate}%`,
         icon: "trending-up",
       },
     ]
@@ -259,6 +302,7 @@ export const directorService = {
       totalFaculties,
       graduationRate,
       metrics,
+      hasLoadErrors,
     }
   },
 
@@ -298,8 +342,13 @@ export const directorService = {
   async fetchFinancialSummary(
     filter?: DirectorFilter
   ): Promise<FinancialSummary> {
-    const { totalExpected, totalCollected, totalOutstanding, byFeeType } =
-      await fetchFeesSummaryData(filter)
+    const {
+      totalExpected,
+      totalCollected,
+      totalOutstanding,
+      byFeeType,
+      hasErrors: feesFailed,
+    } = await fetchFeesSummaryData(filter)
     const collectionRate =
       totalExpected > 0
         ? parseFloat(((totalCollected / totalExpected) * 100).toFixed(1))
@@ -308,15 +357,35 @@ export const directorService = {
     // GET /fees/reports/collections-trend — see §2.8, now shipped by the
     // backend team. No time-series aggregate existed anywhere in the Fee
     // module before this; kept the try/catch below so a transient failure
-    // degrades to an empty chart rather than sinking the whole tab.
+    // degrades to an empty chart rather than sinking the whole tab. The 403
+    // this used to return for DIRECTOR was confirmed fixed live 2026-09-22
+    // (A37) — try/catch stays as general resilience, not a bug workaround.
     let monthlyTrend: FinancialSummary["monthlyTrend"] = []
+    let trendFailed = false
     try {
+      // `collected`/`expected` arrive as decimal strings ("2282500.00",
+      // live QHUB 2026-10-05), so they're converted before charting.
       const res = await apiClient.get<{
-        data: { month: string; collected: number; expected: number }[]
-      }>("/fees/reports/collections-trend", { ...AUTH, params: { months: 12 } })
-      monthlyTrend = res.data
+        data: {
+          month: string
+          collected: number | string
+          expected: number | string
+        }[]
+      }>("/fees/reports/collections-trend", {
+        ...AUTH,
+        // Major-Program Scoping — A33, sent ahead of the backend; a
+        // time-series trend has no per-program breakdown to filter
+        // client-side, same reasoning as fetchFeesSummaryData above.
+        params: { months: 12, majorProgramId: filter?.majorProgramId },
+      })
+      monthlyTrend = res.data.map((m) => ({
+        month: m.month,
+        collected: Number(m.collected) || 0,
+        expected: Number(m.expected) || 0,
+      }))
     } catch {
       monthlyTrend = []
+      trendFailed = true
     }
 
     return {
@@ -326,6 +395,7 @@ export const directorService = {
       collectionRate,
       byFeeType,
       monthlyTrend,
+      hasLoadErrors: feesFailed || trendFailed,
     }
   },
 
@@ -341,6 +411,11 @@ export const directorService = {
     const params: Record<string, unknown> = {
       facultyName: facultyNameParam(filter),
       departmentName: departmentNameParam(filter),
+      // Major-Program Scoping — A33. This calls the same GET /fees/invoices
+      // endpoint the admin Invoices list uses, already scoped/enforced per
+      // A4 — so unlike the aggregate reports below, this one is genuinely
+      // filtered server-side, not just sent ahead of the backend.
+      majorProgramId: filter?.majorProgramId,
       level:
         filter?.level && filter.level !== "all"
           ? Number(filter.level)
@@ -459,65 +534,81 @@ export const directorService = {
       studentsByLevel: stats?.students_by_level ?? [],
       studentsByGender: stats?.students_by_gender ?? { male: 0, female: 0 },
       tutorsByDesignation: stats?.tutors_by_designation ?? [],
+      // The 403 all three of these used to return for DIRECTOR was
+      // confirmed fixed live 2026-09-22 (A37) — kept as general resilience.
+      hasLoadErrors:
+        studentsRes.status !== "fulfilled" ||
+        tutorsRes.status !== "fulfilled" ||
+        statsRes.status !== "fulfilled",
+      loadFailures: {
+        students: studentsRes.status !== "fulfilled",
+        tutors: tutorsRes.status !== "fulfilled",
+        stats: statsRes.status !== "fulfilled",
+      },
     }
   },
 
   // ── Grade Reports ─────────────────────────────────────────────────────────
-  // Real (pending) endpoint — see sandbox/result/missing_grade_apis.readme.md
-  // §8. No bruno/director collection and no `.bru` file exist for this yet;
-  // wired against the designed contract so this starts working the moment
-  // the backend ships it. `faculty`/`department`/`program`/`semester` are
-  // sent as display-name strings (not FK ids) because DirectorFilterBar
-  // (shared with Overview/Financial/Statistical) only collects free-text/
-  // display values — see §8's note on that assumption.
-
-  async fetchGradeReport(filter?: DirectorFilter): Promise<GradeReport> {
-    const params: Record<string, unknown> = {}
-    if (filter?.faculty && filter.faculty !== "all")
-      params.facultyName = filter.faculty
-    if (filter?.department && filter.department !== "all")
-      params.departmentName = filter.department
-    if (filter?.program && filter.program !== "all")
-      params.programName = filter.program
-    if (filter?.level && filter.level !== "all")
-      params.level = Number(filter.level)
-    if (filter?.semester && filter.semester !== "all")
-      params.semesterName = filter.semester
-    if (filter?.academicYear) params.academicYear = filter.academicYear
-    if (filter?.status && filter.status !== "all") params.status = filter.status
-    if (filter?.search) params.search = filter.search
-
+  // Real endpoint per bruno/director/Grade Reports - Summary.bru. Rebuilt
+  // backend-side (B7, 2026-09-14) to the full contract: `semesterId`,
+  // `majorProgramId` (A15) and name filters are all accepted, and the
+  // response is `{data: {summary, overall, gradeDistribution, byFaculty,
+  // byProgram, records: {data, meta}}}` — PUBLISHED grades only, limited to
+  // the caller's scope (2026-09-25). This page reads only overall/
+  // byFaculty/byProgram today; `gradeDistribution` and the per-student
+  // `records` aren't surfaced yet (their row shapes aren't documented in
+  // Bruno — see the audit report). `byProgram` rows carry `programId`.
+  async fetchGradeReport(
+    semesterId?: number,
+    majorProgramId?: number
+  ): Promise<GradeReport> {
+    // Live wire names (captured 2026-09-29) differ from the page's view model:
+    // overall.averageCGPA/totalGrades, rows' avgGPA/facultyName/programName.
+    // Mapped here so a missing field degrades to 0/null instead of crashing.
     const res = await apiClient.get<{
       data: {
-        summary: {
-          averageGPA: number
-          passRate: number
-          distinctionRate: number
-          totalRecords: number
+        overall?: {
+          averageCGPA?: number | null
+          passRate?: number | null
+          totalGrades?: number | null
         }
-        gradeDistribution: {
-          grade: string
-          count: number
-          percentage: number
+        byFaculty?: {
+          facultyName?: string | null
+          avgGPA?: number | null
+          studentCount?: number | null
         }[]
-        byFaculty: {
-          faculty: string
-          studentCount: number
-          averageGPA: number
+        byProgram?: {
+          programId?: number | null
+          programName?: string | null
+          avgGPA?: number | null
+          studentCount?: number | null
         }[]
-        records: StudentGradeRecord[]
       }
-      meta: { total: number; page: number; limit: number }
-    }>("/results/reports/director-grade-summary", { ...AUTH, params })
+    }>("/results/reports/director-grade-summary", {
+      ...AUTH,
+      params: { semesterId, majorProgramId },
+    })
 
+    const { overall, byFaculty = [], byProgram = [] } = res.data
     return {
-      records: res.data.records,
-      gradeDistribution: res.data.gradeDistribution,
-      averageGPA: res.data.summary.averageGPA,
-      passRate: res.data.summary.passRate,
-      distinctionRate: res.data.summary.distinctionRate,
-      byFaculty: res.data.byFaculty,
-      pagination: res.meta,
+      overall: {
+        averageGPA: overall?.averageCGPA ?? 0,
+        passRate: overall?.passRate ?? 0,
+        // Not in the live response; shown as "—" rather than a made-up figure.
+        distinctionRate: null,
+        totalRecords: overall?.totalGrades ?? 0,
+      },
+      byFaculty: byFaculty.map((f) => ({
+        faculty: f.facultyName ?? "Unassigned",
+        averageGPA: f.avgGPA ?? 0,
+        studentCount: f.studentCount ?? 0,
+      })),
+      byProgram: byProgram.map((p) => ({
+        program: p.programName ?? "Unassigned",
+        programId: p.programId ?? null,
+        averageGPA: p.avgGPA ?? 0,
+        studentCount: p.studentCount ?? 0,
+      })),
     }
   },
 }

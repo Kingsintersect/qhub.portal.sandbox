@@ -288,6 +288,11 @@ export class ApiClient {
     }
   }
 
+  /** The access token requests are currently sent with (memory, then storage). */
+  getAccessToken(): string | null {
+    return this.pickAuthToken()
+  }
+
   clearAccessToken(): void {
     this.memoryToken = null
     if (typeof window !== "undefined") {
@@ -513,7 +518,13 @@ export class ApiClient {
           ? Date.now() - requestConfig._requestMeta.startedAt
           : undefined
 
-        if (normalizedError.status === 401) {
+        // Reaching this point with a 401 means either refresh wasn't
+        // possible (no handler / no refresh token) or it ran and still
+        // didn't produce a usable token — the early `return` above is the
+        // only successful-refresh exit. Only fire for requests that meant
+        // to be authenticated (`access_token: true`); a public endpoint
+        // returning 401 unexpectedly isn't "your session expired".
+        if (normalizedError.status === 401 && requestConfig._accessToken) {
           await this.config.hooks?.onUnauthorized?.(normalizedError)
         }
 

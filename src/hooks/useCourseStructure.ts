@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { rolesQueryOptions } from "@/services/rolesApi"
 import {
   courseStructureKeys,
   courseStructureMutationOptions,
@@ -8,6 +9,9 @@ import type {
   UpdateFacultyPayload,
   UpdateDepartmentPayload,
   UpdateProgramPayload,
+  UpdateMajorProgramPayload,
+  UpdateCohortPayload,
+  TransitionCohortPayload,
 } from "@/types/school"
 
 // ── Faculties ───────────────────────────────
@@ -15,6 +19,22 @@ import type {
 export function useFaculties() {
   return useQuery({
     ...courseStructureQueryOptions.faculties.list(),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+/**
+ * Cascading twin of useDepartments(facultyId) one tier up — direct
+ * request, 2026-09-23: "once the major program is selected, let the
+ * faculties under that program be shown in the faculty dropdown."
+ * Real, backend-enforced filter (run_api FacultyController, A17), not
+ * a client-side narrowing — see facultiesApi.listByMajorProgram()'s
+ * own comment for the exact resolution rule.
+ */
+export function useFacultiesByMajorProgram(majorProgramId: number | null) {
+  return useQuery({
+    ...courseStructureQueryOptions.faculties.byMajorProgram(majorProgramId!),
+    enabled: !!majorProgramId,
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -31,6 +51,23 @@ export function useFaculty(id: number | null) {
 export function useEligibleDeans() {
   return useQuery({
     ...courseStructureQueryOptions.faculties.eligibleDeans(),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+/**
+ * Users holding the `hod` role: the backend accepts any of them as a
+ * department's `hodUserId` (UpdateDepartmentRequest), not only the
+ * department's own lecturers. Recording the head matters because HOD access
+ * now follows the department they lead (`/auth/me` `leads`).
+ */
+export function useEligibleHods() {
+  const rolesQ = useQuery({ ...rolesQueryOptions.list(), staleTime: 300_000 })
+  const hodRoleId =
+    (rolesQ.data ?? []).find((r) => /^hod$/i.test(r.slug || r.name))?.id ?? null
+  return useQuery({
+    ...rolesQueryOptions.users(hodRoleId ?? 0),
+    enabled: hodRoleId != null,
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -82,6 +119,23 @@ export function useDeactivateFaculty() {
 export function useAllDepartments() {
   return useQuery({
     ...courseStructureQueryOptions.departments.list(),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+/**
+ * Direct twin of useDepartments(facultyId) for a major program with no
+ * Faculty layer at all — direct request, 2026-09-24: "some [major
+ * programs] do not have faculties and some do not have departments...
+ * the form should be dynamic." Real, backend-enforced filter
+ * (DepartmentController, mirrors FacultyController's own A17
+ * resolution one tier down) — see departmentsApi.listByMajorProgram()'s
+ * own comment.
+ */
+export function useDepartmentsByMajorProgram(majorProgramId: number | null) {
+  return useQuery({
+    ...courseStructureQueryOptions.departments.byMajorProgram(majorProgramId!),
+    enabled: !!majorProgramId,
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -138,6 +192,9 @@ export function useUpdateDepartment() {
         qc.invalidateQueries({
           queryKey: courseStructureKeys.departments.detail(variables.id),
         }),
+        // A faculty's detail embeds its departments (with `isActive`), so a
+        // toggle or edit here must refresh the faculty view too.
+        qc.invalidateQueries({ queryKey: courseStructureKeys.faculties.all }),
       ])
     },
   })
@@ -198,6 +255,17 @@ export function useCreateProgram() {
               }),
             ]
           : []),
+        // majorProgramId (independent of departmentId/parentAcademicUnitId)
+        // drives MajorProgramsPanel's "X programs assigned" count — without
+        // this, creating a program directly under (or otherwise assigned to)
+        // a major program leaves that count stale until an unrelated refetch.
+        ...(variables.majorProgramId != null
+          ? [
+              qc.invalidateQueries({
+                queryKey: courseStructureKeys.majorPrograms.all,
+              }),
+            ]
+          : []),
       ])
     },
   })
@@ -225,6 +293,19 @@ export function useUpdateProgram() {
         // field edit re-invalidates the same trees too, which is harmless.
         qc.invalidateQueries({ queryKey: courseStructureKeys.departments.all }),
         qc.invalidateQueries({ queryKey: courseStructureKeys.faculties.all }),
+        // Same reasoning as useCreateProgram above — a majorProgramId change
+        // (assigned, reassigned, or cleared) needs the Major Programs
+        // panel's counts refreshed too. Unconditional here (unlike create)
+        // since we don't know the *previous* value to compare against —
+        // harmless to invalidate on every update, same tradeoff already
+        // accepted for departments/faculties above.
+        ...("majorProgramId" in variables.payload
+          ? [
+              qc.invalidateQueries({
+                queryKey: courseStructureKeys.majorPrograms.all,
+              }),
+            ]
+          : []),
       ])
     },
   })
@@ -255,6 +336,124 @@ export function useCreateLevel() {
     ...courseStructureMutationOptions.createLevel(),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: courseStructureKeys.levels.all })
+    },
+  })
+}
+
+// ── Major Programs (sandbox/major-program-scoping/) ────────────────────────
+
+export function useMajorPrograms() {
+  return useQuery({
+    ...courseStructureQueryOptions.majorPrograms.list(),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+export function useCreateMajorProgram() {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.createMajorProgram(),
+    onSuccess: async () => {
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.majorPrograms.all,
+      })
+    },
+  })
+}
+
+export function useUpdateMajorProgram() {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.updateMajorProgram(),
+    onSuccess: async (
+      _,
+      variables: { id: number; payload: UpdateMajorProgramPayload }
+    ) => {
+      void variables
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.majorPrograms.all,
+      })
+    },
+  })
+}
+
+export function useRemoveMajorProgram() {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.removeMajorProgram(),
+    onSuccess: async () => {
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.majorPrograms.all,
+      })
+    },
+  })
+}
+
+// ── Cohorts (sandbox/program-structure-depth/) ─────────────────────────────
+
+export function useCohorts(programId: number | null) {
+  return useQuery({
+    ...courseStructureQueryOptions.cohorts.byProgram(programId ?? 0),
+    enabled: !!programId,
+    staleTime: 1000 * 60 * 2,
+  })
+}
+
+export function useCreateCohort() {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.createCohort(),
+    onSuccess: async (_, variables) => {
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.cohorts.byProgram(variables.programId),
+      })
+    },
+  })
+}
+
+export function useUpdateCohort(programId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.updateCohort(),
+    onSuccess: async (
+      _,
+      variables: { id: number; payload: UpdateCohortPayload }
+    ) => {
+      void variables
+      if (!programId) return
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.cohorts.byProgram(programId),
+      })
+    },
+  })
+}
+
+export function useTransitionCohort(programId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.transitionCohort(),
+    onSuccess: async (
+      _,
+      variables: { id: number; payload: TransitionCohortPayload }
+    ) => {
+      void variables
+      if (!programId) return
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.cohorts.byProgram(programId),
+      })
+    },
+  })
+}
+
+export function useRemoveCohort(programId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    ...courseStructureMutationOptions.removeCohort(),
+    onSuccess: async () => {
+      if (!programId) return
+      await qc.invalidateQueries({
+        queryKey: courseStructureKeys.cohorts.byProgram(programId),
+      })
     },
   })
 }

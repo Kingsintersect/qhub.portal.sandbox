@@ -43,6 +43,16 @@ export interface DashboardOverview {
   // year" trend — no historical snapshot exists to compute that against.
   graduationRate: number
   metrics: DashboardMetric[]
+  // Added 2026-09-12: confirmed live that /users/stats, /enrollments/trend,
+  // and the fees summary endpoints all 403 for DIRECTOR (and DEAN/BURSARY
+  // hit an overlapping subset — see sandbox/fee-management/
+  // bursary_403_bug_report.md, now covering DIRECTOR too). fetchOverview()
+  // previously swallowed every one of those failures behind `?? 0`, so the
+  // dashboard showed "0 students" / "₦0.0M revenue" as if that were real
+  // data instead of a failed request — actively misleading for an
+  // executive-oversight page. This flag lets the page show its existing
+  // error banner honestly instead of silently faking zeros.
+  hasLoadErrors: boolean
 }
 
 // ─── Enrollment Chart Data ───────────────────────────────────────────────────
@@ -108,6 +118,8 @@ export interface FinancialSummary {
     collected: number
     expected: number
   }[]
+  // Added 2026-09-12 — see DashboardOverview.hasLoadErrors's comment.
+  hasLoadErrors: boolean
 }
 
 // ─── Student / Tutor Report Types ────────────────────────────────────────
@@ -121,7 +133,9 @@ export interface StudentRecord {
   faculty: string
   department: string
   program: string
-  level: number
+  // Nullable — sandbox/program-structure-depth/. Null for a
+  // FOUNDATIONAL/CERTIFICATE student, neither of which has a Level.
+  level: number | null
   academicYear: string
   cgpa: number
   status: "active" | "deferred" | "graduated" | "withdrawn"
@@ -153,6 +167,12 @@ export interface StatisticalReport {
   studentsByLevel: { level: number; count: number }[]
   studentsByGender: { male: number; female: number }
   tutorsByDesignation: { designation: string; count: number }[]
+  // Added 2026-09-12 — see DashboardOverview.hasLoadErrors's comment.
+  hasLoadErrors: boolean
+  // Which source failed, so the page can show "—" for exactly the figures
+  // that couldn't be loaded instead of a fabricated 0 (the totals above and
+  // the gender/level/designation breakdowns fall back to 0/[] on failure).
+  loadFailures: { students: boolean; tutors: boolean; stats: boolean }
 }
 
 // ─── Grade Report Types ──────────────────────────────────────────────────────
@@ -199,18 +219,37 @@ export interface GradeDistribution {
   percentage: number
 }
 
-export interface GradeReport {
-  records: StudentGradeRecord[]
-  gradeDistribution: GradeDistribution[]
+// Real contract per bruno/director/Grade Reports - Summary.bru — a single
+// `semesterId` filter, response `{data: {overall, byFaculty, byProgram}}`.
+// Replaces the earlier proposed `{summary, gradeDistribution, records, meta}`
+// shape (no per-student records or grade-distribution breakdown in the real
+// endpoint — see sandbox/TRIPLE_AUDIT_2026-09-13.md §1a).
+export interface GradeReportOverall {
   averageGPA: number
   passRate: number
-  distinctionRate: number
-  byFaculty: {
-    faculty: string
-    averageGPA: number
-    studentCount: number
-  }[]
-  pagination: { total: number; page: number; limit: number }
+  /** Not returned by the live endpoint; null until it is. */
+  distinctionRate: number | null
+  totalRecords: number
+}
+
+export interface GradeReportByFaculty {
+  faculty: string
+  averageGPA: number
+  studentCount: number
+}
+
+export interface GradeReportByProgram {
+  program: string
+  /** Bruno (Grade Reports - Summary.bru): rows carry programId too — join on it, not the name. */
+  programId?: number | null
+  averageGPA: number
+  studentCount: number
+}
+
+export interface GradeReport {
+  overall: GradeReportOverall
+  byFaculty: GradeReportByFaculty[]
+  byProgram: GradeReportByProgram[]
 }
 
 // ─── Filter Types ────────────────────────────────────────────────────────────
@@ -224,6 +263,8 @@ export interface DirectorFilter {
   level?: string
   status?: string
   search?: string
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A33.
+  majorProgramId?: number
 }
 
 export interface PaginationState {

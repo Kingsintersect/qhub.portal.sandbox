@@ -1,13 +1,27 @@
 "use client"
 
+import Link from "next/link"
 import { FormProvider } from "react-hook-form"
 import { AnimatePresence, motion } from "framer-motion"
-import { AlertCircle } from "lucide-react"
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  CreditCard,
+  Lock,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UploadProgress } from "@/components/upload-progress"
+import EmptyState from "@/components/custom/EmptyState"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
 import { useAdmissionForm } from "./hooks/useAdmissionForm"
+import {
+  useApplicationFormAccess,
+  type ApplicationFormAccess,
+} from "./hooks/useApplicationFormAccess"
 import FormStepIndicator from "./components/FormStepIndicator"
 import FormNavigation from "./components/FormNavigation"
 import SuccessModal from "./components/SuccessModal"
@@ -22,31 +36,14 @@ import {
   ProgramSelectionStep,
   ReviewStep,
 } from "./components/steps"
-import {
-  FormStep,
-  FORM_STEPS,
-  getFieldLabel,
-  getStepForField,
-  backendFieldToFormField,
-  collectFormErrors,
-} from "./types/form-types"
-
-const getStepTitle = (step: FormStep): string =>
-  FORM_STEPS.find((s) => s.id === step)?.title ?? "the relevant step"
+import DynamicStep from "./components/steps/DynamicStep"
+import { FormStep, collectFormErrors } from "./types/form-types"
+import type { FieldIndexEntry, WizardStep } from "./lib/dynamic-form"
 
 const slideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? 300 : -300,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction: number) => ({
-    x: direction > 0 ? -300 : 300,
-    opacity: 0,
-  }),
+  enter: (direction: number) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: direction > 0 ? -300 : 300, opacity: 0 }),
 }
 
 function FormLoadingSkeleton() {
@@ -71,18 +68,86 @@ function FormLoadingSkeleton() {
   )
 }
 
-function StepRenderer({
-  step,
-  activeSteps,
-  completedSteps,
-  onEditStep,
+const BackToProcessButton = () => (
+  <Button asChild variant="outline" size="sm" className="gap-2">
+    <Link href="/process-admission">
+      <ArrowLeft className="size-4" />
+      Back to Admission Process
+    </Link>
+  </Button>
+)
+
+/** Honest gate shown instead of the form when the applicant's admission
+ *  stage hasn't reached (or has already passed) the application form. */
+function FormAccessGate({
+  access,
+  onRetry,
 }: {
-  step: FormStep
-  activeSteps: FormStep[]
-  completedSteps: Set<FormStep>
-  onEditStep: (step: FormStep) => void
+  access: Exclude<ApplicationFormAccess, { status: "open" | "loading" }>
+  onRetry: () => void
 }) {
-  switch (step) {
+  const content = (() => {
+    switch (access.status) {
+      case "fee-unpaid":
+        return {
+          icon: CreditCard,
+          title: "Pay the application fee first",
+          description:
+            "The application form opens once your application fee payment is confirmed. Complete the payment from the admission process page, then come back here.",
+          action: (
+            <Button asChild size="sm" className="gap-2">
+              <Link href="/process-admission">
+                <CreditCard className="size-4" />
+                Go to Application Fee Payment
+              </Link>
+            </Button>
+          ),
+        }
+      case "earlier-stage":
+        return {
+          icon: Lock,
+          title: `Complete "${access.stageLabel}" first`,
+          description:
+            "The application form isn't available yet. Finish the earlier steps of your admission process, then come back here.",
+          action: <BackToProcessButton />,
+        }
+      case "submitted":
+        return {
+          icon: CheckCircle,
+          title: "Your application has already been submitted",
+          description:
+            "A submitted application can't be edited. Track its status from the admission process page.",
+          action: <BackToProcessButton />,
+        }
+      case "unavailable":
+        return {
+          icon: AlertTriangle,
+          title: "Couldn't load your admission record",
+          description:
+            "We couldn't confirm your application fee payment, so the form can't be opened yet. Please try again, or contact the admissions office if this keeps happening.",
+          action: (
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          ),
+        }
+    }
+  })()
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <EmptyState
+        icon={content.icon}
+        title={content.title}
+        description={content.description}
+        action={content.action}
+      />
+    </div>
+  )
+}
+
+function BuiltInStepBody({ formStep }: { formStep: FormStep }) {
+  switch (formStep) {
     case FormStep.PERSONAL_INFO:
       return <PersonalInfoStep />
     case FormStep.SPONSOR_INFO:
@@ -99,27 +164,72 @@ function StepRenderer({
       return <QualificationDocumentsStep />
     case FormStep.PROGRAM_SELECTION:
       return <ProgramSelectionStep />
-    case FormStep.REVIEW:
-      return (
-        <ReviewStep
-          activeSteps={activeSteps}
-          completedSteps={completedSteps}
-          onEditStep={onEditStep}
-        />
-      )
     default:
       return null
+  }
+}
+
+function StepRenderer({
+  step,
+  steps,
+  completedSteps,
+  onEditStep,
+  fieldIndex,
+}: {
+  step: WizardStep
+  steps: WizardStep[]
+  completedSteps: Set<string>
+  onEditStep: (stepId: string) => void
+  fieldIndex: Map<string, FieldIndexEntry>
+}) {
+  switch (step.kind) {
+    case "review":
+      return (
+        <ReviewStep
+          steps={steps}
+          completedSteps={completedSteps}
+          onEditStep={onEditStep}
+          fieldIndex={fieldIndex}
+        />
+      )
+    case "dynamic":
+      return (
+        <DynamicStep
+          stepId={step.id}
+          title={step.title}
+          description={step.description}
+          fields={step.fields}
+          fieldIndex={fieldIndex}
+        />
+      )
+    case "builtin":
+      return (
+        <div className="space-y-8">
+          <BuiltInStepBody formStep={step.formStep} />
+          {step.extraFields.length > 0 && (
+            <div className="border-t pt-6">
+              <DynamicStep
+                stepId={step.id}
+                fields={step.extraFields}
+                fieldIndex={fieldIndex}
+              />
+            </div>
+          )}
+        </div>
+      )
   }
 }
 
 export default function AdmissionApplicationFormPage() {
   const {
     form,
+    steps,
     currentStep,
-    activeSteps,
     totalSteps,
     completedSteps,
+    fieldIndex,
     isLoading,
+    isEmpty,
     isSubmitting,
     submitStage,
     submitPercent,
@@ -133,45 +243,67 @@ export default function AdmissionApplicationFormPage() {
     saveProgress,
     resetForm,
     clearStep,
+    describeErrorPath,
     direction,
   } = useAdmissionForm()
+  const { access, refresh: refreshAccess } = useApplicationFormAccess()
 
-  const currentStepPosition = activeSteps.indexOf(currentStep)
+  const currentStepPosition = currentStep
+    ? steps.findIndex((s) => s.id === currentStep.id)
+    : 0
+  const stepTitle = (stepId: string) =>
+    steps.find((s) => s.id === stepId)?.title ?? "the relevant step"
 
   const submitErrors = submitAttempted
-    ? collectFormErrors(form.formState.errors).map(
-        ({ path, field, message }) => ({
-          field: path,
-          message,
-          step: getStepForField(field),
-          label: getFieldLabel(field),
-        })
-      )
+    ? collectFormErrors(form.formState.errors).map(({ path, message }) => ({
+        key: path,
+        message,
+        ...describeErrorPath(path),
+      }))
     : []
 
-  // Per-field messages from a backend rejection (Laravel 422 `errors` map),
-  // each linked to the step that owns the field where the field is resolvable
-  // and that step is currently active.
+  // Per-field messages from a backend rejection, each linked to the step that owns the field.
   const serverErrorRows = (submitError?.fieldErrors ?? []).map(
-    ({ field, message }, i) => {
-      const formField = backendFieldToFormField(field)
-      const step = getStepForField(formField)
-      const navigable = step !== undefined && activeSteps.includes(step)
-      return {
-        key: `${field}-${i}`,
-        label: getFieldLabel(formField),
-        message,
-        step: navigable ? step : undefined,
-      }
-    }
+    ({ field, message }, i) => ({
+      key: `${field}-${i}`,
+      message,
+      ...describeErrorPath(field),
+    })
   )
 
-  if (isLoading) {
+  // Stage gate — never while a submission is in flight or just finished:
+  // the successful submit itself flips the applicant to "submitted", and
+  // the success modal must still show.
+  const gateActive = !isSubmitting && !isSubmitted
+  if (isLoading || (gateActive && access.status === "loading")) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8">
         <Card>
           <FormLoadingSkeleton />
         </Card>
+      </div>
+    )
+  }
+
+  if (gateActive && access.status !== "open" && access.status !== "loading") {
+    return <FormAccessGate access={access} onRetry={refreshAccess} />
+  }
+
+  // Genuinely nothing configured for this major program yet — not a
+  // loading state (BACKEND_DEVIATIONS A23: a major program with nothing
+  // adopted via "Add from Catalog" has no shared default to fall back to
+  // anymore). Distinct from the loading skeleton above — this used to be
+  // indistinguishable from "still loading" (both fell through to
+  // `!currentStep`), leaving the applicant on a skeleton forever instead
+  // of an honest explanation.
+  if (isEmpty || !currentStep) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        <EmptyState
+          icon={AlertTriangle}
+          title="Application form isn't configured yet"
+          description="No application form steps have been set up for your major program yet. Please contact the admissions office to have the form configured."
+        />
       </div>
     )
   }
@@ -182,7 +314,6 @@ export default function AdmissionApplicationFormPage() {
       denyBehavior="modal"
     >
       <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* Header */}
         <motion.div
           className="mb-8 text-center"
           initial={{ opacity: 0, y: -20 }}
@@ -198,7 +329,6 @@ export default function AdmissionApplicationFormPage() {
           </p>
         </motion.div>
 
-        {/* Progress Bar */}
         <motion.div
           className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted"
           initial={{ opacity: 0 }}
@@ -218,22 +348,20 @@ export default function AdmissionApplicationFormPage() {
           Step {currentStepPosition + 1} of {totalSteps}
         </p>
 
-        {/* Step Indicator */}
         <FormStepIndicator
-          currentStep={currentStep}
-          activeSteps={activeSteps}
+          steps={steps}
+          currentStepId={currentStep.id}
           completedSteps={completedSteps}
           onStepClick={goToStep}
         />
 
-        {/* Form Content */}
         <FormProvider {...form}>
           <form onSubmit={(e) => e.preventDefault()}>
             <Card className="mt-6">
               <CardContent className="min-h-100 overflow-hidden p-6 sm:p-8">
                 <AnimatePresence mode="wait" custom={direction}>
                   <motion.div
-                    key={currentStep}
+                    key={currentStep.id}
                     custom={direction}
                     variants={slideVariants}
                     initial="enter"
@@ -246,16 +374,15 @@ export default function AdmissionApplicationFormPage() {
                   >
                     <StepRenderer
                       step={currentStep}
-                      activeSteps={activeSteps}
+                      steps={steps}
                       completedSteps={completedSteps}
                       onEditStep={goToStep}
+                      fieldIndex={fieldIndex}
                     />
                   </motion.div>
                 </AnimatePresence>
               </CardContent>
 
-              {/* Submit error summary — client-side validation + backend
-                  rejections, visible right above the footer */}
               {(submitErrors.length > 0 || submitError) && (
                 <div className="px-6 sm:px-8">
                   <div
@@ -272,15 +399,15 @@ export default function AdmissionApplicationFormPage() {
                         </p>
                         <ul className="list-disc space-y-1 pl-5">
                           {submitErrors.map(
-                            ({ field, message, step, label }) => (
+                            ({ key, message, stepId, label }) => (
                               <li
-                                key={field}
+                                key={key}
                                 className="text-sm text-destructive"
                               >
-                                {step !== undefined ? (
+                                {stepId ? (
                                   <button
                                     type="button"
-                                    onClick={() => goToStep(step)}
+                                    onClick={() => goToStep(stepId)}
                                     className="text-left underline-offset-2 hover:underline"
                                   >
                                     <span className="font-medium">
@@ -314,22 +441,22 @@ export default function AdmissionApplicationFormPage() {
                         {serverErrorRows.length > 0 ? (
                           <ul className="list-disc space-y-1 pl-5">
                             {serverErrorRows.map(
-                              ({ key, label, message, step }) => (
+                              ({ key, label, message, stepId }) => (
                                 <li
                                   key={key}
                                   className="text-sm text-destructive"
                                 >
                                   <span className="font-medium">{label}:</span>{" "}
                                   {message}
-                                  {step !== undefined && (
+                                  {stepId && (
                                     <>
                                       {" — "}
                                       <button
                                         type="button"
-                                        onClick={() => goToStep(step)}
+                                        onClick={() => goToStep(stepId)}
                                         className="font-medium underline underline-offset-2 hover:no-underline"
                                       >
-                                        Go to {getStepTitle(step)}
+                                        Go to {stepTitle(stepId)}
                                       </button>
                                     </>
                                   )}
@@ -348,9 +475,6 @@ export default function AdmissionApplicationFormPage() {
                 </div>
               )}
 
-              {/* Submission progress — documents can be several MB on a slow
-                  connection, so the transfer is reported rather than hidden
-                  behind a spinner. */}
               {submitStage !== "idle" && (
                 <div className="px-6 sm:px-8">
                   <UploadProgress
@@ -368,10 +492,10 @@ export default function AdmissionApplicationFormPage() {
                 </div>
               )}
 
-              {/* Navigation */}
               <div className="px-6 pb-6 sm:px-8">
                 <FormNavigation
-                  currentStep={currentStep}
+                  isFirst={currentStepPosition === 0}
+                  isLast={currentStep.kind === "review"}
                   currentStepPosition={currentStepPosition}
                   totalSteps={totalSteps}
                   isSubmitting={isSubmitting}
@@ -379,7 +503,7 @@ export default function AdmissionApplicationFormPage() {
                   onPrev={prevStep}
                   onSubmit={submitForm}
                   onSave={saveProgress}
-                  onClearStep={() => clearStep(currentStep)}
+                  onClearStep={() => clearStep(currentStep.id)}
                   onClearForm={resetForm}
                 />
               </div>
@@ -387,7 +511,6 @@ export default function AdmissionApplicationFormPage() {
           </form>
         </FormProvider>
 
-        {/* Success Modal */}
         <SuccessModal isOpen={isSubmitted} />
       </div>
     </PermissionGate>

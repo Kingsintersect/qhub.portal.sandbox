@@ -14,8 +14,8 @@ import type {
   StudentQueryFilters,
   TutorOnboardingStep,
 } from "@/types/users"
-import type { UserQueryFilters, StudentQueryFilters } from "@/types/users"
 import { useUploadProgress } from "@/hooks/use-upload-progress"
+import { friendlyMessage } from "@/lib/errors"
 
 /** Pull the most descriptive message out of an API error — the backend's
  *  own `message`, then any Laravel-style field validation errors, then a
@@ -29,8 +29,8 @@ function describeApiError(err: unknown, fallback: string): string {
     ? Object.values(data.errors).flat().filter(Boolean)
     : []
   if (fieldErrors.length) return fieldErrors.join(" ")
-  if (data?.message) return data.message
-  if (e?.message) return e.message
+  if (data?.message) return friendlyMessage(data.message)
+  if (e?.message) return friendlyMessage(e.message)
   return fallback
 }
 
@@ -116,7 +116,8 @@ export function useUpdateStudent() {
       await qc.invalidateQueries({ queryKey: usersKeys.students.all })
       toast.success("Student updated")
     },
-    onError: () => toast.error("Failed to update student"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to update student")),
   })
 }
 
@@ -140,12 +141,13 @@ export function useCreateTutor() {
   const qc = useQueryClient()
   return useMutation({
     ...usersMutationOptions.createTutor(),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await qc.invalidateQueries({ queryKey: usersKeys.tutors.all })
       await qc.invalidateQueries({ queryKey: usersKeys.all })
-      toast.success("Tutor created successfully")
+      toast.success(res.message ?? "Tutor created successfully")
     },
-    onError: () => toast.error("Failed to create tutor"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to create tutor")),
   })
 }
 
@@ -157,7 +159,8 @@ export function useUpdateTutor() {
       await qc.invalidateQueries({ queryKey: usersKeys.tutors.all })
       toast.success("Tutor updated")
     },
-    onError: () => toast.error("Failed to update tutor"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to update tutor")),
   })
 }
 
@@ -195,10 +198,16 @@ export function useUpdateMyOnboarding() {
 
 /* ── Course Assignments ── */
 
-export function useCourseOfferings() {
+export function useCourseOfferings(
+  filters?: {
+    majorProgramId?: number | null
+  },
+  { enabled = true }: { enabled?: boolean } = {}
+) {
   return useQuery({
-    ...usersQueryOptions.courseOfferings(),
+    ...usersQueryOptions.courseOfferings(filters),
     staleTime: 1000 * 60 * 5,
+    enabled,
   })
 }
 
@@ -217,7 +226,8 @@ export function useAssignCourse() {
       await qc.invalidateQueries({ queryKey: usersKeys.tutors.all })
       toast.success("Course assigned successfully")
     },
-    onError: (err) => toast.error(err?.message ?? "Failed to assign course"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to assign course")),
   })
 }
 
@@ -229,7 +239,8 @@ export function useUnassignCourse() {
       await qc.invalidateQueries({ queryKey: usersKeys.tutors.all })
       toast.success("Course unassigned")
     },
-    onError: () => toast.error("Failed to unassign course"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to unassign course")),
   })
 }
 
@@ -288,12 +299,13 @@ export function useCreateStaff() {
   const qc = useQueryClient()
   return useMutation({
     ...usersMutationOptions.createStaff(),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await qc.invalidateQueries({ queryKey: usersKeys.staff.all })
       await qc.invalidateQueries({ queryKey: usersKeys.all })
-      toast.success("Staff member created successfully")
+      toast.success(res.message ?? "Staff member created successfully")
     },
-    onError: () => toast.error("Failed to create staff member"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to create staff member")),
   })
 }
 
@@ -305,7 +317,8 @@ export function useUpdateStaff() {
       await qc.invalidateQueries({ queryKey: usersKeys.staff.all })
       toast.success("Staff member updated")
     },
-    onError: () => toast.error("Failed to update staff member"),
+    onError: (err) =>
+      toast.error(describeApiError(err, "Failed to update staff member")),
   })
 }
 

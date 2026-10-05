@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import Modal from "@/components/custom/Modal"
@@ -20,6 +20,7 @@ import {
   useAllPrograms,
   useFaculties,
   useLevels,
+  useMajorPrograms,
 } from "@/hooks/useCourseStructure"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
 import { useSemesters } from "@/hooks/useSemesters"
@@ -36,13 +37,29 @@ interface CategoryResolveDialogProps {
 // a pulled Semester category (e.g. "First Semester") permanently
 // unresolvable: there was no way to even select the right kind of entity to
 // link it to.
+// "major_program" — sandbox/major-program-scoping/: lets an admin manually
+// resolve a category to a MajorProgram root node.
 const ENTITY_KINDS: AcademicUnitLinkKind[] = [
   "faculty",
   "department",
   "program",
   "level",
   "semester",
+  "major_program",
 ]
+
+// Sentinel for "no parent (root node)" in the structural-mode parent
+// Combobox, which only deals in string | number values, never null.
+const ROOT_SENTINEL = "_ROOT_"
+
+const ENTITY_KIND_LABELS: Record<AcademicUnitLinkKind, string> = {
+  faculty: "Faculty",
+  department: "Department",
+  program: "Program",
+  level: "Level",
+  semester: "Semester",
+  major_program: "Major Program",
+}
 
 // Resolves one flagged (needsMapping: true) row pulled from Moodle with no
 // recognizable idnumber — either link it to a real entity, or fix it up as
@@ -56,7 +73,16 @@ export function CategoryResolveDialog({
   const [entityKind, setEntityKind] = useState<AcademicUnitLinkKind>("faculty")
   const [entityId, setEntityId] = useState<number | null>(null)
   const [typeCode, setTypeCode] = useState("")
-  const [parentId, setParentId] = useState<number | null>(null)
+  // Default to the parent AcademicUnit the backend already knows this
+  // category's Moodle parent resolved to (`category.parentId`), rather than
+  // always defaulting to root — this is why "fix as structural node" kept
+  // landing deeply-nested Moodle categories (e.g. a Program four levels
+  // down) as top-level nodes: nothing pre-filled the real parent. Still
+  // freely editable below; null (root) if the parent hasn't been resolved
+  // yet, which is legitimate — resolve top-down when possible.
+  const [parentId, setParentId] = useState<number | null>(
+    category?.parentId ?? null
+  )
   // Semesters are scoped per academic session (unlike Faculty/Department/
   // Program/Level, which are global) — need a session picked before the
   // Entity combobox has anything to look up.
@@ -71,10 +97,25 @@ export function CategoryResolveDialog({
   const { data: departmentsData } = useAllDepartments()
   const { data: programsData } = useAllPrograms()
   const { data: levelsData } = useLevels()
+  const { data: majorProgramsData } = useMajorPrograms()
   const { data: sessions } = useAcademicSessions()
   const activeSessionId = useMemo(
     () => sessions?.find((s) => s.isActive)?.id ?? sessions?.[0]?.id ?? null,
     [sessions]
+  )
+  // Multiple major programs can each run their own session named e.g.
+  // "2026/2027" — without this, the picker below can't tell them apart.
+  const majorProgramNameById = useMemo(
+    () =>
+      new Map((majorProgramsData?.data ?? []).map((mp) => [mp.id, mp.name])),
+    [majorProgramsData]
+  )
+  const sessionScopeLabel = useCallback(
+    (majorProgramId: number | null | undefined) =>
+      majorProgramId != null
+        ? (majorProgramNameById.get(majorProgramId) ?? "Unknown major program")
+        : "Institution-wide",
+    [majorProgramNameById]
   )
   // Default to the active session until the admin explicitly picks another one.
   const effectiveSessionId = sessionId ?? activeSessionId
@@ -86,7 +127,10 @@ export function CategoryResolveDialog({
         return (facultiesData?.data ?? []).map((f) => ({
           value: f.id,
           label: f.name,
-          description: f.code,
+          description:
+            f.majorProgramId != null
+              ? `${f.code} — ${sessionScopeLabel(f.majorProgramId)}`
+              : f.code,
         }))
       case "department":
         return (departmentsData?.data ?? []).map((d) => ({
@@ -98,7 +142,10 @@ export function CategoryResolveDialog({
         return (programsData?.data ?? []).map((p) => ({
           value: p.id,
           label: p.name,
-          description: p.code,
+          description:
+            p.majorProgramId != null
+              ? `${p.code} — ${sessionScopeLabel(p.majorProgramId)}`
+              : p.code,
         }))
       case "level":
         return (levelsData?.data ?? []).map((l) => ({
@@ -110,6 +157,12 @@ export function CategoryResolveDialog({
           value: s.id,
           label: s.name,
         }))
+      case "major_program":
+        return (majorProgramsData?.data ?? []).map((mp) => ({
+          value: mp.id,
+          label: mp.name,
+          description: mp.code,
+        }))
       default:
         return []
     }
@@ -119,14 +172,42 @@ export function CategoryResolveDialog({
     departmentsData,
     programsData,
     levelsData,
+    majorProgramsData,
     semestersData,
+    sessionScopeLabel,
   ])
 
-  const parentOptions: ComboboxOption[] = (unitsData?.data ?? []).map((u) => ({
-    value: u.id,
-    label: u.name,
-    description: u.typeCode,
-  }))
+  // A category can't be re-parented under its own placeholder AcademicUnit
+  // node (or anything already under that node) — every pulled category,
+  // even an unresolved one, already has a bare placeholder row at
+  // `category.academicUnitId`, so exclude it and its descendants the same
+  // way AcademicUnitFormDialog's re-parent picker does.
+  const parentOptions: ComboboxOption[] = useMemo(() => {
+    const all = unitsData?.data ?? []
+    const selfId = category?.academicUnitId
+    const excluded = new Set<number>(selfId != null ? [selfId] : [])
+    let added = true
+    while (added) {
+      added = false
+      for (const u of all) {
+        if (
+          u.parentId != null &&
+          excluded.has(u.parentId) &&
+          !excluded.has(u.id)
+        ) {
+          excluded.add(u.id)
+          added = true
+        }
+      }
+    }
+    return [
+      { value: ROOT_SENTINEL, label: "— No parent (root node) —" },
+      ...all
+        .filter((u) => !excluded.has(u.id))
+        .map((u) => ({ value: u.id, label: u.name, description: u.typeCode })),
+    ]
+  }, [unitsData, category])
+  const parentComboboxValue = parentId ?? ROOT_SENTINEL
 
   const handleResolve = async () => {
     if (!category) return
@@ -163,10 +244,16 @@ export function CategoryResolveDialog({
     <Modal
       open={!!category}
       onClose={onClose}
-      title="Resolve Category"
+      title={
+        category?.needsMapping === false
+          ? "Re-link Category"
+          : "Resolve Category"
+      }
       subtitle={
         category
-          ? `"${category.moodleCategoryName}" has no recognizable idnumber`
+          ? category.needsMapping === false
+            ? `Moodle "${category.moodleCategoryName}" is linked to portal "${category.unitName}". Pick the portal record it really is; the link is also written back to Moodle.`
+            : `"${category.moodleCategoryName}" has no recognizable idnumber`
           : undefined
       }
       size="md"
@@ -239,8 +326,8 @@ export function CategoryResolveDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {ENTITY_KINDS.map((k) => (
-                    <SelectItem key={k} value={k} className="capitalize">
-                      {k}
+                    <SelectItem key={k} value={k}>
+                      {ENTITY_KIND_LABELS[k]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -263,6 +350,9 @@ export function CategoryResolveDialog({
                     {(sessions ?? []).map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
                         {s.name}
+                        <span className="ml-1.5 text-xs text-muted-foreground">
+                          — {sessionScopeLabel(s.majorProgramId)}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -275,7 +365,7 @@ export function CategoryResolveDialog({
                 options={entityOptions}
                 value={entityId}
                 onChange={(v) => setEntityId(Number(v))}
-                placeholder={`Select a ${entityKind}…`}
+                placeholder={`Select a ${ENTITY_KIND_LABELS[entityKind]}…`}
               />
             </div>
           </div>
@@ -300,10 +390,19 @@ export function CategoryResolveDialog({
               <Label>Parent Node (optional)</Label>
               <Combobox
                 options={parentOptions}
-                value={parentId}
-                onChange={(v) => setParentId(Number(v))}
+                value={parentComboboxValue}
+                onChange={(v) =>
+                  setParentId(v === ROOT_SENTINEL ? null : Number(v))
+                }
                 placeholder="Select a parent node…"
               />
+              {category?.parentMoodleCategoryId != null && (
+                <p className="text-xs text-muted-foreground">
+                  {category.parentId != null
+                    ? "Pre-filled to match this category's Moodle parent."
+                    : "This category has a Moodle parent that hasn't been resolved yet — resolving that one first will let this default correctly instead of landing at root."}
+                </p>
+              )}
             </div>
           </div>
         )}

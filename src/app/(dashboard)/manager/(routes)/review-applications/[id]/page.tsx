@@ -25,7 +25,9 @@ import DocumentList from "@/components/custom/DocumentList"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
 import { ZoomableImage } from "@/components/custom/ZoomableImage"
+import { ApplicationAnswers } from "./components/ApplicationAnswers"
 import { getFileKind } from "@/lib/utils"
+import { getErrorMessage } from "@/lib/errors"
 import {
   applicationReviewApi,
   applicationReviewKeys,
@@ -38,8 +40,13 @@ import {
   admissionOfferMutationOptions,
   type AdmissionOffer,
 } from "@/services/admissionOfferApi"
-import { useAllPrograms, useLevels } from "@/hooks/useCourseStructure"
+import {
+  useAllPrograms,
+  useLevels,
+  useCohorts,
+} from "@/hooks/useCourseStructure"
 import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import { useSessionOptions } from "@/hooks/use-session-options"
 import {
   createAdmissionOfferSchema,
   type CreateAdmissionOfferFormValues,
@@ -96,16 +103,21 @@ export default function ApplicationDetailPage() {
       setDenyModalOpen(false)
       setConfirmApproveOpen(false)
     },
-    onError: () => toast.error("Failed to submit decision"),
+    onError: (err) =>
+      toast.error(getErrorMessage(err, "Failed to submit decision")),
   })
 
   const { data: programs } = useAllPrograms()
   const { data: levelsData } = useLevels()
   const { data: sessions } = useAcademicSessions()
+  // Picker options labelled with their major program — identical names otherwise.
+  const { options: sessionOptions } = useSessionOptions()
   const levels = levelsData?.data ?? []
 
-  // There's no real "does this application already have an offer" lookup
-  // endpoint (see admissionOfferApi.ts) — GET /admissions only filters by
+  // Primary signal: the application itself now embeds its offer as
+  // `admission` (bruno/admission/Applications - Get.bru, null until one
+  // exists) — used first below. The list lookup that follows is only the
+  // fallback for a response that predates that field. GET /admissions only filters by
   // sessionId/programId/status, not applicationId. Scoping the check to the
   // application's own program+session keeps it a bounded query instead of
   // fetching the entire admissions table, and covers every offer created the
@@ -119,6 +131,14 @@ export default function ApplicationDetailPage() {
     application?.program_choice.first_choice_program_id
   )
   const applicationSessionId = Number(application?.admission_cycle_id)
+  // Major-Program Scoping — sandbox/major-program-scoping/
+  // BACKEND_DEVIATIONS_2026-09-14.md A35. Sent ahead of the backend per
+  // CLAUDE.md §14 — a no-op here today since programId already narrows this
+  // query to one exact program, but kept consistent with every other
+  // offers query in this module.
+  const applicationMajorProgramId = (programs?.data ?? []).find(
+    (p) => p.id === applicationProgramId
+  )?.majorProgramId
   const { data: offersForProgramSession } = useQuery({
     queryKey: admissionOfferKeys.list({
       programId: applicationProgramId,
@@ -128,13 +148,19 @@ export default function ApplicationDetailPage() {
       admissionOfferApi.list({
         programId: applicationProgramId,
         sessionId: applicationSessionId,
+        majorProgramId: applicationMajorProgramId ?? undefined,
         limit: 100,
       }),
-    enabled: application?.status === "approved" && !!applicationProgramId,
+    // Skipped once the embedded `admission` field answers the question.
+    enabled:
+      application?.status === "approved" &&
+      application.admission === undefined &&
+      !!applicationProgramId,
   })
   const [createdOffer, setCreatedOffer] = useState<AdmissionOffer | null>(null)
   const existingOffer =
     createdOffer ??
+    application?.admission ??
     offersForProgramSession?.data.find((o) => o.applicationId === Number(id))
 
   const createOfferForm = useForm<CreateAdmissionOfferFormValues>({
@@ -142,13 +168,47 @@ export default function ApplicationDetailPage() {
     defaultValues: {
       admissionNumber: "",
       programId: 0,
-      levelId: 0,
-      sessionId: 0,
+      levelId: null,
+      sessionId: null,
+      cohortId: null,
       admissionDate: new Date().toISOString().slice(0, 10),
       admissionType: "merit",
       expiryDate: "",
     },
   })
+
+  // Program Structure Depth — sandbox/program-structure-depth/. The offer
+  // form's Level+Session pair vs. Cohort field swap on this, resolved from
+  // whichever program the officer picks (defaults to DEGREE's shape if the
+  // selected program somehow isn't found, matching the schema's own
+  // default).
+  const selectedOfferProgramId = createOfferForm.watch("programId")
+  const selectedOfferProgram = (programs?.data ?? []).find(
+    (p) => p.id === selectedOfferProgramId
+  )
+  const selectedOfferCategory =
+    selectedOfferProgram?.programCategory ?? "DEGREE"
+  const isCertificateOffer = selectedOfferCategory === "CERTIFICATE"
+  const isFoundationalOffer = selectedOfferCategory === "FOUNDATIONAL"
+  const { data: cohortsForOfferProgram } = useCohorts(
+    isCertificateOffer ? selectedOfferProgramId : null
+  )
+  const openCohorts = (cohortsForOfferProgram?.data ?? []).filter(
+    (c) => c.status === "OPEN"
+  )
+  // Program Structure Depth — sandbox/program-structure-depth/README.md
+  // §4.D. Only offer Levels at or above the program's
+  // entryLevelId (e.g. a Part-Time program shouldn't offer 100 Level).
+  // Filtered client-side rather than folded into the zod schema, since
+  // validating it there would mean carrying both ids' numericValue as
+  // extra form-local fields just to compare them — filtering the picker
+  // achieves the same guarantee more simply.
+  const entryLevel = levels.find(
+    (l) => l.id === selectedOfferProgram?.entryLevelId
+  )
+  const selectableOfferLevels = entryLevel
+    ? levels.filter((l) => l.numericValue >= entryLevel.numericValue)
+    : levels
 
   const createOfferMutation = useMutation({
     ...admissionOfferMutationOptions.create(),
@@ -171,17 +231,47 @@ export default function ApplicationDetailPage() {
   })
 
   const handleOpenCreateOffer = () => {
+    const initialProgramId =
+      Number(application?.program_choice.first_choice_program_id) || 0
+    const initialProgram = (programs?.data ?? []).find(
+      (p) => p.id === initialProgramId
+    )
+    const initialCategory = initialProgram?.programCategory ?? "DEGREE"
     createOfferForm.reset({
       admissionNumber: "",
-      programId:
-        Number(application?.program_choice.first_choice_program_id) || 0,
-      levelId: 0,
-      sessionId: Number(application?.admission_cycle_id) || 0,
+      programId: initialProgramId,
+      programCategory: initialCategory,
+      levelId: null,
+      sessionId:
+        initialCategory === "CERTIFICATE"
+          ? null
+          : Number(application?.admission_cycle_id) || null,
+      cohortId: null,
       admissionDate: new Date().toISOString().slice(0, 10),
       admissionType: "merit",
       expiryDate: "",
     })
     setCreateOfferOpen(true)
+  }
+
+  // Keep the schema's category-conditional refine in sync with whichever
+  // program the officer picks, and clear the fields that no longer apply so
+  // a stale levelId/sessionId can't survive a switch into a CERTIFICATE
+  // program (or vice versa).
+  const handleOfferProgramChange = (programId: number) => {
+    const program = (programs?.data ?? []).find((p) => p.id === programId)
+    const category = program?.programCategory ?? "DEGREE"
+    createOfferForm.setValue("programId", programId)
+    createOfferForm.setValue("programCategory", category)
+    if (category === "CERTIFICATE") {
+      createOfferForm.setValue("levelId", null)
+      createOfferForm.setValue("sessionId", null)
+    } else {
+      createOfferForm.setValue("cohortId", null)
+      if (category === "FOUNDATIONAL") {
+        createOfferForm.setValue("levelId", null)
+      }
+    }
   }
 
   // `admissionNumber` has no server-side generator (see
@@ -206,7 +296,15 @@ export default function ApplicationDetailPage() {
 
     setIsGeneratingNumber(true)
     try {
-      const { meta } = await admissionOfferApi.list({ sessionId, limit: 1 })
+      // Deliberately NOT narrowed by majorProgramId: GET /admissions now
+      // really filters by it (bruno/admission/Admissions - List.bru,
+      // 2026-09-22), which would restart the count per major program and
+      // generate admission numbers that collide with another major
+      // program's — admissionNumber is unique institution-wide.
+      const { meta } = await admissionOfferApi.list({
+        sessionId,
+        limit: 1,
+      })
       const nextSequence = (meta?.total ?? 0) + 1
       createOfferForm.setValue(
         "admissionNumber",
@@ -225,8 +323,9 @@ export default function ApplicationDetailPage() {
       applicationId: Number(id),
       admissionNumber: data.admissionNumber,
       programId: data.programId,
-      levelId: data.levelId,
-      sessionId: data.sessionId,
+      levelId: data.levelId ?? null,
+      sessionId: data.sessionId ?? null,
+      cohortId: data.cohortId ?? null,
       admissionDate: data.admissionDate,
       admissionType: data.admissionType,
       expiryDate: data.expiryDate || undefined,
@@ -291,6 +390,17 @@ export default function ApplicationDetailPage() {
 
   const { personal_info, academic_records, program_choice, documents } =
     application
+
+  // Dynamic Admission — sandbox/dynamic-admission/. Once an application was
+  // submitted through the fully dynamic form, `application.form.steps` is a
+  // real, complete snapshot of every step/field as the applicant actually
+  // saw it — rendered generically below by <ApplicationAnswers>. The
+  // hardcoded "Personal Information"/"Program Choice"/"Academic Records"
+  // cards further down are a fixed field set from before that shipped; kept
+  // only as the fallback for older applications with no snapshot, so they
+  // never duplicate (or silently go stale next to) whatever fields the
+  // admin has actually configured for this application's major program.
+  const hasFormSnapshot = !!application.form?.steps?.length
 
   return (
     <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
@@ -399,216 +509,236 @@ export default function ApplicationDetailPage() {
           )}
         </AnimatePresence>
 
-        {/* Personal Information */}
-        <SectionCard title="Personal Information" icon={User}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="mb-2 flex items-center gap-4 sm:col-span-2 lg:col-span-3">
-              <ZoomableImage
-                src={personal_info.passport_url}
-                alt="Passport photograph"
-                title={`${personal_info.first_name} ${personal_info.last_name} — Passport`}
-                className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border"
-              />
-              <div>
-                <p className="text-lg font-semibold text-foreground">
-                  {personal_info.last_name}, {personal_info.first_name}{" "}
-                  {personal_info.middle_name}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {personal_info.email}
-                </p>
-              </div>
+        {/* Identity summary — always shown, pulls from guaranteed top-level
+            fields regardless of whether a dynamic snapshot exists. */}
+        <SectionCard title="Applicant" icon={User}>
+          <div className="flex items-center gap-4">
+            <ZoomableImage
+              src={personal_info.passport_url}
+              alt="Passport photograph"
+              title={`${personal_info.first_name} ${personal_info.last_name} — Passport`}
+              className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border"
+            />
+            <div>
+              <p className="text-lg font-semibold text-foreground">
+                {personal_info.last_name}, {personal_info.first_name}{" "}
+                {personal_info.middle_name}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {personal_info.email}
+              </p>
             </div>
-            {/* Read-only: admission officers cannot edit application fields — see admission_README.md */}
-            <EditableField
-              label="First Name"
-              value={personal_info.first_name}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Last Name"
-              value={personal_info.last_name}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Middle Name"
-              value={personal_info.middle_name}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Date of Birth"
-              value={personal_info.date_of_birth}
-              type="date"
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Gender"
-              value={personal_info.gender}
-              editable={false}
-              options={[
-                { value: "male", label: "Male" },
-                { value: "female", label: "Female" },
-                { value: "other", label: "Other" },
-              ]}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Nationality"
-              value={personal_info.nationality}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="State of Origin"
-              value={personal_info.state_of_origin}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="LGA"
-              value={personal_info.lga}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Phone"
-              value={personal_info.phone}
-              type="tel"
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Email"
-              value={personal_info.email}
-              type="email"
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Address"
-              value={personal_info.address}
-              type="textarea"
-              editable={false}
-              onSave={() => {}}
-              className="sm:col-span-2 lg:col-span-3"
-            />
           </div>
         </SectionCard>
 
-        {/* Program Choice */}
-        <SectionCard title="Program Choice" icon={GraduationCap}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-            <EditableField
-              label="First Choice"
-              value={program_choice.first_choice_program_name}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Second Choice"
-              value={program_choice.second_choice_program_name}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="Entry Mode"
-              value={program_choice.entry_mode}
-              editable={false}
-              options={[
-                { value: "utme", label: "UTME" },
-                { value: "direct_entry", label: "Direct Entry" },
-                { value: "transfer", label: "Transfer" },
-              ]}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="JAMB Reg No."
-              value={program_choice.jamb_reg_no}
-              editable={false}
-              onSave={() => {}}
-            />
-            <EditableField
-              label="JAMB Score"
-              value={String(program_choice.jamb_score)}
-              type="number"
-              editable={false}
-              onSave={() => {}}
-            />
-          </div>
-        </SectionCard>
-
-        {/* Academic Records — view only */}
-        <SectionCard title="Academic Records" icon={BookOpen}>
-          <div className="space-y-6">
-            {academic_records.map((record, idx) => (
-              <div key={idx} className="space-y-4">
-                {idx > 0 && <hr className="border-border" />}
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                  Record {idx + 1}
-                </p>
-                <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                  <EditableField
-                    label="Institution"
-                    value={record.institution}
-                    editable={false}
-                    onSave={() => {}}
-                  />
-                  <EditableField
-                    label="Qualification"
-                    value={record.qualification}
-                    editable={false}
-                    onSave={() => {}}
-                  />
-                  <EditableField
-                    label="Year Obtained"
-                    value={record.year_obtained}
-                    editable={false}
-                    onSave={() => {}}
-                  />
-                  <EditableField
-                    label="Grade"
-                    value={record.grade}
-                    editable={false}
-                    onSave={() => {}}
-                  />
-                </div>
-                {record.certificate_url && (
-                  <div className="mt-2">
-                    <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                      Certificate
-                    </p>
-                    {/* Certificates are uploaded as either an image or a PDF —
-                        rendering everything through <img> silently broke for
-                        PDFs (broken-image icon). Only images get the inline
-                        thumbnail; anything else is a plain link to open it. */}
-                    {getFileKind(record.certificate_url) === "image" ? (
-                      <ZoomableImage
-                        src={record.certificate_url}
-                        alt={`${record.qualification} certificate`}
-                        title={`${record.institution} — ${record.qualification} Certificate`}
-                        className="h-auto w-full max-w-sm overflow-hidden rounded-xl border border-border"
-                      />
-                    ) : (
-                      <a
-                        href={record.certificate_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-primary hover:underline"
-                      >
-                        <FileText size={16} />
-                        View {record.qualification} certificate
-                      </a>
-                    )}
-                  </div>
-                )}
+        {/* Fallback only — no dynamic form snapshot for this application, so
+            fall back to the fixed legacy field set (today's exact behavior
+            before the dynamic form shipped). See hasFormSnapshot above. */}
+        {!hasFormSnapshot && (
+          <>
+            <SectionCard title="Personal Information" icon={User}>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Read-only: admission officers cannot edit application fields — see admission_README.md */}
+                <EditableField
+                  label="First Name"
+                  value={personal_info.first_name}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Last Name"
+                  value={personal_info.last_name}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Middle Name"
+                  value={personal_info.middle_name}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Date of Birth"
+                  value={personal_info.date_of_birth}
+                  type="date"
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Gender"
+                  value={personal_info.gender}
+                  editable={false}
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "other", label: "Other" },
+                  ]}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Nationality"
+                  value={personal_info.nationality}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="State of Origin"
+                  value={personal_info.state_of_origin}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="LGA"
+                  value={personal_info.lga}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Phone"
+                  value={personal_info.phone}
+                  type="tel"
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Email"
+                  value={personal_info.email}
+                  type="email"
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Address"
+                  value={personal_info.address}
+                  type="textarea"
+                  editable={false}
+                  onSave={() => {}}
+                  className="sm:col-span-2 lg:col-span-3"
+                />
               </div>
-            ))}
-          </div>
-        </SectionCard>
+            </SectionCard>
+
+            <SectionCard title="Program Choice" icon={GraduationCap}>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <EditableField
+                  label="First Choice"
+                  value={program_choice.first_choice_program_name}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Second Choice"
+                  value={program_choice.second_choice_program_name}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="Entry Mode"
+                  value={program_choice.entry_mode}
+                  editable={false}
+                  options={[
+                    { value: "utme", label: "UTME" },
+                    { value: "direct_entry", label: "Direct Entry" },
+                    { value: "transfer", label: "Transfer" },
+                  ]}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="JAMB Reg No."
+                  value={program_choice.jamb_reg_no}
+                  editable={false}
+                  onSave={() => {}}
+                />
+                <EditableField
+                  label="JAMB Score"
+                  value={String(program_choice.jamb_score)}
+                  type="number"
+                  editable={false}
+                  onSave={() => {}}
+                />
+              </div>
+            </SectionCard>
+          </>
+        )}
+
+        {/* Dynamic answers — every step/field as the applicant actually saw
+            it (personal info, sponsor, next of kin, qualifications, exam
+            sitting, documents, program-specific questions…) when a real
+            snapshot exists; falls back to labeled custom_fields otherwise. */}
+        <ApplicationAnswers application={application} />
+
+        {/* Academic Records — fallback only, see hasFormSnapshot above; a
+            real snapshot already covers qualifications/exam-sitting fields
+            via <ApplicationAnswers>. */}
+        {!hasFormSnapshot && (
+          <SectionCard title="Academic Records" icon={BookOpen}>
+            <div className="space-y-6">
+              {academic_records.map((record, idx) => (
+                <div key={idx} className="space-y-4">
+                  {idx > 0 && <hr className="border-border" />}
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    Record {idx + 1}
+                  </p>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <EditableField
+                      label="Institution"
+                      value={record.institution}
+                      editable={false}
+                      onSave={() => {}}
+                    />
+                    <EditableField
+                      label="Qualification"
+                      value={record.qualification}
+                      editable={false}
+                      onSave={() => {}}
+                    />
+                    <EditableField
+                      label="Year Obtained"
+                      value={record.year_obtained}
+                      editable={false}
+                      onSave={() => {}}
+                    />
+                    <EditableField
+                      label="Grade"
+                      value={record.grade}
+                      editable={false}
+                      onSave={() => {}}
+                    />
+                  </div>
+                  {record.certificate_url && (
+                    <div className="mt-2">
+                      <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                        Certificate
+                      </p>
+                      {/* Certificates are uploaded as either an image or a PDF —
+                          rendering everything through <img> silently broke for
+                          PDFs (broken-image icon). Only images get the inline
+                          thumbnail; anything else is a plain link to open it. */}
+                      {getFileKind(record.certificate_url) === "image" ? (
+                        <ZoomableImage
+                          src={record.certificate_url}
+                          alt={`${record.qualification} certificate`}
+                          title={`${record.institution} — ${record.qualification} Certificate`}
+                          className="h-auto w-full max-w-sm overflow-hidden rounded-xl border border-border"
+                        />
+                      ) : (
+                        <a
+                          href={record.certificate_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-primary hover:underline"
+                        >
+                          <FileText size={16} />
+                          View {record.qualification} certificate
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
 
         {/* Documents — view + download; edits are applicant-scoped, not admin */}
         <SectionCard title="Uploaded Documents" icon={FileText}>
@@ -770,9 +900,10 @@ export default function ApplicationDetailPage() {
                   Program
                 </label>
                 <select
-                  {...createOfferForm.register("programId", {
-                    valueAsNumber: true,
-                  })}
+                  value={selectedOfferProgramId || 0}
+                  onChange={(e) =>
+                    handleOfferProgramChange(Number(e.target.value))
+                  }
                   className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 >
                   <option value={0}>Select program</option>
@@ -783,46 +914,101 @@ export default function ApplicationDetailPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">
-                  Level
-                </label>
-                <select
-                  {...createOfferForm.register("levelId", {
-                    valueAsNumber: true,
-                  })}
-                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value={0}>Select level</option>
-                  {levels.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Program Structure Depth — no Level for FOUNDATIONAL/CERTIFICATE. */}
+              {!isCertificateOffer && !isFoundationalOffer && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">
+                    Level
+                  </label>
+                  <select
+                    {...createOfferForm.register("levelId", {
+                      setValueAs: (v) => (v ? Number(v) : null),
+                    })}
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select level</option>
+                    {selectableOfferLevels.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                  {entryLevel && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      This program only offers {entryLevel.name} and above.
+                    </p>
+                  )}
+                  {createOfferForm.formState.errors.levelId && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {createOfferForm.formState.errors.levelId.message}
+                    </p>
+                  )}
+                </div>
+              )}
+              {/* Program Structure Depth — CERTIFICATE uses a Cohort instead of
+                  Session/Level; no institution-wide session concept applies. */}
+              {isCertificateOffer && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">
+                    Cohort
+                  </label>
+                  <select
+                    {...createOfferForm.register("cohortId", {
+                      setValueAs: (v) => (v ? Number(v) : null),
+                    })}
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select cohort</option>
+                    {openCohorts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {openCohorts.length === 0 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      No open cohorts for this program — create one under
+                      Academics → Course Structure → Cohorts.
+                    </p>
+                  )}
+                  {createOfferForm.formState.errors.cohortId && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {createOfferForm.formState.errors.cohortId.message}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">
-                  Session
-                </label>
-                <select
-                  {...createOfferForm.register("sessionId", {
-                    valueAsNumber: true,
-                  })}
-                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value={0}>Select session</option>
-                  {(sessions ?? []).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
+              {/* Program Structure Depth — CERTIFICATE has no institution-wide
+                  session concept; it's scoped entirely by the Cohort above. */}
+              {!isCertificateOffer && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">
+                    Session
+                  </label>
+                  <select
+                    {...createOfferForm.register("sessionId", {
+                      setValueAs: (v) => (v ? Number(v) : null),
+                    })}
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select session</option>
+                    {sessionOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {createOfferForm.formState.errors.sessionId && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {createOfferForm.formState.errors.sessionId.message}
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className={isCertificateOffer ? "col-span-2" : undefined}>
                 <label className="mb-1 block text-xs font-medium text-foreground">
                   Admission Type
                 </label>

@@ -11,7 +11,7 @@
 - **Framework:** Next.js 15+ (App Router)
 - **Language:** TypeScript (Strict Mode)
 - **Architecture:** Single-tenant — one deployment per university instance. No multi-tenancy.
-- **Backend:** External NestJS API. Never generate local `app/api` routes, `pages/api` routes,
+- **Backend:** External Laravel API (`qhub-php/qhub_backend_api`). Never generate local `app/api` routes, `pages/api` routes,
   or server actions for database operations unless explicitly requested.
 
 ---
@@ -152,39 +152,49 @@ Use only for:
 
 ## 5. RBAC & Permissions Protocol
 
-### Types — `src/types/roles.ts`
+**Corrected 2026-09-17** — this section previously described an aspirational architecture
+(`src/lib/permissions.ts`'s `allPermissions[]`/`pickPermissions()`, `src/lib/role-permissions.ts`'s
+`rolePermissionMap`, a `useRoleGuard` hook) that was never built — confirmed via a repo-wide search,
+zero matches for any of it. What follows is the real, live system.
 
-Defines `UserRole` enum, `Permission` interface, `UserProfile`, and `RoleConfig`. This is
-the single source of truth for role and permission types.
+### Types — `src/types/roles.ts` and `src/config/nav.config.ts`
 
-### Permission Registry — `src/lib/permissions.ts`
+`UserRole` enum lives in `src/config/nav.config.ts` (also home to `navConfig`/`roleDashboardPath`
+— every role's nav tree and dashboard home route). `Permission`/`UserProfile` types live in
+`src/types/roles.ts`.
 
-- `allPermissions[]` is the canonical flat list of every permission in the system.
-- Permissions grow over time as new modules are added — always append, never reorganise
-  existing IDs.
-- Each permission follows the shape: `{ id, resource, action, module, description, created_at }`.
-- `pickPermissions(...ids)` is the only way to assign permissions to roles.
-- Never inline permission arrays anywhere else in the codebase.
+### Permissions have no local catalog — the backend is the single source of truth
 
-### Role → Permission Map — `src/lib/role-permissions.ts`
+There is no local permission registry or role→permission map to maintain. Every user's
+`permissions: Permission[]` array comes entirely from the backend session (`/auth/login`/
+`/auth/me`) and is stored as-is (`src/store/appStore.ts`) — never computed, reorganised, or
+overridden client-side. Two static JSON files exist for reference/documentation only
+(`src/lib/utils/permissions.json`, `src/lib/utils/Roles.Permissions.assignment.json`) — neither is
+imported or read at runtime; keep them accurate for humans, but don't treat them as executable.
+**Practical consequence:** if two roles' real backend sessions currently return the identical
+permission set (this has happened — Dean vs Admin, until fixed 2026-09-17), there is no local
+override to fix that with; a genuine distinction has to either come from the backend, or — as a
+last resort, matching existing precedent (`HOD`/`Tutor` sharing a nav tree, `Staff`'s narrower
+branch on the shared `/manager/dashboard` route) — a plain role check, clearly commented as to why
+a permission check wasn't available.
 
-- `rolePermissionMap` maps every `UserRole` to its `Permission[]` using `pickPermissions()`.
-- `roleDashboardPath` maps every `UserRole` to its home route.
-- When a new permission is added to `allPermissions`, assign it to the appropriate roles here.
+### Route-level protection — `<RoleGuard>`
 
-### Permission IDs are stable
-
-Once a permission is assigned an ID it never changes. New permissions always get new
-incremental IDs appended to the list.
-
-### Route-level protection — `useRoleGuard`
-
-```ts
-// Redirects to the user's own dashboard if their role is not in allowedRoles
-useRoleGuard([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+```tsx
+// src/components/dashboard/RoleGuard.tsx
+<RoleGuard
+  role={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}
+  permissions={["fees.verify"]}
+  match="any"
+>
+  <ProtectedPage />
+</RoleGuard>
 ```
 
-Use at the top of protected page components.
+A component, not a hook — wrap the page content in it. `role` is required; `permissions` (dot-string
+format, `"resource.action"`) is optional and layers an additional check on top of the role check.
+Shows a login prompt if unauthenticated, a permission-denied screen if `role`/`permissions` don't
+match (or a custom `fallback`), otherwise renders `children`.
 
 ### Feature-level protection — `usePermissions` hook
 
@@ -231,15 +241,23 @@ if (canAccessModule('finance')) { ... }
 </PermissionGate>
 ```
 
-`PermissionGate` props: `require`, `mode: 'all' | 'any'` (default `'all'`), `fallback`.
+`PermissionGate` props: `require`, `mode: 'all' | 'any'` (default `'all'`), `fallback`,
+`denyBehavior: 'inline' | 'screen' | 'modal'` (default `'inline'` — `'screen'` replaces the whole
+page with a full-page denied screen, `'modal'` shows a blocking popup, use these two for guarding
+an entire page rather than one element).
 
 ### Rule of thumb
 
-- **Route guard** (`useRoleGuard`) → broad role-based redirect at page level.
+- **`<RoleGuard>`** → broad role-based page protection (unauthenticated + role + optional
+  permission, in one component).
 - **`<PermissionGate>`** → conditional rendering of UI elements within a page.
 - **`usePermissions`** → imperative checks inside hook or component logic.
-- Never hard-code role checks like `if (role === 'ADMIN')` for UI access — always check
-  the permission, not the role.
+- Prefer checking the permission over hard-coding a role check (`if (role === 'ADMIN')`) whenever
+  a real permission distinction exists. But per the note above, permissions come from the backend
+  only — if two roles' live sessions genuinely return the same permission set and they need to
+  differ anyway, a clearly-commented role check (matching this codebase's existing precedent, e.g.
+  `Staff`'s narrower dashboard branch) is the honest fallback, not a local permission catalog
+  invented to paper over it.
 
 ---
 
@@ -337,3 +355,71 @@ before generating any code.**
 - only focus on the frontend api integration from bruno.
 - leave the backend and focuse on the frontend dev.
 - the backend has been completely built remotley.
+
+---
+
+## 14. Build ahead of the backend — never wait
+
+- **Do not wait for the backend to build a capability before building its frontend.** If
+  `sandbox/` already has a design for it, build the frontend against that design now. If no
+  design exists yet, write one first (the established `README.md` / `SCHEMA_CHANGES.md` /
+  `API_CONTRACTS.md` trio in a new `sandbox/<feature>/` folder — see existing folders for the
+  pattern), then build the frontend against it. Either way, the frontend ships now, not after
+  the backend catches up.
+- **Every screen built ahead of the backend must have a working fallback**, active whenever
+  the real endpoint doesn't exist yet (404) or a live probe hasn't confirmed it: derive the
+  same data from whatever real endpoints already exist, or degrade to an honest empty/disabled
+  state — never a broken page, a silent no-op, or a hardcoded stub pretending to be live data.
+- **The fallback and the real path share one interface.** Build the hook/service layer so a
+  component calls one thing (e.g. `useAdmissionStages()`) that internally prefers the live
+  endpoint and falls back when it 404s — never a component that has to know which mode it's
+  in. This is what "synchronise automatically" means: the day the backend ships the real
+  endpoint, the frontend starts using it with no rewrite, because the interface never changed.
+- **Flag every backend gap this produces**, the same way already established in this repo:
+  add it to `sandbox/BACKEND_DEVIATIONS_2026-09-14.md` (or the current dated deviations file)
+  under Part A if nothing exists yet, Part B if it exists but doesn't match the design — or a
+  dedicated `<feature>/BACKEND_HANDOFF.md` for a large new capability. Never treat "the
+  backend isn't ready" as a reason to skip or stub out frontend work; treat it as something to
+  document for the backend team while the frontend ships anyway.
+- This does not relax §13: still never implement or modify backend code. It only means the
+  frontend's own build schedule never blocks on the backend's.
+- **Zip a handoff only when multiple docs changed.** A zip must only ever contain the files
+  actually touched in the current work session, never the whole `sandbox/` directory — and if
+  only a single file was created or updated (e.g. one new entry in
+  `BACKEND_DEVIATIONS_2026-09-14.md`), flagging it there is enough on its own; skip the zip
+  entirely rather than bundling one file for handoff.
+- **"No filter param to send" is not the same as "nothing to build."** When an endpoint has no
+  scope param because it fetches one record by id (an invoice, a payment, one student's records)
+  rather than filtering a list, don't stop at documenting the gap — check first whether the screen
+  that would even call it exists at all. A missing filter is sometimes really a missing screen
+  (found 2026-09-21: `useStudentInvoices()` had zero consumers anywhere in the app, and the admin
+  invoice drawer had no payment-history section at all — the real fix was building the missing
+  admin capability, not noting there was nothing to scope). Where the record has no scope id of its
+  own to check, derive one via the same best-effort name-matching fallback already used elsewhere
+  (e.g. matching a student's `program_name` against the programs list to find its major program),
+  and use it to proactively hide the action for an out-of-scope record — a UI convenience only,
+  never a substitute for real backend enforcement, exactly like `useMajorProgramScope().withinScope()`
+  is documented to be.
+- **Always explicitly flag a genuinely missing capability, not just a scoping gap on an existing
+  one.** During any audit, if a screen, action, or endpoint simply doesn't exist yet — frontend or
+  backend — say so plainly and propose a contract for it (same trio/format as any other build-ahead
+  proposal) rather than folding it silently into "unscoped" or skipping it because there's nothing
+  to scope. If no backend endpoint exists at all for something worth flagging, don't fake a
+  client-side stand-in that would be dishonest or perform badly (e.g. N+1-fetching a list from a
+  bunch of single-record endpoints) — document the proposed contract and stop there, per this
+  section's own fallback rule.
+
+---
+
+## 15. Split multi-part work across parallel agents
+
+- When a request has several independent parts (for example a set of backend contracts, separate
+  screens, or audit + build + docs), split it into separate tasks and run them in parallel with
+  subagents instead of doing them one after another.
+- Give each agent a self-contained brief: the goal, the exact files or folders it owns, the
+  rules from this file that apply, and what to report back. Agents start with no context.
+- Keep ownership disjoint: no two agents edit the same file. Anything shared (for example a
+  combined list, a commit, the final summary) is done by the main session after the agents
+  report.
+- The main session reviews each agent's output before committing, and still runs the browser
+  tests the work needs.
