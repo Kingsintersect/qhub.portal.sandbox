@@ -10,6 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:smoke": "node tests/smoke/run.mjs",
+    "test:smoke:public": "node tests/smoke/run.mjs --public",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "prepare": "husky || true"

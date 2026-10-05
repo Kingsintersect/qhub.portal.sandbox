@@ -49,3 +49,9 @@ test.txt
 .claude/
 .env*
 .zip*
+
+# smoke tests (tests/smoke)
+/tests/smoke/.output/
+/test-results/
+/playwright-report/
+!tests/smoke/.env.example
