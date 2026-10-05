@@ -104,7 +104,7 @@ Set your backend URL:
 
 ```bash
 # .env.local
-NEXT_PUBLIC_API_URL=https://api.unizik.edu.ng
+NEXT_PUBLIC_API_URL=https://api.your-university.example
 ```
 
 ---
