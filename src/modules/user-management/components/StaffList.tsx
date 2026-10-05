@@ -14,9 +14,10 @@ import {
 import { Button } from "@/components/ui/button"
 import DataTable, { type Column } from "@/components/custom/DataTable"
 import Avatar from "@/components/custom/Avatar"
-import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { AccountStatusBadge } from "./account-status-badge"
+import { accountStatusOf } from "../lib/account-status"
 import {
   useStaffList,
   useCreateStaff,
@@ -25,6 +26,19 @@ import {
   useSetUserActive,
 } from "../hooks/useUsersData"
 import { usePermissions } from "@/lib/permissions/usePermissions"
+import { QueryErrorState } from "@/components/query-error-state"
+import { useAppStore } from "@/store"
+import { UserRole } from "@/config/nav.config"
+import {
+  useMajorPrograms,
+  useFaculties,
+  useDepartments,
+} from "@/hooks/useCourseStructure"
+import { isCrossProgramRole, isDeanRole, isHodRole } from "../lib/role-scope"
+import { useRecordHead, type RecordHeadInput } from "../hooks/use-record-head"
+import { isMajorProgramRequiredError } from "../lib/major-program-required"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { toast } from "sonner"
 import type {
   Staff,
   CreateStaffPayload,
@@ -32,8 +46,11 @@ import type {
 } from "@/types/users"
 
 // ── Permission constants ──────────────────────────────────────────────────────
+// Was departments:manage (SUPER_ADMIN only), which ADMIN's live session
+// lacks even though it holds the real staff:view/staff:manage pair — so the
+// page shell's gate blanked the whole screen for ADMIN (fixed 2026-10-05).
 const PERM = {
-  manageDepts: { resource: "departments", action: "manage" },
+  manageStaff: { resource: "staff", action: "manage" },
 } as const
 
 const columns: Column<Staff & Record<string, unknown>>[] = [
@@ -78,23 +95,31 @@ const columns: Column<Staff & Record<string, unknown>>[] = [
     key: "is_active",
     header: "Status",
     align: "center",
-    render: (row) => (
-      <StatusBadge
-        label={row.user.is_active ? "Active" : "Inactive"}
-        variant={row.user.is_active ? "success" : "destructive"}
-        dot
-      />
-    ),
+    render: (row) => <AccountStatusBadge user={row.user} />,
   },
 ]
 
 export default function StaffPage() {
   const { can } = usePermissions()
 
-  const canCreate = can(PERM.manageDepts) // Staff creation is SUPER_ADMIN only
+  // Creating/editing/deactivating staff is account provisioning, done by
+  // ICT/admin — not a Dean (lecturers and staff are appointed through the
+  // Registry/Establishments office). DEAN's live session holds the same
+  // "staff:manage" grant as ADMIN, so a permission check alone can't tell
+  // them apart — role check as well, same precedent as Summary.tsx's isAdmin
+  // and TutorList's canCreate. SUPER_ADMIN keeps total control per CLAUDE.md.
+  const role = useAppStore((s) => s.user?.role)
+  const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN
+  const canCreate = can(PERM.manageStaff) && isAdmin
 
-  const { data, isLoading } = useStaffList()
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  const { data, isLoading, isError, error, refetch } = useStaffList({
+    major_program_id: majorProgramFilter ?? undefined,
+  })
   const createStaff = useCreateStaff()
+  const recordHead = useRecordHead()
   const updateStaff = useUpdateStaff()
   const setActive = useSetUserActive()
   const [selected, setSelected] = useState<Staff | null>(null)
@@ -124,7 +149,7 @@ export default function StaffPage() {
               </p>
             </div>
           </div>
-          {/* Add Staff — departments:manage (SUPER_ADMIN) only */}
+          {/* Add Staff — staff:manage + ADMIN/SUPER_ADMIN only */}
           {canCreate && (
             <Button onClick={() => setShowCreate(true)} className="gap-2">
               <Plus size={16} /> Add Staff
@@ -133,77 +158,98 @@ export default function StaffPage() {
         </div>
       </motion.div>
 
+      <MajorProgramFilterTabs
+        value={majorProgramFilter}
+        onChange={setMajorProgramFilter}
+      />
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
       >
-        <DataTable
-          data={(data?.data ?? []) as (Staff & Record<string, unknown>)[]}
-          columns={[
-            ...columns,
-            {
-              key: "actions",
-              header: "",
-              align: "center",
-              width: "130px",
-              render: (row) => (
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelected(row as unknown as Staff)}
-                    title="View"
-                  >
-                    <Eye size={14} />
-                  </Button>
-                  {/* Edit + Deactivate — departments:manage (SUPER_ADMIN) only */}
-                  {canCreate && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditing(row as unknown as Staff)}
-                        title="Edit"
-                      >
-                        <Pencil size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={
-                          row.user.is_active
-                            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
-                        }
-                        onClick={() => setStatusTarget(row as unknown as Staff)}
-                        title={
-                          row.user.is_active
-                            ? "Deactivate account"
-                            : "Reactivate account"
-                        }
-                      >
-                        {row.user.is_active ? (
-                          <UserX size={14} />
-                        ) : (
-                          <UserCheck size={14} />
+        {/* A refused (403) or failed request must never read as "No staff
+            members found" — only a successful empty response gets that copy. */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="the staff list"
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <DataTable
+            data={(data?.data ?? []) as (Staff & Record<string, unknown>)[]}
+            columns={[
+              ...columns,
+              {
+                key: "actions",
+                header: "",
+                align: "center",
+                width: "130px",
+                render: (row) => (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelected(row as unknown as Staff)}
+                      title="View"
+                    >
+                      <Eye size={14} />
+                    </Button>
+                    {/* Edit + Deactivate — staff:manage + ADMIN/SUPER_ADMIN only */}
+                    {canCreate && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditing(row as unknown as Staff)}
+                          title="Edit"
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                        {/* A deleted account (login revoked) can't be
+                          reactivated with a flag — hide the toggle. */}
+                        {accountStatusOf(row.user) !== "deleted" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={
+                              row.user.is_active
+                                ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
+                            }
+                            onClick={() =>
+                              setStatusTarget(row as unknown as Staff)
+                            }
+                            title={
+                              row.user.is_active
+                                ? "Deactivate account"
+                                : "Reactivate account"
+                            }
+                          >
+                            {row.user.is_active ? (
+                              <UserX size={14} />
+                            ) : (
+                              <UserCheck size={14} />
+                            )}
+                          </Button>
                         )}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ),
-            },
-          ]}
-          loading={isLoading}
-          searchPlaceholder="Search by name, staff no, job title…"
-          searchExtractor={(row) =>
-            `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.staff_number} ${row.designation} ${row.job_title}`
-          }
-          rowKey="id"
-          pageSize={10}
-          emptyMessage="No staff members found"
-        />
+                      </>
+                    )}
+                  </div>
+                ),
+              },
+            ]}
+            loading={isLoading}
+            searchPlaceholder="Search by name, staff no, job title…"
+            searchExtractor={(row) =>
+              `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.staff_number} ${row.designation} ${row.job_title}`
+            }
+            rowKey="id"
+            pageSize={10}
+            emptyMessage="No staff members found"
+          />
+        )}
       </motion.div>
 
       {/* Detail modal */}
@@ -226,15 +272,34 @@ export default function StaffPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         title="Add New Staff Member"
-        subtitle="Select an existing user and fill in staff details"
+        subtitle="Enter an email and fill in staff details"
         size="xl"
       >
         <CreateStaffForm
-          onSubmit={async (payload) => {
-            await createStaff.mutateAsync(payload)
+          onSubmit={async (payload, head) => {
+            const res = await createStaff.mutateAsync(payload)
             setShowCreate(false)
+            if (!head) return
+            // An HOD/dean is only in scope once recorded as head
+            // (sandbox/automation §8); make sure that happened.
+            try {
+              const r = await recordHead.mutateAsync({
+                ...head,
+                userId: res.data.user_id,
+              })
+              if (r && !r.alreadyRecorded)
+                toast.success(
+                  r.replacedPrevious
+                    ? `Recorded as head of ${r.unitName}, replacing the previous head.`
+                    : `Recorded as head of ${r.unitName}.`
+                )
+            } catch (error) {
+              toast.error(
+                `The staff member was created, but couldn't be recorded as head: ${error instanceof Error ? error.message : "unknown error"}. Set it under Course Structure → Edit.`
+              )
+            }
           }}
-          isSubmitting={createStaff.isPending}
+          isSubmitting={createStaff.isPending || recordHead.isPending}
         />
       </Modal>
 
@@ -333,28 +398,84 @@ function CreateStaffForm({
   onSubmit,
   isSubmitting,
 }: {
-  onSubmit: (p: CreateStaffPayload) => Promise<void>
+  onSubmit: (
+    p: CreateStaffPayload,
+    head: Omit<RecordHeadInput, "userId"> | null
+  ) => Promise<void>
   isSubmitting: boolean
 }) {
   const { data: rolesData } = useStaffEligibleRoles()
   const eligibleRoles = rolesData?.data ?? []
+  const { data: majorProgramsRes } = useMajorPrograms()
+  const majorPrograms = (majorProgramsRes?.data ?? []).filter(
+    (mp) => mp.isActive
+  )
 
   const [form, setForm] = useState<CreateStaffPayload>({
-    user_id: 0,
+    email: "",
     first_name: "",
     last_name: "",
     staff_number: "",
     designation: "",
     job_title: "",
     role_id: 0,
+    major_program_id: undefined,
   })
 
-  const update = (key: keyof CreateStaffPayload, value: string | number) =>
-    setForm((prev) => ({ ...prev, [key]: value }))
+  // HOD and dean lead across major programs (lib/role-scope.ts): an HOD is
+  // identified by the department they head, a dean by the faculty they lead.
+  // Every other staff role still gets a major program. If the server still
+  // insists on one for HOD/dean, the field appears with a note.
+  const roleName = eligibleRoles.find((r) => r.id === form.role_id)?.name
+  const crossProgram = isCrossProgramRole(roleName)
+  const [needsMajorProgram, setNeedsMajorProgram] = useState(false)
+  const showMajorProgram = !crossProgram || needsMajorProgram
+  const hod = isHodRole(roleName)
+  const dean = isDeanRole(roleName)
+
+  const { data: facultiesRes } = useFaculties()
+  const faculties = (facultiesRes?.data ?? []).filter((f) => f.isActive)
+  const { data: departmentsRes, isFetching: loadingDepartments } =
+    useDepartments(hod ? form.faculty_id || null : null)
+  const departments = (departmentsRes?.data ?? []).filter((d) => d.isActive)
+
+  const update = (
+    key: keyof CreateStaffPayload,
+    value: string | number | undefined
+  ) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  const changeRole = (roleId: number) =>
+    setForm((prev) => ({
+      ...prev,
+      role_id: roleId,
+      faculty_id: undefined,
+      department_id: undefined,
+    }))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(form)
+    if (showMajorProgram && !form.major_program_id) {
+      toast.error("Please select a major program.")
+      return
+    }
+    const payload: CreateStaffPayload = {
+      ...form,
+      major_program_id: showMajorProgram ? form.major_program_id : undefined,
+      // The faculty is only sent for a dean; for an HOD it just narrows the
+      // department list.
+      faculty_id: dean ? form.faculty_id : undefined,
+      department_id: form.department_id,
+    }
+    const head =
+      hod && form.department_id
+        ? { departmentId: form.department_id }
+        : dean && form.faculty_id
+          ? { facultyId: form.faculty_id }
+          : null
+    void onSubmit(payload, head).catch((error: Error) => {
+      if (crossProgram && isMajorProgramRequiredError(error))
+        setNeedsMajorProgram(true)
+    })
   }
 
   const inputCls =
@@ -368,21 +489,22 @@ function CreateStaffForm({
       className="max-h-[60vh] space-y-4 overflow-y-auto pr-1"
     >
       <p className="text-xs text-muted-foreground">
-        Enter the existing User ID of the person you want to assign as staff.
+        Enter the staff member&apos;s email. If no account exists yet, one will
+        be created automatically.
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-foreground">
-            User ID *
+            Email *
           </label>
           <input
-            type="number"
+            type="email"
             className={inputCls}
-            placeholder="e.g. 8"
+            placeholder="staff@example.com"
             required
-            value={form.user_id || ""}
-            onChange={(e) => update("user_id", parseInt(e.target.value) || 0)}
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
           />
         </div>
         <div>
@@ -393,7 +515,7 @@ function CreateStaffForm({
             className={selectCls}
             required
             value={form.role_id || ""}
-            onChange={(e) => update("role_id", parseInt(e.target.value) || 0)}
+            onChange={(e) => changeRole(parseInt(e.target.value) || 0)}
           >
             <option value="">Select a role…</option>
             {eligibleRoles.map((r) => (
@@ -408,6 +530,119 @@ function CreateStaffForm({
             </p>
           )}
         </div>
+        {showMajorProgram && (
+          <div>
+            <label
+              htmlFor="staff-major-program"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              Major Program *
+            </label>
+            <select
+              id="staff-major-program"
+              className={selectCls}
+              required
+              value={form.major_program_id || ""}
+              onChange={(e) =>
+                update("major_program_id", Number(e.target.value))
+              }
+            >
+              <option value="">Select a major program…</option>
+              {majorPrograms.map((mp) => (
+                <option key={mp.id} value={mp.id}>
+                  {mp.name}
+                </option>
+              ))}
+            </select>
+            {crossProgram && (
+              <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                The server still asks for one for this role. It doesn&apos;t
+                limit them: {roleName} work across major programs.
+              </p>
+            )}
+          </div>
+        )}
+        {(hod || dean) && (
+          <div>
+            <label
+              htmlFor="staff-faculty"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              {dean ? "Faculty they lead" : "Faculty"}
+            </label>
+            <select
+              id="staff-faculty"
+              className={selectCls}
+              value={form.faculty_id || ""}
+              onChange={(e) => {
+                const id = Number(e.target.value) || undefined
+                setForm((prev) => ({
+                  ...prev,
+                  faculty_id: id,
+                  department_id: undefined,
+                }))
+              }}
+            >
+              <option value="">
+                {faculties.length ? "Select a faculty…" : "No faculties yet"}
+              </option>
+              {faculties.map((fac) => (
+                <option key={fac.id} value={fac.id}>
+                  {fac.name}
+                </option>
+              ))}
+            </select>
+            {dean &&
+              faculties.find((f) => f.id === form.faculty_id)?.deanUserId !=
+                null && (
+                <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                  This faculty already has a dean. Creating this dean makes them
+                  its dean instead.
+                </p>
+              )}
+          </div>
+        )}
+        {hod && (
+          <div>
+            <label
+              htmlFor="staff-department"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              Department they head
+            </label>
+            <select
+              id="staff-department"
+              className={selectCls}
+              value={form.department_id || ""}
+              disabled={!form.faculty_id || loadingDepartments}
+              onChange={(e) =>
+                update("department_id", Number(e.target.value) || undefined)
+              }
+            >
+              <option value="">
+                {!form.faculty_id
+                  ? "Select a faculty first"
+                  : loadingDepartments
+                    ? "Loading…"
+                    : departments.length
+                      ? "Select a department…"
+                      : "This faculty has no departments"}
+              </option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            {departments.find((d) => d.id === form.department_id)?.hodUserId !=
+              null && (
+              <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                This department already has a head. Creating this HOD makes them
+                its head instead.
+              </p>
+            )}
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-xs font-medium text-foreground">
             Staff Number *
@@ -543,7 +778,7 @@ function EditStaffForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(form)
+    void onSubmit(form).catch(() => {})
   }
 
   const inputCls =

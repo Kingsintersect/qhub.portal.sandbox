@@ -1,0 +1,205 @@
+"use client"
+
+import { useEffect, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import {
+  teachingScopeApi,
+  teachingScopeKeys,
+} from "@/services/teachingScopeApi"
+import { useMajorProgramScope } from "@/hooks/use-major-program-scope"
+import { useMajorPrograms } from "@/hooks/useCourseStructure"
+import { useSemesters } from "@/hooks/useSemesters"
+import { useResultsUiStore } from "../store/results-ui.store"
+import { useMajorProgramStructure } from "@/hooks/use-major-program-structure"
+import { useSessionOptions } from "@/hooks/use-session-options"
+import { useResultPullScope } from "./use-results"
+import { useTermStructure } from "@/hooks/use-term-structure"
+import type { ResultScopeSelection } from "../types"
+
+export interface ScopeOption {
+  value: string
+  label: string
+}
+
+// Admin/manager Results workspace, major program first: which major
+// programs the caller can pick, the structure under the chosen one (only the
+// levels it has), the cascaded options for each level, and what a Moodle
+// pull would cover. Filter values themselves live in useResultsUiStore.
+export function useResultsScope() {
+  const w = useResultsUiStore((s) => s.workspace)
+  const setWorkspace = useResultsUiStore((s) => s.setWorkspace)
+  const { withinScope } = useMajorProgramScope()
+  const { data: majorProgramsRes, isLoading: loadingMajorPrograms } =
+    useMajorPrograms()
+
+  const majorPrograms = useMemo(
+    () =>
+      (majorProgramsRes?.data ?? [])
+        .filter((mp) => mp.isActive && withinScope(mp.id))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [majorProgramsRes, withinScope]
+  )
+
+  // Exactly one major program available (a scoped admin, or a
+  // single-programme deployment): pick it. A remembered choice that is no
+  // longer available is cleared.
+  const onlyId = majorPrograms.length === 1 ? majorPrograms[0].id : null
+  const listLoaded = majorProgramsRes != null
+  const staleChoice =
+    listLoaded &&
+    w.majorProgramId != null &&
+    !majorPrograms.some((mp) => mp.id === w.majorProgramId)
+  useEffect(() => {
+    if (staleChoice) setWorkspace({ majorProgramId: onlyId })
+    else if (onlyId != null && w.majorProgramId == null)
+      setWorkspace({ majorProgramId: onlyId })
+  }, [onlyId, staleChoice, w.majorProgramId, setWorkspace])
+
+  const structure = useMajorProgramStructure(w.majorProgramId, w.unitPath)
+  const { data: semesters = [] } = useSemesters(w.sessionId)
+  const { sessionBased } = useTermStructure({
+    majorProgramId: w.majorProgramId,
+  })
+  const { labelFor: sessionLabelFor } = useSessionOptions({
+    majorProgramId: w.majorProgramId,
+  })
+
+  // Choosing a unit at one depth keeps the path above it and drops the rest;
+  // the department on the new path (if any) becomes the list's departmentId.
+  const selectUnit = (depth: number, unitId: number | null) => {
+    const path = [...w.unitPath.slice(0, depth)]
+    if (unitId != null) path.push(unitId)
+    const levelDept = (d: number, id: number) =>
+      structure.levels[d]?.options.find((o) => o.id === id)?.departmentId ??
+      null
+    let departmentId: number | null = null
+    path.forEach((id, d) => {
+      departmentId = levelDept(d, id) ?? departmentId
+    })
+    setWorkspace({ unitPath: path, departmentId })
+  }
+
+  const majorProgram =
+    majorPrograms.find((mp) => mp.id === w.majorProgramId) ?? null
+  const chosenUnits = structure.levels
+    .map((l) => l.options.find((o) => o.id === l.selectedId)?.name)
+    .filter((n): n is string => Boolean(n))
+  const program =
+    structure.programs.find((p) => p.program.id === w.programId)?.program ??
+    null
+  const semester = semesters.find((s) => s.id === w.semesterId) ?? null
+  // What the list and a pull are scoped to in time: the semester, or the
+  // whole session for a SESSION-structured major program (B25).
+  const termName = sessionBased
+    ? w.sessionId != null
+      ? sessionLabelFor(w.sessionId)
+      : null
+    : (semester?.name ?? null)
+
+  // What the list and a pull are actually narrowed by. /results/offerings
+  // filters by program or department only, so a unit that is neither (e.g. a
+  // faculty) narrows the program picker but not the rows until a program is
+  // picked.
+  const unitOnly =
+    w.unitPath.length > 0 && w.departmentId == null && w.programId == null
+  const structureLabel = majorProgram
+    ? [majorProgram.name, ...chosenUnits, program?.name]
+        .filter(Boolean)
+        .join(" › ")
+    : null
+  const scopeLabel =
+    structureLabel && termName
+      ? `${structureLabel} · ${termName}`
+      : structureLabel
+
+  const narrowing = {
+    departmentId: w.departmentId ?? undefined,
+    programId: w.programId ?? undefined,
+  }
+  const selection: ResultScopeSelection | null =
+    w.majorProgramId == null
+      ? null
+      : sessionBased
+        ? w.sessionId != null
+          ? {
+              academicSessionId: w.sessionId,
+              majorProgramId: w.majorProgramId,
+              ...narrowing,
+            }
+          : null
+        : w.semesterId != null
+          ? {
+              semesterId: w.semesterId,
+              majorProgramId: w.majorProgramId,
+              ...narrowing,
+            }
+          : null
+  const pullScope = useResultPullScope(selection)
+  const pullOfferingIds =
+    pullScope.data?.available === true ? pullScope.data.data : null
+
+  const toOptions = <T extends { id: number; name: string }>(
+    items: T[]
+  ): ScopeOption[] => items.map((i) => ({ value: String(i.id), label: i.name }))
+
+  return {
+    majorProgramOptions: toOptions(majorPrograms),
+    loadingMajorPrograms,
+    /** Hide the major-program picker's "choose" state when there's no choice. */
+    singleMajorProgram: onlyId != null,
+    structure,
+    selectUnit,
+    programOptions: structure.programs.map((p) => ({
+      value: String(p.program.id),
+      label: p.program.name,
+    })),
+    unitOnly,
+    scopeLabel,
+    /** SESSION-structured major program: no semester level (B25). */
+    sessionBased,
+    pull: {
+      selection,
+      offeringIds: pullOfferingIds,
+      isLoading: selection != null && pullScope.isLoading,
+      isError: pullScope.isError,
+      notAvailable: pullScope.data?.available === false,
+    },
+  }
+}
+
+export type ResultsScope = ReturnType<typeof useResultsScope>
+
+/**
+ * Whether an empty teaching scope (useMyTeachingScope) can be trusted on the
+ * tutor/HOD/dean Results screen. Only a live GET /me/teaching-scope answer
+ * is authoritative: when that route is missing (404/405) or fails, or the
+ * major-programs list it is named from fails, "nothing in scope" may just
+ * mean the scope couldn't be worked out — not that an administrator still
+ * has to record anything. Observes the same cached queries
+ * useMyTeachingScope runs (same keys and options), so no extra requests.
+ */
+export function useTeachingScopeAvailability(): {
+  /** The scope service is missing or failed; an empty scope is not real. */
+  unavailable: boolean
+  /** The live route itself failed (not just missing) — worth a retry. */
+  failed: boolean
+  retry: () => void
+} {
+  const liveQ = useQuery({
+    queryKey: teachingScopeKeys.mine(),
+    queryFn: () => teachingScopeApi.getMine(),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+  const majorProgramsQ = useMajorPrograms()
+  const routeMissing = liveQ.isSuccess && liveQ.data === null
+  const failed = liveQ.isError || majorProgramsQ.isError
+  return {
+    unavailable: routeMissing || failed,
+    failed,
+    retry: () => {
+      if (liveQ.isError) void liveQ.refetch()
+      if (majorProgramsQ.isError) void majorProgramsQ.refetch()
+    },
+  }
+}

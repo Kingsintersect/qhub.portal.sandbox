@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { LayoutList, LayoutGrid, ChevronDown, AlertCircle } from "lucide-react"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
 import { GradesFiltersBar } from "../filters-bar"
 import { GradesExportToolbar } from "../export-toolbar"
 import { GradesTable } from "../grades-table"
@@ -77,6 +78,14 @@ export default function GradesResultsPage({
 
   return (
     <div className="space-y-4">
+      <header>
+        <h2 className="text-lg font-semibold text-foreground">All grades</h2>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Read-only list of every grade row, with export and transcripts.
+          Pulling, normalizing and approving happen per course in Course
+          results; publishing in Publish results.
+        </p>
+      </header>
       {/* Toolbar row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* View toggle */}
@@ -168,6 +177,20 @@ export default function GradesResultsPage({
         </div>
       )}
 
+      {/* Major-Program Scoping — sandbox/major-program-scoping/
+          API_CONTRACTS.md A35. Sent ahead of the backend per CLAUDE.md §14.
+          No client-side fallback filter pairs with it here: grades.service.ts's
+          getGrades/getGroupedGrades map every row's programId/programName to
+          "" because the real /results/grades response's `course` relation
+          carries no program info at all — there is nothing per-row to match
+          against a major program with (unlike GradesSummaryPage's
+          programPerformance/topPerformers, which do carry real per-record
+          program data). */}
+      <MajorProgramFilterTabs
+        value={filters.majorProgramId}
+        onChange={(id) => updateFilters({ majorProgramId: id })}
+      />
+
       {/* Filters */}
       <GradesFiltersBar
         filters={filters}
@@ -185,18 +208,13 @@ export default function GradesResultsPage({
           onPageChange={goToPage}
           onViewGrade={openGradeDetail}
           onViewTranscript={(grade) => openTranscript(grade.studentId)}
-          canManage={canManage}
         />
       ) : (
         <GradesGroupedView data={groupedData} loading={groupedLoading} />
       )}
 
       {/* Modals */}
-      <GradeDetailModal
-        open={gradeDetailOpen}
-        onClose={closeGradeDetail}
-        canManage={canManage}
-      />
+      <GradeDetailModal open={gradeDetailOpen} onClose={closeGradeDetail} />
       <TranscriptModal
         open={transcriptOpen}
         onClose={closeTranscript}

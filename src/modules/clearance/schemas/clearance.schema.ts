@@ -79,6 +79,15 @@ export const ClearanceQueryFiltersSchema = z.object({
   studentId: z.number().optional(),
   typeId: z.number().optional(),
   status: ClearanceStatusSchema.optional(),
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // GET /clearance (the Admin/Dean + Staff review queue, both routed
+  // through the same /manager/clearance page) — ?majorProgramId= is live
+  // server-side since 2026-09-22 (Clearance - List.bru);
+  // clearance-review-queue.tsx also filters client-side via
+  // use-student-major-program-map.ts, since the nested `student` object
+  // here (see NestedStudentSchema above) carries a matricNumber/name, not a
+  // program name, to match against.
+  majorProgramId: z.number().optional(),
 })
 
 export const CreateClearanceTypeDtoSchema = z.object({

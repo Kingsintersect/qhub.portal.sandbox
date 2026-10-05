@@ -13,18 +13,54 @@ import type {
 
 const AUTH = { access_token: true }
 
+/**
+ * The offer embedded on an application (bruno/admission/Applications -
+ * Get.bru, NEW 2026-08-30): null until "Admissions - Create Offer.bru" has
+ * run for it, otherwise the offer's own shape.
+ */
+export interface ApplicationEmbeddedOffer {
+  id: number
+  admissionNumber: string
+  programId: number
+  levelId: number | null
+  sessionId: number | null
+  admissionDate: string
+  admissionType: string
+  status: "OFFERED" | "ACCEPTED" | "DECLINED" | "EXPIRED"
+  expiryDate: string | null
+}
+
+/**
+ * GET /admissions/applications[/:id|/my] — the global AdmissionApplication
+ * plus the fields Bruno documents on top of it: `admission` (the embedded
+ * offer) and A28's `major_program_id` (resolved from the first-choice
+ * program). Both optional so an older response still type-checks.
+ */
+export type ReviewedAdmissionApplication = AdmissionApplication & {
+  admission?: ApplicationEmbeddedOffer | null
+  major_program_id?: number | null
+}
+
+export interface ApplicationListFilters {
+  status?: string
+  // Major-Program Scoping — sandbox/major-program-scoping/API_CONTRACTS.md
+  // §3: a convenience narrower for a multi-scoped caller. Omitting it
+  // returns every record across the caller's full scope, not an error.
+  majorProgramId?: number
+}
+
 export const applicationReviewApi = {
-  list: async (filters?: { status?: string }) => {
+  list: async (filters?: ApplicationListFilters) => {
     // Real API: GET /admissions/applications — Bruno: admission/Applications - List.bru
     return apiClient.get<ApiPaginatedResponse<AdmissionApplication>>(
       `/admissions/applications`,
-      { ...AUTH, params: filters }
+      { ...AUTH, params: filters as Record<string, unknown> | undefined }
     )
   },
 
   getById: async (id: string) => {
     // Real API: GET /admissions/applications/:id — Bruno: admission/Applications - Get.bru
-    return apiClient.get<ApiSingleResponse<AdmissionApplication>>(
+    return apiClient.get<ApiSingleResponse<ReviewedAdmissionApplication>>(
       `/admissions/applications/${id}`,
       AUTH
     )
@@ -140,14 +176,14 @@ export const applicationReviewApi = {
 
 export const applicationReviewKeys = {
   all: ["admission-applications"] as const,
-  list: (filters?: { status?: string }) =>
+  list: (filters?: ApplicationListFilters) =>
     [...applicationReviewKeys.all, "list", filters ?? {}] as const,
   detail: (id: string) => [...applicationReviewKeys.all, "detail", id] as const,
   mine: () => [...applicationReviewKeys.all, "mine"] as const,
 }
 
 export const applicationReviewQueryOptions = {
-  list: (filters?: { status?: string }) =>
+  list: (filters?: ApplicationListFilters) =>
     createApiQueryOptions({
       queryKey: applicationReviewKeys.list(filters),
       queryFn: async () => (await applicationReviewApi.list(filters)).data,

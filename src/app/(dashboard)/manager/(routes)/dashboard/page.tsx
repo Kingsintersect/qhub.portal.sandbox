@@ -2,20 +2,135 @@
 
 import {
   BarChart3,
+  Bell,
   Building2,
+  ClipboardCheck,
+  GraduationCap,
+  ListChecks,
   ShieldCheck,
   UserCog,
   Users,
   WifiSyncIcon,
 } from "lucide-react"
 import RoleDashboard from "@/components/dashboard/RoleDashboard"
-import { usePlatformDashboardData } from "@/hooks/useManagerDashboard"
+import { useAppStore } from "@/store"
+import { UserRole } from "@/config/nav.config"
+import {
+  usePlatformDashboardData,
+  useStaffDashboardData,
+} from "@/hooks/useManagerDashboard"
 
 const fmt = (n: number | null) => (n === null ? "…" : n.toLocaleString())
 const fmtNgn = (n: number | null) =>
   n === null ? "…" : `₦${(n / 1_000_000).toFixed(1)}M`
 
 export default function ManagePage() {
+  const { user } = useAppStore()
+
+  // STAFF shares this route (manager/layout.tsx's RoleGuard allows
+  // [ADMIN, DEAN, STAFF]) but has a materially smaller permission set than
+  // ADMIN/DEAN — see useStaffDashboardData's header comment. Branch here
+  // rather than making one dashboard component quietly work for both;
+  // ADMIN/DEAN keep the existing platform-wide view below.
+  if (user?.role === UserRole.STAFF) {
+    return <StaffDashboard />
+  }
+
+  return <AdminManagerDashboard />
+}
+
+function StaffDashboard() {
+  const d = useStaffDashboardData()
+
+  return (
+    <RoleDashboard
+      eyebrow="Staff Operations"
+      title="Keep student records and clearance moving."
+      subtitle="Track enrolled students, clearance requests awaiting your approval, and the latest campus announcements."
+      accent="from-blue-100 via-background to-cyan-50 dark:from-blue-950/35 dark:via-background dark:to-cyan-950/20"
+      stats={[
+        {
+          title: "Enrolled Students",
+          value: fmt(d.totalStudents),
+          detail: "Total active student records",
+          icon: GraduationCap,
+          tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        },
+        {
+          title: "Pending Clearance",
+          value: fmt(d.pendingClearanceCount),
+          detail: "Requests awaiting your approval",
+          icon: ClipboardCheck,
+          tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        },
+        {
+          title: "Recent Announcements",
+          value: fmt(d.recentAnnouncements.length || null),
+          detail: "Published in the last few updates",
+          icon: Bell,
+          tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+        },
+      ]}
+      focusTitle="Latest Announcements"
+      focusItems={
+        d.recentAnnouncements.length > 0
+          ? d.recentAnnouncements.map((a) => ({
+              title: a.title,
+              meta: a.category,
+              description: a.content,
+              status: a.priority,
+              tone:
+                a.priority === "high" || a.priority === "urgent"
+                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+            }))
+          : [
+              {
+                title: "No announcements yet",
+                meta: "Communications",
+                description: "Nothing published for the campus right now.",
+                status: "Clear",
+                tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+              },
+            ]
+      }
+      quickActions={[
+        {
+          title: "Manage students",
+          href: "/manager/users/students",
+          description: "View and update student records.",
+          icon: UserCog,
+          tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        },
+        {
+          title: "Review clearance queue",
+          href: "/manager/clearance",
+          description: "Approve or reject pending clearance requests.",
+          icon: ListChecks,
+          tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        },
+        {
+          title: "Post an announcement",
+          href: "/manager/announcements",
+          description: "Share an update with students and staff.",
+          icon: Bell,
+          tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+        },
+      ]}
+      signalsTitle="Today at a Glance"
+      signals={[
+        { label: "Enrolled students", value: fmt(d.totalStudents) },
+        { label: "Pending clearance", value: fmt(d.pendingClearanceCount) },
+        {
+          label: "Announcements live",
+          value: fmt(d.recentAnnouncements.length || null),
+        },
+      ]}
+    />
+  )
+}
+
+function AdminManagerDashboard() {
   const d = usePlatformDashboardData()
 
   const focusItems = [

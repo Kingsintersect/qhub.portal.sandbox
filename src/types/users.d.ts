@@ -32,7 +32,17 @@ export interface User {
   last_login_at: string | null
   created_at: string
   updated_at: string
-  roles: { id: number; name: string; slug: string }[]
+  // CORRECTION (2026-09-12): was `{id,name,slug}[]` — confirmed live via
+  // GET /users that the real backend sends bare role-name strings (e.g.
+  // `["student"]`), matching the session's own roles shape. See the
+  // matching note on WireUser.roles in @/services/usersApi.ts.
+  roles: string[]
+  // DELETE /users/:id (redefined 2026-09-28, bruno/user/Users - Delete.bru)
+  // revokes login and keeps the row: `deletedAt` is set, `isActive` goes
+  // false, and email/username are replaced with a placeholder. Null/absent
+  // for a live or merely deactivated account. See
+  // modules/user-management/lib/account-status.ts.
+  deleted_at?: string | null
 }
 
 // ── Student ─────────────────────────────────
@@ -45,8 +55,16 @@ export interface Student {
   program_name: string
   department_name: string
   faculty_name: string
-  current_level: number
-  current_level_id: number
+  /** What owns the student's program: a department, or a faculty directly. */
+  program_owned_by?: "department" | "faculty" | null
+  // Nullable — sandbox/program-structure-depth/SCHEMA_CHANGES.md
+  // §2: null for a FOUNDATIONAL or CERTIFICATE student, neither of which
+  // has a Level concept. A CERTIFICATE student has `current_cohort_id`
+  // instead.
+  current_level: number | null
+  current_level_id: number | null
+  // Populated only for a CERTIFICATE-category student.
+  current_cohort_id?: number | null
   entry_mode: EntryMode
   mode_of_study: ModeOfStudy
   admission_date: string
@@ -63,6 +81,10 @@ export interface Student {
   guardian_name: string
   guardian_phone: string
   guardian_email: string | null
+  guardian_address?: string | null
+  // Copied from the accepted admission's passport document when the student
+  // record is created (bruno/user/Students - Show.bru, 2026-09-28). Still null
+  // for students created without an admission application.
   passport_photo: string | null
   created_at: string
   updated_at: string
@@ -78,6 +100,7 @@ export interface Student {
     | "phone_number"
     | "avatar"
     | "is_active"
+    | "deleted_at"
   >
 }
 
@@ -98,6 +121,11 @@ export interface Tutor {
   department_id: number
   department_name: string
   faculty_name: string
+  // Major-Program Scoping — carried on every Lecturer profile since A17/A27,
+  // confirmed live but previously never mapped onto this type. Null for an
+  // unscoped tutor (SUPER_ADMIN-created without a program, rare).
+  major_program_id: number | null
+  major_program_name: string | null
   designation: string
   specialization: string | null
   office_location: string | null
@@ -123,6 +151,7 @@ export interface Tutor {
     | "phone_number"
     | "avatar"
     | "is_active"
+    | "deleted_at"
   >
 }
 
@@ -134,6 +163,11 @@ export interface Staff {
   staff_number: string
   department_id: number | null
   department_name: string | null
+  // Major-Program Scoping — optional on Staff (A36 item 5: a staff role can
+  // be genuinely institution-wide, e.g. bursary/director/dean), unlike
+  // Tutor's required one.
+  major_program_id: number | null
+  major_program_name: string | null
   designation: string
   job_title: string
   office_location: string | null
@@ -151,19 +185,31 @@ export interface Staff {
     | "phone_number"
     | "avatar"
     | "is_active"
+    | "deleted_at"
   >
 }
 
 // ── Payload types ───────────────────────────
 
 export interface CreateTutorPayload {
-  user_id: number
+  email: string
   first_name: string
   middle_name?: string
   last_name: string
   phone_number?: string
   staff_number: string
-  department_id: number
+  // Nullable/omittable as of 2026-09-24 — not every major program's real
+  // structure has a Faculty or Department layer (some Moodle-mirrored
+  // structures attach Programs directly under the major program). Sent
+  // only when the form's own dynamic structure detection found a real
+  // one to pick from — see CreateTutorForm.
+  faculty_id?: number
+  department_id?: number
+  // Optional (cross-program teaching, 2026-09-26): a tutor can teach in any
+  // major program, so none is chosen up front. Sent only while the backend
+  // still requires one (the form asks when a create is rejected for it).
+  // sandbox/cross-program-teaching/API_CONTRACTS.md.
+  major_program_id?: number
   designation: string
   specialization?: string
   office_location?: string
@@ -172,19 +218,29 @@ export interface CreateTutorPayload {
   gender?: Gender
   nationality?: string
   state_of_origin?: string
-  qualifications?: string
-  research_areas?: string
-  bio?: string
 }
 
 export interface CreateStaffPayload {
-  user_id: number
+  // Matches CreateTutorPayload's convention — identify the target by email,
+  // not a numeric id an admin has no way to look up. sandbox/tutor-staff-user-
+  // creation/API_CONTRACTS.md — if no account with this email exists yet,
+  // usersApi.createStaff() creates one inline rather than requiring it to
+  // pre-exist.
+  email: string
   first_name: string
   middle_name?: string
   last_name: string
   phone_number?: string
   staff_number: string
   department_id?: number
+  // Faculty a dean leads (sent as facultyId; proposed in
+  // sandbox/cross-program-teaching, ignored by the backend until it ships).
+  faculty_id?: number
+  // Major-Program Scoping — A27: staff roles are scoped to one major program
+  // at creation. Optional since 2026-09-26 for the cross-program roles (HOD,
+  // dean), which are identified by the department/faculty they lead instead;
+  // still chosen for every other staff role.
+  major_program_id?: number
   designation: string
   job_title: string
   role_id: number // selected staff role (e.g. Staff, Registrar, HOD, Bursary)
@@ -197,12 +253,32 @@ export interface CreateStaffPayload {
 }
 
 export interface UpdateStudentPayload {
-  current_level_id?: number
+  // Nullable — see Student.current_level_id's note above.
+  current_level_id?: number | null
   mode_of_study?: ModeOfStudy
   status?: StudentStatus
   contact_address?: string
+  permanent_address?: string
+  guardian_name?: string
+  guardian_phone?: string
+  guardian_email?: string
+  guardian_address?: string
   phone_number?: string
 }
+
+// The only fields a student may send when updating their own record
+// (bruno/user/Students - Update.bru, 2026-09-28). Anything else sent as a
+// self-update is rejected with 403 FIELD_NOT_SELF_EDITABLE.
+export type SelfUpdateStudentPayload = Pick<
+  UpdateStudentPayload,
+  | "contact_address"
+  | "permanent_address"
+  | "guardian_name"
+  | "guardian_phone"
+  | "guardian_email"
+  | "guardian_address"
+  | "phone_number"
+>
 
 export interface UpdateTutorPayload {
   designation?: string
@@ -250,7 +326,7 @@ export type {
 // enrichment block (credit units, term names, level, department/faculty,
 // programmes, category path). See
 // sandbox/course/missing_course_offering_enrichment.readme.md for the backend
-// contract; everything in the enrichment block is `null` / `[]` until it ships.
+// contract; enrichment fields may be `null` / `[]` when the backend omits them.
 export interface CourseOffering extends CourseOfferingEnrichment {
   id: number
   course_id: number
@@ -339,6 +415,12 @@ export interface UserQueryFilters {
   // the existing programId/departmentId FKs.
   faculty_name?: string
   department_name?: string
+  // Major-Program Scoping — not confirmed live on this endpoint (unlike
+  // programId, which is). Sent speculatively per CLAUDE.md §14; if the
+  // backend ignores it, the list is simply unfiltered by major program
+  // rather than silently wrong, since nothing here re-filters client-side
+  // against a possibly-incomplete page of results.
+  major_program_id?: number
 }
 
 export interface StudentQueryFilters extends UserQueryFilters {

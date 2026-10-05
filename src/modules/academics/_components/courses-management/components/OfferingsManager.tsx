@@ -5,8 +5,6 @@ import { AnimatePresence, motion } from "framer-motion"
 import { useForm, useWatch, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
-  offeringSchema,
-  type OfferingFormValues,
   updateOfferingSchema,
   type UpdateOfferingFormValues,
   assignLecturerSchema,
@@ -14,6 +12,12 @@ import {
   classScheduleSchema,
   type ClassScheduleFormValues,
 } from "@/schemas/school.schema"
+import {
+  offeringFormSchema,
+  type OfferingFormValues,
+} from "@/modules/academics/schemas"
+import { useSessionTermStructure } from "@/hooks/use-term-structure"
+import { LockedBadge } from "@/modules/academics/_components/academic-year/components/LockedBadge"
 import {
   useCourseOfferings,
   useCourseOffering,
@@ -27,7 +31,7 @@ import {
   useRemoveSchedule,
 } from "@/hooks/useCourseOfferings"
 import { useCourses } from "@/hooks/useCourseManagement"
-import { useAcademicSessions } from "@/hooks/useAcademicSessions"
+import { useSessionOptions } from "@/hooks/use-session-options"
 import { useSemesters } from "@/hooks/useSemesters"
 import { useTutors } from "@/modules/user-management/hooks/useUsersData"
 import { formatOfferingCategory } from "@/lib/academic/course-offering-enrichment"
@@ -39,6 +43,7 @@ import type {
 import Combobox from "@/components/custom/Combobox"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
 import { EmptyState } from "./EmptyState"
 
 import { Card, CardContent } from "@/components/ui/card"
@@ -85,13 +90,34 @@ interface OfferingsManagerProps {
 }
 
 export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
-  const { data: sessions } = useAcademicSessions()
+  // Sessions labelled with their major program — identical names otherwise.
+  const { options: sessionOptions } = useSessionOptions()
   const [sessionId, setSessionId] = useState<number | null>(null)
   const { data: semesters } = useSemesters(sessionId)
   const [semesterId, setSemesterId] = useState<number | null>(null)
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  // B25: a session whose major program is SESSION-structured has no
+  // semesters to pick; offerings tie to the session directly.
+  const termStructureOf = useSessionTermStructure()
+  const isSessionStructured = termStructureOf(sessionId) === "SESSION"
+  const termReady = !!sessionId && (isSessionStructured || !!semesterId)
+  const selectedSession = sessionOptions.find(
+    (o) => o.session.id === sessionId
+  )?.session
+  const selectedSemester = (semesters ?? []).find((s) => s.id === semesterId)
 
   const { data: offeringsData, isLoading } = useCourseOfferings(
-    sessionId && semesterId ? { sessionId, semesterId } : undefined
+    termReady && sessionId
+      ? {
+          sessionId,
+          ...(semesterId ? { semesterId } : {}),
+          ...(majorProgramFilter !== null
+            ? { majorProgramId: majorProgramFilter }
+            : {}),
+        }
+      : undefined
   )
   const { data: coursesData } = useCourses()
 
@@ -121,11 +147,12 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
     register,
     formState: { errors },
   } = useForm<OfferingFormValues>({
-    resolver: zodResolver(offeringSchema),
+    resolver: zodResolver(offeringFormSchema),
     defaultValues: {
       course_id: 0,
       academic_session_id: 0,
-      semester_id: 0,
+      semester_id: undefined,
+      requires_semester: true,
       max_capacity: undefined,
       status: "PLANNED",
     },
@@ -135,15 +162,25 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
     reset({
       course_id: 0,
       academic_session_id: sessionId ?? 0,
-      semester_id: semesterId ?? 0,
+      semester_id: semesterId ?? undefined,
+      requires_semester: !isSessionStructured,
       max_capacity: undefined,
       status: "PLANNED",
     })
     setShowCreate(true)
   }
 
-  const onCreate = async (values: OfferingFormValues) => {
-    await createOffering.mutateAsync(values)
+  const onCreate = async ({
+    requires_semester: _requiresSemester,
+    semester_id,
+    ...values
+  }: OfferingFormValues) => {
+    // Omit semesterId entirely for a SESSION-structured session unless one
+    // was explicitly chosen (bruno/course/Offering - Create.bru).
+    await createOffering.mutateAsync({
+      ...values,
+      ...(semester_id ? { semester_id } : {}),
+    })
     setShowCreate(false)
   }
 
@@ -193,44 +230,73 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
                 setSemesterId(null)
               }}
             >
-              <SelectTrigger className="h-10 w-full rounded-xl border-transparent bg-muted">
+              <SelectTrigger
+                className="h-10 w-full rounded-xl border-transparent bg-muted"
+                aria-label="Academic session"
+              >
                 <SelectValue placeholder="Select session" />
               </SelectTrigger>
               <SelectContent>
-                {(sessions ?? []).map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    {s.name}
-                    {s.isActive ? " (Active)" : ""}
+                {sessionOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                    {o.session.isActive ? " (Active)" : ""}
+                    {o.session.lockedAt ? " (Locked)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <LockedBadge lockedAt={selectedSession?.lockedAt} />
           </div>
           <div className="space-y-1.5">
             <Label>Semester</Label>
             <Select
               value={semesterId ? String(semesterId) : ""}
               onValueChange={(v) => setSemesterId(Number(v))}
-              disabled={!sessionId}
+              disabled={!sessionId || isSessionStructured}
             >
-              <SelectTrigger className="h-10 w-full rounded-xl border-transparent bg-muted">
-                <SelectValue placeholder="Select semester" />
+              <SelectTrigger
+                className="h-10 w-full rounded-xl border-transparent bg-muted"
+                aria-label="Semester"
+                aria-describedby={
+                  isSessionStructured ? "offering-full-session-help" : undefined
+                }
+              >
+                <SelectValue
+                  placeholder={
+                    isSessionStructured
+                      ? "Full session (no semesters)"
+                      : "Select semester"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {(semesters ?? []).map((s) => (
                   <SelectItem key={s.id} value={String(s.id)}>
                     {s.name}
                     {s.isActive ? " (Active)" : ""}
+                    {s.lockedAt ? " (Locked)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {isSessionStructured ? (
+              <p
+                id="offering-full-session-help"
+                className="text-xs text-muted-foreground"
+              >
+                This session&apos;s major program runs per full session, so no
+                semester is needed.
+              </p>
+            ) : (
+              <LockedBadge lockedAt={selectedSemester?.lockedAt} />
+            )}
           </div>
           {canManage && (
             <div className="flex items-end">
               <Button
                 onClick={openCreate}
-                disabled={!sessionId || !semesterId}
+                disabled={!termReady}
                 className="w-full"
               >
                 <Plus className="size-4" data-icon="inline-start" />
@@ -241,7 +307,14 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
         </CardContent>
       </Card>
 
-      {!sessionId || !semesterId ? (
+      {termReady && (
+        <MajorProgramFilterTabs
+          value={majorProgramFilter}
+          onChange={setMajorProgramFilter}
+        />
+      )}
+
+      {!termReady ? (
         <EmptyState
           icon={CalendarRange}
           title="Select a session and semester"
@@ -377,7 +450,11 @@ export function OfferingsManager({ canManage = false }: OfferingsManagerProps) {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         title="New Course Offering"
-        subtitle="Offer a course for the selected session and semester"
+        subtitle={
+          isSessionStructured
+            ? "Offer a course for the whole selected session"
+            : "Offer a course for the selected session and semester"
+        }
         size="md"
         footer={
           <>

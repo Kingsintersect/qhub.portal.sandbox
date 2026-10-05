@@ -6,9 +6,11 @@ import EmptyState from "@/components/custom/EmptyState"
 import { useSyncGrades } from "../../hooks/use-sync-grades"
 import { usePullAllGrades } from "../../hooks/use-sync-mutations"
 import { PushPullToolbar } from "../shared/push-pull-toolbar"
+import { ResetSyncButton } from "../shared/reset-sync-dialog"
+import { describeSyncError } from "../../lib/sync-error"
 
 export function GradeList() {
-  const { data, isLoading, isError } = useSyncGrades()
+  const { data, isLoading, isError, error } = useSyncGrades()
   const pullAll = usePullAllGrades()
 
   const handlePullAll = async () => {
@@ -30,6 +32,13 @@ export function GradeList() {
         onPull={handlePullAll}
         pullLabel="Pull All"
         pullPending={pullAll.isPending}
+        extraActions={
+          <ResetSyncButton
+            module="grades"
+            moduleLabel="Moodle gradebook items"
+            note="Official portal Results are not affected — only grade items pulled from Moodle's gradebook are cleared."
+          />
+        }
       />
 
       {isLoading ? (
@@ -44,7 +53,7 @@ export function GradeList() {
       ) : isError ? (
         <EmptyState
           title="Couldn't load grades"
-          description="Please try again."
+          description={describeSyncError(error).description}
         />
       ) : items.length === 0 ? (
         <EmptyState

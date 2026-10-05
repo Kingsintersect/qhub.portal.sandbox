@@ -8,6 +8,7 @@ import {
   Pencil,
   Loader2,
   Download,
+  Receipt,
   UserX,
   UserCheck,
   Search,
@@ -18,8 +19,18 @@ import Avatar from "@/components/custom/Avatar"
 import StatusBadge from "@/components/custom/StatusBadge"
 import Modal from "@/components/custom/Modal"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { ZoomableImage } from "@/components/custom/ZoomableImage"
+import { AccountStatusBadge } from "./account-status-badge"
+import { accountStatusOf } from "../lib/account-status"
 import { usePermissions } from "@/lib/permissions/usePermissions"
-import { useLevels } from "@/hooks/useCourseStructure"
+import { QueryErrorState } from "@/components/query-error-state"
+import { useAllPrograms, useLevels } from "@/hooks/useCourseStructure"
+import { useMajorProgramScope } from "@/hooks/use-major-program-scope"
+import { MajorProgramFilterTabs } from "@/components/custom/MajorProgramFilterTabs"
+import { StudentInvoicesPanel } from "@/modules/fee-management/components/admin/student-invoices-panel"
+import { StudentStandingPanel } from "@/modules/progression/components/standing-panel"
+import { useAppStore } from "@/store/appStore"
+import { UserRole } from "@/config/nav.config"
 import {
   useStudents,
   useStudentLookupByMatric,
@@ -53,6 +64,7 @@ const statusVariant: Record<
 const PERM = {
   manageStudents: { resource: "students", action: "manage" },
   manageDepts: { resource: "departments", action: "manage" },
+  viewFees: { resource: "fee-management", action: "view" },
 } as const
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -71,6 +83,7 @@ const columns: Column<Student & Record<string, unknown>>[] = [
       <div className="flex items-center gap-3">
         <Avatar
           name={`${row.user.first_name ?? ""} ${row.user.last_name ?? ""}`}
+          src={row.passport_photo ?? undefined}
           size="sm"
         />
         <div>
@@ -92,7 +105,9 @@ const columns: Column<Student & Record<string, unknown>>[] = [
     align: "center",
     sortable: true,
     render: (row) => (
-      <span className="text-sm font-medium">{row.current_level}L</span>
+      <span className="text-sm font-medium">
+        {row.current_level !== null ? `${row.current_level}L` : "—"}
+      </span>
     ),
   },
   {
@@ -113,6 +128,12 @@ const columns: Column<Student & Record<string, unknown>>[] = [
     ),
   },
   {
+    key: "account",
+    header: "Account",
+    align: "center",
+    render: (row) => <AccountStatusBadge user={row.user} />,
+  },
+  {
     key: "entry_mode",
     header: "Entry",
     align: "center",
@@ -131,13 +152,43 @@ export default function StudentsPage({
   // Props take precedence; fall back to internally-derived values
   const canCreate = canCreateProp ?? can(PERM.manageStudents)
   const canExport = canExportProp ?? can(PERM.manageDepts)
+  const canViewInvoices = can(PERM.viewFees)
+  // DEAN shares this screen with ADMIN (via /manager) but gets standings
+  // read-only per the session-promotion spec. Role check, not permission,
+  // because standings.debt_override isn't in any live session yet, so no
+  // permission distinction between DEAN and ADMIN can be verified (CLAUDE.md
+  // §5 fallback). The panel itself still gates overrides by permission.
+  const activeRole = useAppStore((st) => st.activeRole ?? st.user?.role)
+  const standingReadOnly = activeRole === UserRole.DEAN
 
-  const { data, isLoading } = useStudents()
+  const [majorProgramFilter, setMajorProgramFilter] = useState<number | null>(
+    null
+  )
+  const { data, isLoading, isError, error, refetch } = useStudents({
+    major_program_id: majorProgramFilter ?? undefined,
+  })
   const updateStudent = useUpdateStudent()
   const setActive = useSetUserActive()
   const [selected, setSelected] = useState<Student | null>(null)
   const [editing, setEditing] = useState<Student | null>(null)
   const [statusTarget, setStatusTarget] = useState<Student | null>(null)
+  const [invoicesFor, setInvoicesFor] = useState<Student | null>(null)
+
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A33.
+  // GET /fees/invoices/student/:studentId has no scope check server-side
+  // yet, so this proactively hides "View Invoices" for a student outside
+  // the caller's own scope — a UI convenience per useMajorProgramScope's own
+  // doc comment, never a substitute for real backend enforcement. Students
+  // have no majorProgramId of their own on the row, so it's derived by
+  // matching program_name against the programs list (same best-effort
+  // name-match pattern already used for Overdue Invoices/Director reports).
+  const { data: programsRes } = useAllPrograms()
+  const { withinScope } = useMajorProgramScope()
+  const majorProgramIdByProgramName = new Map(
+    (programsRes?.data ?? []).map((p) => [p.name, p.majorProgramId ?? null])
+  )
+  const isStudentInScope = (student: Student) =>
+    withinScope(majorProgramIdByProgramName.get(student.program_name) ?? null)
 
   // Exact matric lookup — finds a student even if they're not on the loaded
   // page, then opens the detail modal on it.
@@ -217,80 +268,115 @@ export default function StudentsPage({
         </div>
       </motion.div>
 
+      <MajorProgramFilterTabs
+        value={majorProgramFilter}
+        onChange={setMajorProgramFilter}
+      />
+
       {/* Table */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
       >
-        <DataTable
-          data={(data?.data ?? []) as (Student & Record<string, unknown>)[]}
-          columns={[
-            ...columns,
-            {
-              key: "actions",
-              header: "",
-              align: "center",
-              width: "130px",
-              render: (row) => (
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelected(row as unknown as Student)}
-                    title="View"
-                  >
-                    <Eye size={14} />
-                  </Button>
-                  {/* Edit + Deactivate — students:manage only */}
-                  {canCreate && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditing(row as unknown as Student)}
-                        title="Edit"
-                      >
-                        <Pencil size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={
-                          row.user.is_active
-                            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
-                        }
-                        onClick={() =>
-                          setStatusTarget(row as unknown as Student)
-                        }
-                        title={
-                          row.user.is_active
-                            ? "Deactivate account"
-                            : "Reactivate account"
-                        }
-                      >
-                        {row.user.is_active ? (
-                          <UserX size={14} />
-                        ) : (
-                          <UserCheck size={14} />
+        {/* A refused (403) or failed request must never read as "No
+            students found" — only a successful empty response gets that copy. */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="the student list"
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <DataTable
+            data={(data?.data ?? []) as (Student & Record<string, unknown>)[]}
+            columns={[
+              ...columns,
+              {
+                key: "actions",
+                header: "",
+                align: "center",
+                width: "130px",
+                render: (row) => (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelected(row as unknown as Student)}
+                      title="View"
+                    >
+                      <Eye size={14} />
+                    </Button>
+                    {/* View Invoices — fee-management:view, and only for a
+                      student we can already tell is in scope; see
+                      isStudentInScope above. */}
+                    {canViewInvoices &&
+                      isStudentInScope(row as unknown as Student) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setInvoicesFor(row as unknown as Student)
+                          }
+                          title="View Invoices"
+                        >
+                          <Receipt size={14} />
+                        </Button>
+                      )}
+                    {/* Edit + Deactivate — students:manage only */}
+                    {canCreate && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditing(row as unknown as Student)}
+                          title="Edit"
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                        {/* Hidden for a deleted account (login revoked;
+                          a flag can't restore it). */}
+                        {accountStatusOf(row.user) !== "deleted" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={
+                              row.user.is_active
+                                ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                : "text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600"
+                            }
+                            onClick={() =>
+                              setStatusTarget(row as unknown as Student)
+                            }
+                            title={
+                              row.user.is_active
+                                ? "Deactivate account"
+                                : "Reactivate account"
+                            }
+                          >
+                            {row.user.is_active ? (
+                              <UserX size={14} />
+                            ) : (
+                              <UserCheck size={14} />
+                            )}
+                          </Button>
                         )}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ),
-            },
-          ]}
-          loading={isLoading}
-          searchPlaceholder="Search by name, matric no, department…"
-          searchExtractor={(row) =>
-            `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.matric_number} ${row.department_name} ${row.user.email}`
-          }
-          rowKey="id"
-          pageSize={10}
-          emptyMessage="No students found"
-        />
+                      </>
+                    )}
+                  </div>
+                ),
+              },
+            ]}
+            loading={isLoading}
+            searchPlaceholder="Search by name, matric no, department…"
+            searchExtractor={(row) =>
+              `${row.user.first_name ?? ""} ${row.user.last_name ?? ""} ${row.matric_number} ${row.department_name} ${row.user.email}`
+            }
+            rowKey="id"
+            pageSize={10}
+            emptyMessage="No students found"
+          />
+        )}
       </motion.div>
 
       {/* Detail modal */}
@@ -305,7 +391,27 @@ export default function StudentsPage({
         subtitle={selected?.matric_number}
         size="lg"
       >
-        {selected && <StudentDetail student={selected} />}
+        {selected && (
+          <StudentDetail
+            student={selected}
+            standingReadOnly={standingReadOnly}
+          />
+        )}
+      </Modal>
+
+      {/* Invoices modal */}
+      <Modal
+        open={!!invoicesFor}
+        onClose={() => setInvoicesFor(null)}
+        title={
+          invoicesFor
+            ? `Invoices — ${invoicesFor.user.first_name} ${invoicesFor.user.last_name}`
+            : ""
+        }
+        subtitle={invoicesFor?.matric_number}
+        size="lg"
+      >
+        {invoicesFor && <StudentInvoicesPanel studentId={invoicesFor.id} />}
       </Modal>
 
       {/* Edit modal */}
@@ -363,7 +469,13 @@ export default function StudentsPage({
   )
 }
 
-function StudentDetail({ student }: { student: Student }) {
+function StudentDetail({
+  student,
+  standingReadOnly,
+}: {
+  student: Student
+  standingReadOnly: boolean
+}) {
   const sections = [
     {
       title: "Personal Information",
@@ -391,7 +503,11 @@ function StudentDetail({ student }: { student: Student }) {
         { label: "Programme", value: student.program_name },
         { label: "Department", value: student.department_name },
         { label: "Faculty", value: student.faculty_name },
-        { label: "Level", value: `${student.current_level}L` },
+        {
+          label: "Level",
+          value:
+            student.current_level !== null ? `${student.current_level}L` : "—",
+        },
         { label: "Entry Mode", value: student.entry_mode.replace("_", " ") },
         {
           label: "Mode of Study",
@@ -413,12 +529,43 @@ function StudentDetail({ student }: { student: Student }) {
         { label: "Guardian Name", value: student.guardian_name },
         { label: "Guardian Phone", value: student.guardian_phone },
         { label: "Guardian Email", value: student.guardian_email ?? "—" },
+        { label: "Guardian Address", value: student.guardian_address ?? "—" },
       ],
     },
   ]
+  const fullName = [
+    student.user.first_name,
+    student.user.middle_name,
+    student.user.last_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
 
   return (
     <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
+      {/* Passport photo — copied from the admission application when the
+          student record is created (null for students without one). */}
+      <div className="flex items-center gap-4">
+        {student.passport_photo ? (
+          <ZoomableImage
+            src={student.passport_photo}
+            alt={`Passport photograph of ${fullName}`}
+            title={`${fullName} — passport photograph`}
+            className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border"
+          />
+        ) : (
+          <Avatar name={fullName} size="lg" />
+        )}
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">{fullName}</p>
+          <AccountStatusBadge user={student.user} />
+          {!student.passport_photo && (
+            <p className="text-xs text-muted-foreground">
+              No passport photo on record.
+            </p>
+          )}
+        </div>
+      </div>
       {sections.map((section) => (
         <div key={section.title}>
           <h3 className="mb-3 text-sm font-semibold text-foreground">
@@ -439,6 +586,12 @@ function StudentDetail({ student }: { student: Student }) {
           </div>
         </div>
       ))}
+      {/* Screen 6 — standings timeline, debt override and outstanding
+          courses (gated by standings.view inside the panel). */}
+      <StudentStandingPanel
+        studentId={student.id}
+        readOnly={standingReadOnly}
+      />
     </div>
   )
 }
@@ -475,11 +628,18 @@ function EditStudentForm({
     mode_of_study: student.mode_of_study,
     status: student.status,
     contact_address: student.contact_address,
+    permanent_address: student.permanent_address,
+    guardian_name: student.guardian_name,
+    guardian_phone: student.guardian_phone,
+    guardian_email: student.guardian_email ?? "",
+    guardian_address: student.guardian_address ?? "",
     phone_number: student.user.phone_number ?? "",
   })
 
-  const update = (key: keyof UpdateStudentPayload, value: string | number) =>
-    setForm((prev) => ({ ...prev, [key]: value }))
+  const update = (
+    key: keyof UpdateStudentPayload,
+    value: string | number | null
+  ) => setForm((prev) => ({ ...prev, [key]: value }))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -504,7 +664,10 @@ function EditStudentForm({
             className={selectCls}
             value={form.current_level_id ?? ""}
             onChange={(e) =>
-              update("current_level_id", parseInt(e.target.value) || 0)
+              update(
+                "current_level_id",
+                e.target.value ? parseInt(e.target.value) : null
+              )
             }
           >
             <option value="" disabled>
@@ -570,6 +733,47 @@ function EditStudentForm({
           value={form.contact_address ?? ""}
           onChange={(e) => update("contact_address", e.target.value)}
         />
+      </div>
+      <div>
+        <label
+          htmlFor="edit-student-permanent-address"
+          className="mb-1 block text-xs font-medium text-foreground"
+        >
+          Permanent Address
+        </label>
+        <textarea
+          id="edit-student-permanent-address"
+          className={inputCls}
+          rows={2}
+          value={form.permanent_address ?? ""}
+          onChange={(e) => update("permanent_address", e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {(
+          [
+            ["guardian_name", "Guardian Name"],
+            ["guardian_phone", "Guardian Phone"],
+            ["guardian_email", "Guardian Email"],
+            ["guardian_address", "Guardian Address"],
+          ] as const
+        ).map(([key, label]) => (
+          <div key={key}>
+            <label
+              htmlFor={`edit-student-${key}`}
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
+              {label}
+            </label>
+            <input
+              id={`edit-student-${key}`}
+              type={key === "guardian_email" ? "email" : "text"}
+              className={inputCls}
+              value={form[key] ?? ""}
+              onChange={(e) => update(key, e.target.value)}
+            />
+          </div>
+        ))}
       </div>
 
       <div className="flex justify-end pt-2">

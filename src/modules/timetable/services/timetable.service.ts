@@ -230,6 +230,10 @@ export const timetableService = {
       dayOfWeek: filters.dayOfWeek,
       venue: filters.venue,
       classType: filters.classType,
+      // Major-Program Scoping — live server-side since 2026-09-22 (bruno/
+      // timetable/Schedules - List.bru, same relation path as Exams).
+      // Server-side only: TimetableSlot carries no program-derivable field.
+      majorProgramId: filters.majorProgramId,
       page: filters.page ?? 1,
       limit: filters.limit ?? 20,
     }
@@ -353,11 +357,19 @@ export const timetableService = {
     return { message: "Schedule deleted." }
   },
 
+  // Moved 2026-09-14 (Exam Timetable) — /timetable/venues is now the
+  // capacity-aware Venue entity's own CRUD (see exam-timetable.service.ts);
+  // this free-text ClassSchedule.venue name autocomplete moved to
+  // /timetable/venues/names to make room for it (bruno/timetable/
+  // Venues - List.bru).
   async getVenues(semesterId?: number): Promise<string[]> {
-    const res = await apiClient.get<{ data: string[] }>("/timetable/venues", {
-      ...AUTH,
-      params: { semesterId },
-    })
+    const res = await apiClient.get<{ data: string[] }>(
+      "/timetable/venues/names",
+      {
+        ...AUTH,
+        params: { semesterId },
+      }
+    )
     return res.data
   },
 
@@ -423,7 +435,9 @@ export const calendarService = {
     const [res, offerings] = await Promise.all([
       apiClient.get<{
         data: RawCalendarEvent[]
-        meta: { total: number; page: number; limit: number }
+        // Live backend omits `meta` on this route (seen 2026-10-05), which
+        // crashed the student Calendar page reading `meta.total`.
+        meta?: { total: number; page: number; limit: number }
       }>("/calendar/events/my", {
         ...AUTH,
         params: { days: params.days, page: params.page, limit: params.limit },
@@ -432,13 +446,15 @@ export const calendarService = {
     ])
     const offeringsById = new Map(offerings.data.map((o) => [o.id, o]))
     const data = res.data.map((e) => mapCalendarEvent(e, offeringsById))
+    const total = res.meta?.total ?? data.length
+    const limit = res.meta?.limit ?? params.limit ?? Math.max(1, data.length)
     return {
       data,
       meta: {
-        total: res.meta.total,
-        page: res.meta.page,
-        limit: res.meta.limit,
-        totalPages: Math.max(1, Math.ceil(res.meta.total / res.meta.limit)),
+        total,
+        page: res.meta?.page ?? params.page ?? 1,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     }
   },
@@ -539,28 +555,39 @@ export const calendarService = {
 
 // ── academicCalendarService ────────────────────────────────────────────────────
 
+// Structurally-valid empty state — no session configured yet (a fresh/
+// clean environment) rather than an error. React Query rejects `undefined`
+// as query data outright ("Query data cannot be undefined"), so a response
+// body that omits `data` (as opposed to sending `data: null`) must still
+// resolve to something concrete, not fall through to `undefined`.
+const EMPTY_ACADEMIC_CALENDAR: AcademicCalendarMeta = {
+  session: { id: 0, name: "—", startDate: "", endDate: "" },
+  semesters: [],
+  currentSemester: null,
+}
+
 export const academicCalendarService = {
   async getCurrent(): Promise<AcademicCalendarMeta> {
-    const res = await apiClient.get<{ data: AcademicCalendarMeta }>(
+    const res = await apiClient.get<{ data?: AcademicCalendarMeta | null }>(
       "/academic-calendar",
       AUTH
     )
-    return res.data
+    return res.data ?? EMPTY_ACADEMIC_CALENDAR
   },
 
   async getActiveSemester(): Promise<Semester | null> {
-    const res = await apiClient.get<{ data: Semester | null }>(
+    const res = await apiClient.get<{ data?: Semester | null }>(
       "/academic-calendar/semesters/active",
       AUTH
     )
-    return res.data
+    return res.data ?? null
   },
 
   async getActiveSession(): Promise<{ id: number; name: string } | null> {
     const res = await apiClient.get<{
-      data: { id: number; name: string } | null
+      data?: { id: number; name: string } | null
     }>("/academic-calendar/sessions/active", AUTH)
-    return res.data
+    return res.data ?? null
   },
 
   async getSessions(): Promise<{ id: number; name: string }[]> {

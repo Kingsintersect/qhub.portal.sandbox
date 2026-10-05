@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { LayoutGrid, List, Search, GraduationCap, Filter } from "lucide-react"
 import { PermissionGate } from "@/lib/permissions/PermissionGate"
+import { QueryErrorState } from "@/components/query-error-state"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -14,7 +15,7 @@ import {
 import { TimetableGrid } from "@/modules/timetable/components/TimetableGrid"
 import { TimetableList } from "@/modules/timetable/components/TimetableList"
 import { useMyTimetable } from "@/modules/timetable/hooks/useTimetable"
-import { useAcademicCalendar } from "@/modules/timetable/hooks/useAcademicCalendar"
+import { useMyActiveSession } from "@/hooks/use-my-active-session"
 import { useTimetableUIStore } from "@/modules/timetable/store/useTimetableUIStore"
 import type {
   DayOfWeek,
@@ -52,11 +53,15 @@ export default function MyTimetablePage() {
 
   const [searchTerm, setSearchTerm] = useState("")
 
-  const { data: calendarMeta } = useAcademicCalendar()
-  const activeSemester = calendarMeta?.currentSemester
+  // Major-Program Scoping — resolves the active session/semester through
+  // THIS student's own program's major program, not a single
+  // institution-wide row (sandbox/major-program-scoping/
+  // FRONTEND_IMPLEMENTATION_PLAN.md §3). See use-my-active-session.ts for
+  // why this replaced the old, non-scoped `useAcademicCalendar()`.
+  const { currentSemester: activeSemester } = useMyActiveSession()
   const effectiveSemesterId = selectedSemesterId ?? activeSemester?.id
 
-  const { data, isLoading } = useMyTimetable({
+  const { data, isLoading, isError, error, refetch } = useMyTimetable({
     semesterId: effectiveSemesterId,
   })
 
@@ -255,7 +260,15 @@ export default function MyTimetablePage() {
           </div>
         </section>
 
-        {viewMode === "grid" ? (
+        {/* A refused (403) or failed request isn't an empty week — only a
+            successful empty response may show "No schedule found". */}
+        {isError ? (
+          <QueryErrorState
+            error={error}
+            subject="your timetable"
+            onRetry={() => void refetch()}
+          />
+        ) : viewMode === "grid" ? (
           <TimetableGrid slots={filteredSlots} isLoading={isLoading} />
         ) : (
           <TimetableList slots={filteredSlots} isLoading={isLoading} />

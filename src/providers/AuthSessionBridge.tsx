@@ -1,17 +1,36 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useSession } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
+import { toast } from "sonner"
 import { UserRole } from "@/config/nav.config"
 import { useAppStore } from "@/store"
 import { resolvePermissionsByKeys } from "@/store/appStore"
-import apiClient from "@/lib/clients/apiClient"
+import apiClient, { ApiClientError } from "@/lib/clients/apiClient"
 import {
   clearStoredAuthTokens,
   getStoredRefreshToken,
   storeAccessToken,
   storeRefreshToken,
 } from "@/lib/auth/backendAuth"
+
+// Asks the backend directly whether the current access token is still
+// accepted. Sent with an explicit header (not `access_token: true`), so a
+// failure here can't re-enter apiClient's refresh/onUnauthorized flow. Only
+// a 401 means "expired"; a network error or 5xx can't prove the session is
+// dead, so it counts as still valid (the user isn't logged out on a guess).
+async function sessionStillValid(): Promise<boolean> {
+  const token = apiClient.getAccessToken()
+  if (!token) return false
+  try {
+    await apiClient.get("/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return true
+  } catch (error) {
+    return !(error instanceof ApiClientError && error.status === 401)
+  }
+}
 
 export default function AuthSessionBridge({
   children,
@@ -31,6 +50,14 @@ export default function AuthSessionBridge({
   // on ticks where nothing actually changed, so without this guard the effect
   // would call `setUser` on every one of those, thrashing the whole tree.
   const appliedSessionSig = useRef<string | null>(null)
+  // Guards the forced-logout-on-expired-session flow below from running more
+  // than once — several requests can 401 within the same tick (e.g. a page
+  // that fires 2-3 queries on mount), and each would otherwise independently
+  // clear tokens and call signOut().
+  const sessionExpiredRef = useRef(false)
+  // In-flight (or just-finished, cached ~5 s) "is the session still valid?"
+  // check, shared by every 401 that arrives in the same burst.
+  const verifyingRef = useRef<Promise<boolean> | null>(null)
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role) {
@@ -64,6 +91,7 @@ export default function AuthSessionBridge({
         permissions: session.user.permissions ?? [],
         name: session.user.name,
         avatar: session.user.avatar ?? null,
+        majorProgramScope: session.user.majorProgramScope ?? null,
       })
       if (sig !== appliedSessionSig.current) {
         appliedSessionSig.current = sig
@@ -83,6 +111,7 @@ export default function AuthSessionBridge({
           avatar: session.user.avatar ?? undefined,
           firstName: session.user.firstName ?? undefined,
           lastName: session.user.lastName ?? undefined,
+          majorProgramScope: session.user.majorProgramScope,
         })
       }
       return
@@ -105,8 +134,56 @@ export default function AuthSessionBridge({
           refreshToken: getStoredRefreshToken(),
         })
       },
+      // Fires whenever an authenticated request comes back 401 and token
+      // refresh either wasn't possible (no/expired refresh token) or ran
+      // and still failed — apiClient only calls this once it's given up.
+      // System-wide: any page, any request. Force a clean logout instead of
+      // leaving the app stuck showing "couldn't load" on every query that
+      // happens to fire next.
+      onUnauthorized: async (error) => {
+        if (sessionExpiredRef.current) return
+        // Nothing to log out of — e.g. a stray 401 before the session ever
+        // hydrated, or this firing again after the flow below already ran.
+        if (!useAppStore.getState().isAuthenticated) return
+
+        // One endpoint answering 401 doesn't prove the session is dead: on
+        // 2026-09-26 GET /assessments/sync/status returned 401 to valid admin
+        // tokens and logged every admin out on dashboard load (see
+        // BACKEND_DEVIATIONS B14). Confirm with /auth/me first; only a 401
+        // there too means the session really expired. Concurrent 401s share
+        // one check.
+        verifyingRef.current ??= sessionStillValid().finally(() => {
+          setTimeout(() => {
+            verifyingRef.current = null
+          }, 5000)
+        })
+        if (await verifyingRef.current) {
+          console.warn(
+            "[auth] 401 from one endpoint while the session is still valid; not logging out.",
+            error.message
+          )
+          return
+        }
+        if (sessionExpiredRef.current) return
+        sessionExpiredRef.current = true
+
+        clearStoredAuthTokens()
+        logout()
+        toast.error("Your session has expired. Please log in again.")
+
+        const returnTo =
+          typeof window === "undefined"
+            ? "/"
+            : window.location.pathname + window.location.search
+        // Full browser navigation (next-auth's default redirect) — resets
+        // every bit of in-memory app/query state along with the session,
+        // rather than leaving stale authenticated-view data behind.
+        await signOut({
+          callbackUrl: `/auth/signin?callbackUrl=${encodeURIComponent(returnTo)}`,
+        })
+      },
     })
-  }, [update])
+  }, [logout, update])
 
   return <>{children}</>
 }

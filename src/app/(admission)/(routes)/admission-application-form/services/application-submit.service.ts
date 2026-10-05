@@ -1,5 +1,6 @@
 import apiClient from "@/lib/clients/apiClient"
 import type { FormDefaultValues } from "../types/form-types"
+import type { DynamicAnswers, DynamicFieldValue } from "../lib/dynamic-form"
 
 const AUTH = { access_token: true } as const
 
@@ -105,7 +106,12 @@ export async function submitApplication(
   values: FormDefaultValues,
   profile: CurrentUserProfile,
   sessionId: number,
-  onUploadProgress?: (percent: number) => void
+  onUploadProgress?: (percent: number) => void,
+  /** Answers to dynamic questions — see buildDynamicPayload in ../lib/dynamic-form.ts. */
+  dynamic?: {
+    answers: DynamicAnswers
+    customFields: Record<string, DynamicFieldValue>
+  }
 ): Promise<SubmitApplicationResponse> {
   const payload: Record<string, unknown> = {
     // Identity — from the logged-in user's own profile, not re-collected.
@@ -181,12 +187,36 @@ export async function submitApplication(
     other_documents: values.other_documents,
     first_sitting_result: values.first_sitting_result,
     second_sitting_result: values.second_sitting_result,
+
+    // Dynamic questions (sandbox/dynamic-admission/API_CONTRACTS.md §3.4):
+    // `answers[STEP][field]` is the new contract; `customFields[field]` is
+    // what the live submit endpoint reads today (Applications - Submit.bru).
+    // objectToFormData flattens both into bracketed multipart keys. Omitted
+    // entirely when there are none.
+    ...(dynamic &&
+      Object.keys(dynamic.answers).length > 0 && { answers: dynamic.answers }),
+    ...(dynamic &&
+      Object.keys(dynamic.customFields).length > 0 && {
+        customFields: dynamic.customFields,
+      }),
   }
 
   const response = await apiClient.post<SubmitApplicationApiResponse>(
     "/admissions/applications",
     payload,
-    { ...AUTH, contentType: "multipart", onUploadProgress }
+    {
+      ...AUTH,
+      contentType: "multipart",
+      onUploadProgress,
+      // This is a multipart body carrying every uploaded document at once —
+      // confirmed live 2026-09-16 hitting apiClient's global 30s default
+      // ("timeout of 30000ms exceeded") on a real submission with a real
+      // file, a slow connection and/or backend processing (virus scan,
+      // storage write) away from being an actual failure. `timeout: 0` is
+      // axios's own convention for "no timeout" — scoped to this one
+      // request only; every other call in the app keeps the 30s default.
+      timeout: 0,
+    }
   )
   return response.data
 }

@@ -82,9 +82,19 @@ export function TuitionPaymentSection({ student, fees }: StepSectionProps) {
         setTimeout(() => {
           window.location.href = result.gateway_url
         }, 800)
+      } else {
+        // Gateway-agnostic guard: never leave "Pay" as a silent no-op if the
+        // active gateway (Credo or FCMB) answered without a checkout URL.
+        toast.error(
+          "The payment gateway did not return a checkout link. Please try again, or contact support if this continues."
+        )
       }
-    } catch {
-      toast.error("Failed to initiate payment. Please try again.")
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to initiate payment. Please try again."
+      )
     }
   }
 
@@ -375,7 +385,8 @@ export function TuitionPaymentSection({ student, fees }: StepSectionProps) {
           {process.env.NODE_ENV === "development" && (
             <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 p-3">
               <p className="mb-2 text-[10px] font-bold tracking-wider text-amber-600 uppercase">
-                🛠 Dev Controls
+                🛠 Dev Controls — local preview only, nothing is sent to the
+                server
               </p>
               <Button
                 variant="outline"

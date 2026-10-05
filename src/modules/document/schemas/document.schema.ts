@@ -49,6 +49,13 @@ export const DocumentQueryFiltersSchema = z.object({
   status: DocumentStatusSchema.optional(),
   page: z.number().optional(),
   limit: z.number().optional(),
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // Live server-side since 2026-09-22 (Document - List.bru; 403
+  // OUT_OF_SCOPE outside the caller's scope). document-review-table.tsx
+  // also filters client-side via
+  // use-student-major-program-map.ts, since the response only carries a
+  // bare studentId, not a nested student object to name-match against.
+  majorProgramId: z.number().optional(),
 })
 
 export const StudentDocumentQueryFiltersSchema = z.object({

@@ -11,9 +11,10 @@ import {
   ClipboardList,
   Award,
   CalendarDays,
+  UsersRound,
   ArrowRight,
 } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { AlertTriangle, type LucideIcon } from "lucide-react"
 import { useSyncCategories } from "@/modules/moodle-sync/hooks/use-sync-categories"
 import { useSyncUsers } from "@/modules/moodle-sync/hooks/use-sync-users"
 import { useSyncCourses } from "@/modules/moodle-sync/hooks/use-sync-courses"
@@ -21,6 +22,9 @@ import { useSyncEnrollments } from "@/modules/moodle-sync/hooks/use-sync-enrollm
 import { useSyncAssessments } from "@/modules/moodle-sync/hooks/use-sync-assessments"
 import { useSyncGrades } from "@/modules/moodle-sync/hooks/use-sync-grades"
 import { useSyncCalendarEvents } from "@/modules/moodle-sync/hooks/use-sync-calendar"
+import { useSyncCohorts } from "@/modules/moodle-sync/hooks/use-sync-cohorts"
+import { describeSyncError } from "@/modules/moodle-sync/lib/sync-error"
+import { CategoryHealthAlert } from "@/modules/moodle-sync/components/categories/category-health-alert"
 
 interface SummaryCardProps {
   href: string
@@ -30,6 +34,8 @@ interface SummaryCardProps {
   total: number
   healthy: number
   isLoading: boolean
+  /** The count couldn't be loaded: show "—", never a misleading 0. */
+  isError: boolean
 }
 
 function SummaryCard({
@@ -40,6 +46,7 @@ function SummaryCard({
   total,
   healthy,
   isLoading,
+  isError,
 }: SummaryCardProps) {
   return (
     <Link
@@ -60,6 +67,14 @@ function SummaryCard({
       <div className="mt-3 flex items-baseline gap-1.5">
         {isLoading ? (
           <span className="h-6 w-10 animate-pulse rounded bg-muted" />
+        ) : isError ? (
+          <>
+            <span className="text-xl font-bold text-muted-foreground">—</span>
+            <span className="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+              <AlertTriangle size={12} aria-hidden />
+              Couldn&apos;t load
+            </span>
+          </>
         ) : (
           <>
             <span className="text-xl font-bold text-foreground tabular-nums">
@@ -86,6 +101,20 @@ export default function MoodleSyncOverviewPage() {
   const assessments = useSyncAssessments()
   const grades = useSyncGrades()
   const calendar = useSyncCalendarEvents()
+  const cohorts = useSyncCohorts()
+
+  const queries = [
+    categories,
+    users,
+    courses,
+    enrollments,
+    assessments,
+    grades,
+    calendar,
+    cohorts,
+  ]
+  const failed = queries.filter((q) => q.isError)
+  const failure = failed.length ? describeSyncError(failed[0].error) : null
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -109,6 +138,32 @@ export default function MoodleSyncOverviewPage() {
         </div>
       </motion.div>
 
+      {failure && (
+        <div
+          role="alert"
+          className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 dark:bg-amber-500/10"
+        >
+          <AlertTriangle
+            className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden
+          />
+          <div className="text-sm">
+            <p className="font-semibold text-foreground">
+              {failed.length === queries.length
+                ? "Moodle sync information couldn't be loaded"
+                : `${failed.length} of ${queries.length} sections couldn't be loaded`}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              {failure.description}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <CategoryHealthAlert />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           href="/admin/moodle-sync/categories"
@@ -121,6 +176,7 @@ export default function MoodleSyncOverviewPage() {
             0
           }
           isLoading={categories.isLoading}
+          isError={categories.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/users"
@@ -132,6 +188,7 @@ export default function MoodleSyncOverviewPage() {
             users.data?.filter((u) => u.syncStatus === "SYNCED").length ?? 0
           }
           isLoading={users.isLoading}
+          isError={users.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/courses"
@@ -143,6 +200,7 @@ export default function MoodleSyncOverviewPage() {
             courses.data?.filter((c) => c.syncStatus === "SYNCED").length ?? 0
           }
           isLoading={courses.isLoading}
+          isError={courses.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/enrollments"
@@ -155,6 +213,7 @@ export default function MoodleSyncOverviewPage() {
             0
           }
           isLoading={enrollments.isLoading}
+          isError={enrollments.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/assessments"
@@ -164,6 +223,7 @@ export default function MoodleSyncOverviewPage() {
           total={assessments.data?.data.length ?? 0}
           healthy={assessments.data?.data.length ?? 0}
           isLoading={assessments.isLoading}
+          isError={assessments.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/grades"
@@ -173,6 +233,7 @@ export default function MoodleSyncOverviewPage() {
           total={grades.data?.data.length ?? 0}
           healthy={grades.data?.data.length ?? 0}
           isLoading={grades.isLoading}
+          isError={grades.isError}
         />
         <SummaryCard
           href="/admin/moodle-sync/calendar"
@@ -182,6 +243,19 @@ export default function MoodleSyncOverviewPage() {
           total={calendar.data?.data.length ?? 0}
           healthy={calendar.data?.data.length ?? 0}
           isLoading={calendar.isLoading}
+          isError={calendar.isError}
+        />
+        <SummaryCard
+          href="/admin/moodle-sync/cohorts"
+          icon={UsersRound}
+          title="Cohorts"
+          description="Program intakes, auto-enrolled into shared courses"
+          total={cohorts.data?.length ?? 0}
+          healthy={
+            cohorts.data?.filter((c) => c.syncStatus === "SYNCED").length ?? 0
+          }
+          isLoading={cohorts.isLoading}
+          isError={cohorts.isError}
         />
       </div>
     </div>

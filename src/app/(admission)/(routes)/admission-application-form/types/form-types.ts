@@ -1,4 +1,3 @@
-import type { z } from "zod"
 import type { FieldError, FieldErrors } from "react-hook-form"
 import {
   User,
@@ -21,7 +20,9 @@ import type {
   examSittingSchema,
   qualificationDocumentsSchema,
   programSelectionSchema,
+  consentSchema,
 } from "../schema/admission-schema"
+import type { DynamicAnswers } from "../lib/dynamic-form"
 
 // ─── Step Enum ───────────────────────────────────────────────────────────────
 export enum FormStep {
@@ -34,6 +35,14 @@ export enum FormStep {
   QUALIFICATION_DOCUMENTS = 6,
   PROGRAM_SELECTION = 7,
   REVIEW = 8,
+  // Multi-Program Platform — sandbox/multi-program-platform/. Appended
+  // after REVIEW (not inserted earlier) so REVIEW's numeric value stays 8 —
+  // an in-progress applicant's already-persisted `stepStorageKey` value of
+  // "8" must keep meaning Review, not silently become this step instead.
+  // Visual/navigation position (right before Review) comes from where this
+  // is placed in FORM_STEPS below, not from this numeric value — see
+  // getActiveFormSteps.
+  ADDITIONAL_INFO = 9,
 }
 
 // ─── Step Configuration ──────────────────────────────────────────────────────
@@ -119,60 +128,11 @@ export const FORM_STEP_KEYS: Record<FormStep, string> = {
   [FormStep.QUALIFICATION_DOCUMENTS]: "QUALIFICATION_DOCUMENTS",
   [FormStep.PROGRAM_SELECTION]: "PROGRAM_SELECTION",
   [FormStep.REVIEW]: "REVIEW",
+  [FormStep.ADDITIONAL_INFO]: "ADDITIONAL_INFO",
 }
 
-/**
- * Ordered list of form steps that are actually enabled, given the admin's
- * step registry rows (src/services/admissionStepsApi.ts). Steps are sorted
- * by the registry's `order` field, so admin-driven reordering is reflected
- * here. REVIEW is always last and always included regardless of its stored
- * order — it's the terminal step. Custom/unknown keys (steps the admin
- * created that don't match one of the 9 built-in FormStep values) have no
- * matching UI component yet and are silently excluded — see
- * sandbox/admission/admission_features_workflow.md.
- *
- * PROGRAM_SELECTION is excluded only once the applicant has a confirmed
- * pre-application program choice on record (`programAlreadyChosen` — from
- * `AdmissionStudent.has_selected_program`, set at the earlier "Choice
- * Program" PROCESS step, before the application fee). Until that choice
- * actually exists — which today is always, since the backend endpoint it
- * needs doesn't exist yet, see sandbox/REFACTOR_BACKEND_APIS.md — this step
- * stays in the form, because otherwise programId/entryMode would never be
- * collectible anywhere and every submission would fail validation with no
- * way for the applicant to fix it. It ignores the admin's enabled/required
- * toggle for this key entirely (that toggle is now hidden from the admin
- * config panel too — see admission-config/page.tsx).
- */
-export function getActiveFormSteps(
-  stepDefinitions: {
-    key: string
-    enabled: boolean
-    required: boolean
-    order: number
-  }[],
-  programAlreadyChosen: boolean
-): FormStep[] {
-  const byKey = new Map(stepDefinitions.map((s) => [s.key, s]))
-
-  const ordered = FORM_STEPS.filter((step) => step.id !== FormStep.REVIEW)
-    .map((step) => ({
-      step: step.id,
-      isOptional: step.isOptional,
-      def: byKey.get(FORM_STEP_KEYS[step.id]),
-    }))
-    .filter(({ step, def, isOptional }) => {
-      if (step === FormStep.PROGRAM_SELECTION) return !programAlreadyChosen
-      // If the registry row is missing entirely (e.g. deleted), fall back to
-      // whether this step is optional by design — a deleted optional step
-      // stays excluded, a deleted non-optional one defensively stays included
-      // rather than silently breaking the form.
-      return def ? def.enabled || def.required : !isOptional
-    })
-    .sort((a, b) => (a.def?.order ?? 0) - (b.def?.order ?? 0))
-    .map(({ step }) => step)
-
-  return [...ordered, FormStep.REVIEW]
-}
+// The wizard's step list is built from the admission step registry in
+// ../lib/dynamic-form.ts (buildWizardSteps) — sandbox/dynamic-admission/.
 
 // ─── Storage Key ─────────────────────────────────────────────────────────────
 export const FORM_STORAGE_KEY = "odl_admission_form"
@@ -241,6 +201,12 @@ export const DEFAULT_FORM_VALUES: FormDefaultValues = {
   studyMode: "online",
 
   agreeToTerms: false,
+  acknowledgePrivacyNotice: false,
+  consent_marketing: false,
+  consent_research: false,
+  consent_share_with_guardian: false,
+
+  answers: {},
 }
 
 // ─── Step Field Mappings ─────────────────────────────────────────────────────
@@ -302,7 +268,15 @@ export const STEP_FIELDS: Record<FormStep, string[]> = {
     "startTerm",
     "studyMode",
   ],
-  [FormStep.REVIEW]: ["agreeToTerms"],
+  [FormStep.REVIEW]: [
+    "agreeToTerms",
+    "acknowledgePrivacyNotice",
+    "consent_marketing",
+    "consent_research",
+    "consent_share_with_guardian",
+  ],
+  // Retired — dynamic questions now live on their own steps under `answers`.
+  [FormStep.ADDITIONAL_INFO]: [],
 }
 
 /** Reverse lookup of STEP_FIELDS — which step a given field name lives on, for the submit error summary. */
@@ -390,7 +364,12 @@ export const FIELD_LABELS: Record<string, string> = {
   entryMode: "Entry Mode",
   startTerm: "Start Term",
   studyMode: "Study Mode",
-  agreeToTerms: "Terms & Conditions Agreement",
+  agreeToTerms: "Terms of Use",
+  acknowledgePrivacyNotice: "Privacy Notice",
+  consent_marketing: "News and updates (optional)",
+  consent_research: "Research and surveys (optional)",
+  consent_share_with_guardian: "Sharing with parent/guardian (optional)",
+  answers: "Additional Information",
 }
 
 export function getFieldLabel(field: string): string {
@@ -472,6 +451,19 @@ export function collectFormErrors(
   return results
 }
 
+/** The error message stored at a dotted form path, e.g. `answers.EXTRA.phone`. */
+export function errorMessageAt(
+  errors: FieldErrors,
+  path: string
+): string | undefined {
+  let node: unknown = errors
+  for (const segment of path.split(".")) {
+    if (!node || typeof node !== "object") return undefined
+    node = (node as Record<string, unknown>)[segment]
+  }
+  return isFieldErrorLeaf(node) ? node.message : undefined
+}
+
 // ─── Per-Step Schema Types ───────────────────────────────────────────────────
 export type StepSchemaMap = {
   [FormStep.PERSONAL_INFO]: typeof personalInfoSchema
@@ -482,7 +474,7 @@ export type StepSchemaMap = {
   [FormStep.EXAM_SITTING]: typeof examSittingSchema
   [FormStep.QUALIFICATION_DOCUMENTS]: typeof qualificationDocumentsSchema
   [FormStep.PROGRAM_SELECTION]: typeof programSelectionSchema
-  [FormStep.REVIEW]: z.ZodObject<{ agreeToTerms: z.ZodBoolean }>
+  [FormStep.REVIEW]: typeof consentSchema
 }
 
 // ─── Form Default Values Type ────────────────────────────────────────────────
@@ -539,7 +531,17 @@ export interface FormDefaultValues {
   startTerm: string
   studyMode: "online" | "offline"
 
+  // Data-protection consent (Review step) — only agreeToTerms is sent; see
+  // consentSchema in ../schema/admission-schema.ts.
   agreeToTerms: boolean
+  acknowledgePrivacyNotice: boolean
+  consent_marketing: boolean
+  consent_research: boolean
+  consent_share_with_guardian: boolean
+
+  // Dynamic Admission — answers to questions that aren't system fields,
+  // by step key then field key (sandbox/dynamic-admission/API_CONTRACTS.md §3.4).
+  answers: DynamicAnswers
 }
 
 // ─── Step Component Props ────────────────────────────────────────────────────

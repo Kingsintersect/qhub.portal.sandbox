@@ -42,8 +42,15 @@ import type {
   MoodleLaunchResult,
   MyCourseSummary,
   RecordAttendanceDto,
+  RegistrationContext,
   UpdateAttendanceDto,
 } from "../types"
+import {
+  BulkEnrollSchema,
+  CreateEnrollmentSchema,
+  RegistrationContextSchema,
+} from "../schemas"
+import { enrollmentErrorCodeOf } from "../lib/enrollment-errors"
 
 const BASE = "/enrollments"
 const AUTH = { access_token: true } as const
@@ -53,11 +60,23 @@ const AUTH = { access_token: true } as const
 interface RawEnrollment {
   id: number
   studentId: number
-  offeringId: number
-  semesterId: number
+  offeringId?: number
+  semesterId?: number
   status: EnrollmentStatus
-  enrolledAt: string
-  droppedAt: string | null
+  enrolledAt?: string
+  droppedAt?: string | null
+  // Confirmed live 2026-09-24 (GET /enrollments/offering/:id): the real
+  // response is flat — {id, studentId, matricNumber, name, status}, no
+  // `offeringId`/`semesterId`/`enrolledAt`/`droppedAt`, and no nested
+  // `student` object at all. The nested-`student.user` shape this file's own
+  // header called "best-effort — By-Offering nests `student`" was wrong;
+  // that assumption silently produced blank names/matric numbers on every
+  // screen using this endpoint (Attendance, and Submit Results' roster).
+  // Kept as a fallback below in case a richer/nested shape shows up on a
+  // different endpoint that shares this type, per this file's own defensive
+  // multi-shape convention.
+  name?: string
+  matricNumber?: string
   offering?: {
     course?: { code?: string; title?: string; creditUnits?: number }
     lecturers?: {
@@ -138,23 +157,34 @@ function fullName(
 function mapEnrollment(
   raw: RawEnrollment,
   offeringsById: Map<number, CourseOffering>,
-  studentsById: Map<number, Student>
+  studentsById: Map<number, Student>,
+  // The real By-Offering response doesn't echo `offeringId` back on each row
+  // (see RawEnrollment's own note) — the caller already knows it, since it's
+  // what was passed to the request in the first place.
+  fallbackOfferingId?: number
 ): EnrollmentRecord {
-  const offering = offeringsById.get(raw.offeringId)
+  const offeringId = raw.offeringId ?? fallbackOfferingId ?? 0
+  const offering = offeringsById.get(offeringId)
   const student = studentsById.get(raw.studentId)
   const lecturerUser = raw.offering?.lecturers?.[0]?.lecturer?.user
   return {
     id: raw.id,
     studentId: raw.studentId,
-    offeringId: raw.offeringId,
-    semesterId: raw.semesterId,
+    offeringId,
+    semesterId: raw.semesterId ?? offering?.semester_id ?? 0,
     status: raw.status,
-    enrolledAt: raw.enrolledAt,
-    droppedAt: raw.droppedAt,
-    studentName: raw.student?.user
-      ? fullName(raw.student.user)
-      : fullName(student?.user),
-    studentMatric: raw.student?.matricNumber ?? student?.matric_number ?? "—",
+    enrolledAt: raw.enrolledAt ?? "",
+    droppedAt: raw.droppedAt ?? null,
+    studentName:
+      raw.name ??
+      (raw.student?.user
+        ? fullName(raw.student.user)
+        : fullName(student?.user)),
+    studentMatric:
+      raw.matricNumber ??
+      raw.student?.matricNumber ??
+      student?.matric_number ??
+      "—",
     courseCode: raw.offering?.course?.code ?? offering?.course_code ?? "—",
     courseTitle: raw.offering?.course?.title ?? offering?.course_title ?? "—",
     creditUnits:
@@ -197,6 +227,7 @@ export const enrollmentApi = {
           semesterId: filters.semesterId,
           studentId: filters.studentId,
           offeringId: filters.offeringId,
+          majorProgramId: filters.majorProgramId,
           limit: filters.limit,
         },
       }),
@@ -238,21 +269,42 @@ export const enrollmentApi = {
       ),
       buildLookups(),
     ])
-    return res.data.map((r) => mapEnrollment(r, offeringsById, studentsById))
+    return res.data.map((r) =>
+      mapEnrollment(r, offeringsById, studentsById, offeringId)
+    )
   },
 
-  // Rejects on duplicate enrollment, closed offering, capacity, registration
-  // window, or unmet prerequisites — all enforced server-side (409/400).
+  // Every rejection carries `{ message, code }` (bruno/enrollment/Enrollment
+  // - Create.bru, 2026-09-28): 409 ALREADY_ENROLLED, 400 STANDING_NOT_ELIGIBLE,
+  // 403 COURSE_OUTSIDE_PROGRAM, 422 OFFERING_NOT_OPEN, 422 REGISTRATION_CLOSED,
+  // 400 OFFERING_FULL, 422 PREREQUISITE_NOT_MET, plus the Progression
+  // registration-gate codes. See lib/enrollment-errors.ts.
   async create(dto: CreateEnrollmentDto): Promise<EnrollmentRecord> {
+    const body = CreateEnrollmentSchema.parse(dto)
     const [res, { offeringsById, studentsById }] = await Promise.all([
-      apiClient.post<{ data: RawEnrollment }>(BASE, dto, AUTH),
+      apiClient.post<{ data: RawEnrollment }>(BASE, body, AUTH),
       buildLookups(),
     ])
     return mapEnrollment(res.data, offeringsById, studentsById)
   },
 
+  // Per-offering failures come back in `errors` as `{ offeringId, code,
+  // message }` (code added 2026-09-28). The documented body is the bare
+  // `{ enrolled, errors }`; a `{ data: {...} }` envelope is accepted too.
   async bulkCreate(dto: BulkEnrollDto): Promise<BulkEnrollResult> {
-    return apiClient.post<BulkEnrollResult>(`${BASE}/bulk`, dto, AUTH)
+    const body = BulkEnrollSchema.parse(dto)
+    const res = await apiClient.post<
+      BulkEnrollResult | { data: BulkEnrollResult }
+    >(`${BASE}/bulk`, body, AUTH)
+    const result = "data" in res ? res.data : res
+    return {
+      enrolled: result.enrolled ?? [],
+      errors: (result.errors ?? []).map((e) => ({
+        offeringId: e.offeringId,
+        message: e.message,
+        code: e.code ?? null,
+      })),
+    }
   },
 
   // Student-facing multi-course registration. `POST /enrollments/bulk` is
@@ -288,6 +340,7 @@ export const enrollmentApi = {
         errors.push({
           offeringId: items[i].offeringId,
           message: reason?.message ?? "Enrollment failed.",
+          code: enrollmentErrorCodeOf(r.reason),
         })
       }
     })
@@ -346,6 +399,24 @@ export const enrollmentApi = {
       semester: r.semester ?? null,
       moodleSynced: r.moodleSynced ?? false,
     }))
+  },
+
+  // GET /me/registration-context?semester_id= — Student, own records only.
+  // Session-promotion contract (sandbox/accademic-session-semester-migration/
+  // session-promotion-frontend-prompt.md). Omitting `semester_id` lets the
+  // backend pick the current registration semester. Validated against the
+  // contract schema so a shape drift surfaces as an error, not a wrong page.
+  async getRegistrationContext(
+    semesterId?: number
+  ): Promise<RegistrationContext> {
+    const res = await apiClient.get<
+      { data: RegistrationContext } | RegistrationContext
+    >("/me/registration-context", {
+      ...AUTH,
+      params: { semester_id: semesterId },
+    })
+    const body = "data" in res ? res.data : res
+    return RegistrationContextSchema.parse(body)
   },
 
   // ── Attendance ──────────────────────────────────────────────────────────
@@ -509,8 +580,8 @@ export const enrollmentQueryOptions = {
     createApiQueryOptions({
       queryKey: enrollmentKeys.myCourses(),
       queryFn: () => enrollmentApi.getMyCourses(),
-      // Speculative — 404s until the backend ships it; the page falls back
-      // to the studentId-scoped list, so don't hammer on failure.
+      // The page falls back to the studentId-scoped list on failure, so
+      // don't hammer on failure.
       retry: false,
       staleTime: 5 * 60 * 1000,
     }),

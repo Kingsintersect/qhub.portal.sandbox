@@ -3,6 +3,13 @@ import type {
   GradesGroupBy,
   PublishSelectionFilters,
 } from "../types/grades.types"
+import type {
+  AdjustmentQueueFilters,
+  PullJobFilters,
+  ResultScopeSelection,
+  ResultTerm,
+  ResultSheetFilters,
+} from "../types"
 
 export const gradesKeys = {
   all: ["grades"] as const,
@@ -26,16 +33,92 @@ export const gradesKeys = {
   cgpa: (studentId: number | null) =>
     [...gradesKeys.all, "cgpa", studentId] as const,
 
-  dashboard: () => [...gradesKeys.all, "dashboard"] as const,
-  distribution: () => [...gradesKeys.all, "distribution"] as const,
-  programPerformance: () => [...gradesKeys.all, "program-performance"] as const,
-  cgpaTrends: () => [...gradesKeys.all, "cgpa-trends"] as const,
-  topPerformers: (limit: number) =>
-    [...gradesKeys.all, "top-performers", limit] as const,
+  // majorProgramId included in every analytics key below so switching the
+  // major-program filter tab (Major-Program Scoping) doesn't read a stale
+  // cache entry from a different scope.
+  dashboard: (majorProgramId?: number | null) =>
+    [...gradesKeys.all, "dashboard", majorProgramId ?? null] as const,
+  distribution: (majorProgramId?: number | null) =>
+    [...gradesKeys.all, "distribution", majorProgramId ?? null] as const,
+  programPerformance: (majorProgramId?: number | null) =>
+    [...gradesKeys.all, "program-performance", majorProgramId ?? null] as const,
+  cgpaTrends: (majorProgramId?: number | null) =>
+    [...gradesKeys.all, "cgpa-trends", majorProgramId ?? null] as const,
+  topPerformers: (limit: number, majorProgramId?: number | null) =>
+    [
+      ...gradesKeys.all,
+      "top-performers",
+      limit,
+      majorProgramId ?? null,
+    ] as const,
 
   grouped: (groupBy: GradesGroupBy, filters: GradeFilters) =>
     [...gradesKeys.all, "grouped", groupBy, filters] as const,
 
   publishPreview: (filters: PublishSelectionFilters) =>
     [...gradesKeys.all, "publish-preview", filters] as const,
+} as const
+
+// ─── Results from Moodle (contract C7) ─────────────────────────────────────
+// Separate namespace from `gradesKeys`: sheet-level mutations invalidate the
+// precise slices below, and publishing also invalidates `gradesKeys.all`
+// (analytics, CGPA, transcripts all read published grades).
+export const resultsKeys = {
+  all: ["results"] as const,
+
+  sheetsAll: () => [...resultsKeys.all, "sheets"] as const,
+  sheets: (filters: ResultSheetFilters) =>
+    [...resultsKeys.sheetsAll(), filters] as const,
+  // Every page of a filtered list, fetched whole (the major-program
+  // fallback and the pull scope — see offering-scope.ts). Under sheetsAll()
+  // so a pull's invalidation refreshes it too.
+  sheetsFullList: (filters: Omit<ResultSheetFilters, "page" | "limit">) =>
+    [...resultsKeys.sheetsAll(), "full-list", filters] as const,
+  pullScope: (selection: ResultScopeSelection) =>
+    [...resultsKeys.sheetsAll(), "pull-scope", selection] as const,
+  // One offering's list row, read only to learn its semester lock when the
+  // sheet GET's summary doesn't carry `semesterLockedAt` (B30 item 13).
+  sheetListRow: (offeringId: number) =>
+    [...resultsKeys.sheetsAll(), "row", offeringId] as const,
+  // `*All()` prefixes match every offering's entry (used after a Moodle
+  // pull, which can touch any sheet).
+  sheetDetailAll: () => [...resultsKeys.all, "sheet"] as const,
+  sheet: (offeringId: number) =>
+    [...resultsKeys.sheetDetailAll(), offeringId] as const,
+  gradeItemsAll: () => [...resultsKeys.all, "grade-items"] as const,
+  gradeItems: (offeringId: number) =>
+    [...resultsKeys.gradeItemsAll(), offeringId] as const,
+  gradeItemSuggestions: (offeringId: number) =>
+    [...resultsKeys.gradeItemsAll(), offeringId, "suggestions"] as const,
+  adjustmentsAll: () => [...resultsKeys.all, "adjustments"] as const,
+  adjustments: (offeringId: number) =>
+    [...resultsKeys.adjustmentsAll(), offeringId] as const,
+  adjustmentQueueAll: () => [...resultsKeys.all, "adjustment-queue"] as const,
+  adjustmentQueue: (filters: AdjustmentQueueFilters) =>
+    [...resultsKeys.adjustmentQueueAll(), filters] as const,
+
+  pullJob: (id: number) => [...resultsKeys.all, "pull-job", id] as const,
+  pullJobsAll: () => [...resultsKeys.all, "pull-jobs"] as const,
+  pullJobs: (filters: PullJobFilters) =>
+    [...resultsKeys.pullJobsAll(), filters] as const,
+
+  publishPreviewAll: () => [...resultsKeys.all, "publish-preview"] as const,
+  publishPreview: (term: ResultTerm, majorProgramId: number | null) =>
+    [...resultsKeys.publishPreviewAll(), term, majorProgramId] as const,
+
+  schemesAll: () => [...resultsKeys.all, "schemes"] as const,
+  schemes: (majorProgramId: number | null) =>
+    [...resultsKeys.schemesAll(), majorProgramId] as const,
+  schemeResolution: (programId: number) =>
+    [...resultsKeys.schemesAll(), "resolve", programId] as const,
+  policy: (majorProgramId: number) =>
+    [...resultsKeys.all, "policy", majorProgramId] as const,
+
+  resultStatusAll: () => [...resultsKeys.all, "result-status"] as const,
+  resultStatus: (semesterId: number) =>
+    [...resultsKeys.resultStatusAll(), semesterId] as const,
+  studentGrades: (studentId: number) =>
+    [...resultsKeys.all, "student-grades", studentId] as const,
+  semesterSessionLinks: () =>
+    [...resultsKeys.all, "semester-session-links"] as const,
 } as const

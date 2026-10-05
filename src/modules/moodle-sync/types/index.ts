@@ -1,12 +1,15 @@
 import type { z } from "zod"
 import * as CommonSchemas from "../schemas/common.schema"
 import * as CategorySchemas from "../schemas/category.schema"
+import * as CohortSchemas from "../schemas/cohort.schema"
 import * as UserSchemas from "../schemas/user.schema"
 import * as CourseSchemas from "../schemas/course.schema"
 import * as EnrollmentSchemas from "../schemas/enrollment.schema"
 import * as AssessmentSchemas from "../schemas/assessment.schema"
 import * as GradeSchemas from "../schemas/grade.schema"
 import * as CalendarSchemas from "../schemas/calendar.schema"
+import * as ReconcileSchemas from "../schemas/reconcile.schema"
+import * as EnrollmentDriftSchemas from "../schemas/enrollment-drift.schema"
 
 export type SyncStatus = z.infer<typeof CommonSchemas.SyncStatusSchema>
 export type SyncDirection = z.infer<typeof CommonSchemas.SyncDirectionSchema>
@@ -20,8 +23,22 @@ export type PushCategoryDto = z.infer<
 export type CategorySyncResponse = z.infer<
   typeof CategorySchemas.CategorySyncResponseSchema
 >
+export type CategoryHealth = z.infer<
+  typeof CategorySchemas.CategoryHealthSchema
+>
+export type CategoryHealthIssue = z.infer<
+  typeof CategorySchemas.CategoryHealthIssueSchema
+>
 export type ResolveCategoryMappingDto = z.infer<
   typeof CategorySchemas.ResolveCategoryMappingSchema
+>
+
+export type CohortSyncResponse = z.infer<
+  typeof CohortSchemas.CohortSyncResponseSchema
+>
+export type PushCohortDto = z.infer<typeof CohortSchemas.PushCohortDtoSchema>
+export type SyncCohortMembersResult = z.infer<
+  typeof CohortSchemas.SyncCohortMembersResultSchema
 >
 
 export type MoodleRole = z.infer<typeof UserSchemas.MoodleRoleSchema>
@@ -95,3 +112,60 @@ export interface UsersBulkPushPayload {
 export interface CoursesBulkPushPayload {
   courseOfferingIds: number[]
 }
+
+// Reconcile & Reset — sandbox/moodle-sync-reconciliation/
+export type ReconcileModule = z.infer<
+  typeof ReconcileSchemas.ReconcileModuleSchema
+>
+export type ResetModule = z.infer<typeof ReconcileSchemas.ResetModuleSchema>
+export type ReconcileChangeKind = z.infer<
+  typeof ReconcileSchemas.ReconcileChangeKindSchema
+>
+export type ReconcileChange = z.infer<
+  typeof ReconcileSchemas.ReconcileChangeSchema
+>
+export type ReconcileSummary = z.infer<
+  typeof ReconcileSchemas.ReconcileSummarySchema
+>
+export type ReconcilePreview = z.infer<
+  typeof ReconcileSchemas.ReconcilePreviewSchema
+>
+export type ReconcileApplyResult = z.infer<
+  typeof ReconcileSchemas.ReconcileApplyResultSchema
+>
+export type ResetResult = z.infer<typeof ReconcileSchemas.ResetResultSchema>
+
+// Enrollment drift — sandbox/moodle-sync-reconciliation/ENROLLMENT_DRIFT.md
+export type EnrollmentDriftKind = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftKindSchema
+>
+export type EnrollmentDriftStatus = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftStatusSchema
+>
+export type EnrollmentDriftResolution = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftResolutionSchema
+>
+export type DriftScanState = z.infer<
+  typeof EnrollmentDriftSchemas.DriftScanStateSchema
+>
+export type EnrollmentDriftItem = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftItemSchema
+>
+export type EnrollmentDriftList = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftListSchema
+>
+export type EnrollmentDriftSummary = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftSummarySchema
+>
+export type DriftScanStatus = z.infer<
+  typeof EnrollmentDriftSchemas.DriftScanStatusSchema
+>
+export type CourseDriftCheck = z.infer<
+  typeof EnrollmentDriftSchemas.CourseDriftCheckSchema
+>
+export type EnrollmentDriftFilters = z.infer<
+  typeof EnrollmentDriftSchemas.EnrollmentDriftFiltersSchema
+>
+export type ResolveDriftReason = z.infer<
+  typeof EnrollmentDriftSchemas.ResolveDriftReasonSchema
+>

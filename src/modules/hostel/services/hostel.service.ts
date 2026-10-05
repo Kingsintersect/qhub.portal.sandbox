@@ -123,6 +123,13 @@ export const hostelService = {
   },
 
   // ── Allocations ──────────────────────────────────────────────────────────
+  // Major-Program Scoping — ?majorProgramId= live since 2026-09-22
+  // (Allocations - List.bru); the frontend also filters client-side
+  // in allocation-table.tsx (via use-student-major-program-map.ts) so
+  // results are correct either way. The Hostel/Block/Room structure above
+  // has no program relationship at all (a physical facility, not program
+  // data) and is deliberately left unscoped — only Allocations, which
+  // belong to a specific student, need this.
 
   async listAllocations(
     filters: AllocationQueryFilters = {}

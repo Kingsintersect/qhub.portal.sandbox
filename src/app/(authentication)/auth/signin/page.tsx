@@ -13,7 +13,8 @@ import ThemeToggle from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { passwordSchema } from "@/lib/validations/zod"
-import { resolvePostSignInPath } from "@/config/nav.config"
+import { resolveSignInRedirect, UserRole } from "@/config/nav.config"
+import { resolveStudentLandingPath } from "@/lib/auth/post-sign-in"
 
 const signInFormSchema = z.object({
   identifier: z.string().min(1, "Email or username is required"),
@@ -45,8 +46,24 @@ function SignInFormContent() {
   }, [searchParams])
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role) {
-      router.replace(callbackUrl || resolvePostSignInPath(session.user.role))
+    if (status !== "authenticated" || !session?.user?.role) return
+    const role = session.user.role
+    // Role-aware: a callbackUrl from another role's area (e.g. left over
+    // from someone else's expired session) is ignored in favour of this
+    // user's own landing page.
+    if (role !== UserRole.STUDENT) {
+      router.replace(resolveSignInRedirect(role, callbackUrl))
+      return
+    }
+    // STUDENT: the dashboard once admitted with tuition paid (fully or
+    // partly), otherwise the admission flow — read from the backend.
+    let cancelled = false
+    void resolveStudentLandingPath(session.user.accessToken).then((home) => {
+      if (!cancelled)
+        router.replace(resolveSignInRedirect(role, callbackUrl, home))
+    })
+    return () => {
+      cancelled = true
     }
   }, [callbackUrl, router, status, session])
 
@@ -98,7 +115,7 @@ function SignInFormContent() {
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/25">
           <Image
-            src="/logo/logo.png"
+            src="/logo/logo.jpg"
             alt="QHUB"
             width={28}
             height={28}

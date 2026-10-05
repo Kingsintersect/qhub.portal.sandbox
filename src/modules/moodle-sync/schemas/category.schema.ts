@@ -34,6 +34,42 @@ export const CategorySyncResponseSchema = z.object({
   needsMapping: z.boolean(),
   syncError: z.string().nullable(),
   lastSyncAt: z.string().nullable(),
+  // Major-Program Scoping — sandbox/BACKEND_DEVIATIONS_2026-09-14.md A35.
+  // Another "Frontend Contract Addition," same pattern as unitName/
+  // unitTypeCode/parentId above: derived client-side (never sent by the
+  // backend) by walking this node's AcademicUnit ancestor chain for the
+  // nearest `linkedEntity.type === "major_program"` (A18 — resolved
+  // 2026-09-16). Real per-node data, not a guess, since this deployment's
+  // own Moodle category tree is already rooted one-major-program-per-branch
+  // (e.g. "PART-TIME PROGRAMS"). `null` when no ancestor (including the
+  // node itself) is linked to a MajorProgram yet.
+  majorProgramId: z.number().nullable(),
+})
+
+// GET /moodle-sync/categories/health (proposed, sandbox/automation §6): the
+// nightly check's open issues. Until it exists the portal derives the ones it
+// can see (lib/category-health.ts).
+export const CategoryHealthIssueTypeSchema = z.enum([
+  "CROSSED",
+  "ORPHANED",
+  "WRONG_PARENT",
+  "NAME_MISMATCH",
+])
+
+export const CategoryHealthIssueSchema = z.object({
+  categoryMappingId: z.number(),
+  academicUnitId: z.number().nullable(),
+  unitName: z.string().nullable(),
+  moodleCategoryId: z.number().nullable(),
+  moodleCategoryName: z.string().nullable(),
+  issue: CategoryHealthIssueTypeSchema,
+  detail: z.string(),
+  firstSeenAt: z.string().nullable(),
+})
+
+export const CategoryHealthSchema = z.object({
+  checkedAt: z.string().nullable(),
+  issues: z.array(CategoryHealthIssueSchema),
 })
 
 // Resolving a flagged (needsMapping: true) row pulled from Moodle with no
@@ -43,7 +79,17 @@ export const CategorySyncResponseSchema = z.object({
 export const ResolveCategoryMappingSchema = z.union([
   z.object({
     linkedEntity: z.object({
-      type: z.enum(["faculty", "department", "program", "level", "semester"]),
+      // "major_program" — sandbox/major-program-scoping/: lets an admin
+      // manually resolve a category to a MajorProgram root node the same
+      // way as any other entity kind.
+      type: z.enum([
+        "faculty",
+        "department",
+        "program",
+        "level",
+        "semester",
+        "major_program",
+      ]),
       id: z.number().int().positive(),
     }),
   }),
